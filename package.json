@@ -1,0 +1,27 @@
+{
+  "name": "koishi-plugin-grouphelper",
+  "description": "群管理插件，提供踢人、禁言、警告、关键词等功能",
+  "version": "0.0.4",
+  "main": "lib/index.js",
+  "contributors": [
+    "camvan <3499880997@qq.com>",
+    "cortactin"
+  ],
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin",
+    "group",
+    "management",
+    "moderation"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.18.3"
+  }
+}
