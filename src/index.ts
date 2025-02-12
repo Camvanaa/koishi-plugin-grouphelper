@@ -226,12 +226,23 @@ export function apply(ctx: Context) {
     // 合并全局和群专属关键词
     const keywords = [...ctx.config.keywords, ...groupConfig.approvalKeywords]
 
-    // 检查关键词
+    // 检查关键词（忽略大小写）
     if (keywords.length > 0 && data.comment) {
+      const comment = data.comment.toLowerCase() // 转换为小写
       for (const keyword of keywords) {
-        if (data.comment.includes(keyword)) {
-          await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
-          return
+        try {
+          // 尝试作为正则表达式处理，添加 i 标志以忽略大小写
+          const regex = new RegExp(keyword, 'i')
+          if (regex.test(data.comment)) {
+            await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
+            return
+          }
+        } catch (e) {
+          // 如果不是有效的正则表达式，则使用普通字符串匹配（忽略大小写）
+          if (data.comment.toLowerCase().includes(keyword.toLowerCase())) {
+            await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
+            return
+          }
         }
       }
     }

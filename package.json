@@ -1,17 +1,27 @@
 {
   "name": "koishi-plugin-grouphelper",
   "description": "群管理插件，提供踢人、禁言、警告、关键词等功能",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "lib/index.js",
   "contributors": [
     "camvan <3499880997@qq.com>",
     "cortactin"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/camvan/koishi-plugin-grouphelper.git"
+  },
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
+  "koishi": {
+    "description": {
+      "en": "Group management plugin, providing kick, ban, warn, and keyword functions",
+      "zh": "群管理插件，提供踢人、禁言、警告、关键词等功能"
+    }
+  },  
   "license": "MIT",
   "keywords": [
     "chatbot",
