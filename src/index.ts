@@ -83,91 +83,12 @@ interface BlacklistRecord {
   timestamp: number
 }
 
-// 添加表达式解析函数
-function evaluateExpression(expr: string): number {
-  try {
-    // 移除所有空格
-    expr = expr.replace(/\s/g, '')
-    
-    // 安全检查：只允许数字、基本运算符、括号、sqrt和x
-    if (!/^[\d+\-*/()^.esqrtx]+$/.test(expr)) {
-      throw new Error(`表达式包含非法字符: ${expr}`)
-    }
-
-    // 替换科学计数法
-    expr = expr.replace(/(\d+)e(\d+)/g, '($1*10**$2)')
-    
-    // 替换 x 为 *
-    expr = expr.replace(/x/g, '*')
-    
-    // 替换 ^ 为 **
-    expr = expr.replace(/\^/g, '**')
-    
-    // 替换 sqrt 为 Math.sqrt
-    expr = expr.replace(/sqrt\(/g, 'Math.sqrt(')
-    
-    // 计算表达式
-    const result = eval(expr)
-    if (typeof result !== 'number' || isNaN(result)) {
-      throw new Error(`计算结果无效: ${result}`)
-    }
-    return result
-  } catch (e) {
-    throw new Error(`表达式计算错误: ${e.message}\n原始表达式: ${expr}`)
-  }
-}
-
-// 定义时间限制常量（毫秒）
-const MIN_DURATION = 1000 // 1秒
-const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000 // 29天23小时59分59秒
-
-// 解析时间字符串函数
-function parseTimeString(timeStr: string): number {
-  try {
-    // 匹配数值表达式和单位
-    const match = timeStr.match(/^(.+?)(s|min|h)$/)
-    if (!match) throw new Error('时间格式错误')
-
-    const [, expr, unit] = match
-    let value: number
-
-    // 尝试直接解析数字（支持简单格式）
-    const simpleNumber = parseFloat(expr)
-    if (!isNaN(simpleNumber) && expr === simpleNumber.toString()) {
-      value = simpleNumber
-    } else {
-      // 如果不是简单数字，则尝试解析表达式
-      value = evaluateExpression(expr)
-    }
-    
-    // 转换为毫秒
-    let milliseconds: number
-    switch (unit) {
-      case 'h':
-        milliseconds = value * 3600 * 1000
-        break
-      case 'min':
-        milliseconds = value * 60 * 1000
-        break
-      case 's':
-        milliseconds = value * 1000
-        break
-      default:
-        throw new Error('未知时间单位')
-    }
-
-    // 限制时间范围
-    if (milliseconds < MIN_DURATION) {
-      return MIN_DURATION
-    }
-    if (milliseconds > MAX_DURATION) {
-      return MAX_DURATION
-    }
-
-    return milliseconds
-  } catch (e) {
-    throw new Error(`时间解析错误: ${e.message}`)
-  }
+// 添加禁言记录接口
+interface MuteRecord {
+  startTime: number
+  duration: number
+  remainingTime?: number
+  leftGroup?: boolean
 }
 
 export function apply(ctx: Context) {
@@ -176,6 +97,8 @@ export function apply(ctx: Context) {
   const warnsPath = path.resolve(dataPath, 'warns.json')
   const blacklistPath = path.resolve(dataPath, 'blacklist.json')
   const groupConfigPath = path.resolve(dataPath, 'group_config.json')  // 新增群配置文件
+  // 添加禁言记录存储
+  const mutesPath = path.resolve(dataPath, 'mutes.json')
 
   // 确保数据目录存在
   if (!fs.existsSync(dataPath)) {
@@ -192,6 +115,9 @@ export function apply(ctx: Context) {
   if (!fs.existsSync(groupConfigPath)) {
     fs.writeFileSync(groupConfigPath, '{}')
   }
+  if (!fs.existsSync(mutesPath)) {
+    fs.writeFileSync(mutesPath, '{}')
+  }
 
   // 读取数据函数
   const readData = (filePath: string) => {
@@ -205,6 +131,107 @@ export function apply(ctx: Context) {
   // 保存数据函数
   const saveData = (filePath: string, data: any) => {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+  }
+
+  // 添加禁言记录函数
+  function recordMute(guildId: string, userId: string, duration: number) {
+    const mutes = readData(mutesPath)
+    if (!mutes[guildId]) mutes[guildId] = {}
+    
+    mutes[guildId][userId] = {
+      startTime: Date.now(),
+      duration: duration,
+      leftGroup: false
+    }
+    
+    saveData(mutesPath, mutes)
+  }
+
+  // 添加表达式解析函数
+  function evaluateExpression(expr: string): number {
+    try {
+      // 移除所有空格
+      expr = expr.replace(/\s/g, '')
+      
+      // 安全检查：只允许数字、基本运算符、括号、sqrt和x
+      if (!/^[\d+\-*/()^.esqrtx]+$/.test(expr)) {
+        throw new Error(`表达式包含非法字符: ${expr}`)
+      }
+
+      // 替换科学计数法
+      expr = expr.replace(/(\d+)e(\d+)/g, '($1*10**$2)')
+      
+      // 替换 x 为 *
+      expr = expr.replace(/x/g, '*')
+      
+      // 替换 ^ 为 **
+      expr = expr.replace(/\^/g, '**')
+      
+      // 替换 sqrt 为 Math.sqrt
+      expr = expr.replace(/sqrt\(/g, 'Math.sqrt(')
+      
+      // 计算表达式
+      const result = eval(expr)
+      if (typeof result !== 'number' || isNaN(result)) {
+        throw new Error(`计算结果无效: ${result}`)
+      }
+      return result
+    } catch (e) {
+      throw new Error(`表达式计算错误: ${e.message}\n原始表达式: ${expr}`)
+    }
+  }
+
+  // 定义时间限制常量（毫秒）
+  const MIN_DURATION = 1000 // 1秒
+  const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000 // 29天23小时59分59秒
+
+  // 解析时间字符串函数
+  function parseTimeString(timeStr: string): number {
+    try {
+      // 匹配数值表达式和单位
+      const match = timeStr.match(/^(.+?)(s|min|h)$/)
+      if (!match) throw new Error('时间格式错误')
+
+      const [, expr, unit] = match
+      let value: number
+
+      // 尝试直接解析数字（支持简单格式）
+      const simpleNumber = parseFloat(expr)
+      if (!isNaN(simpleNumber) && expr === simpleNumber.toString()) {
+        value = simpleNumber
+      } else {
+        // 如果不是简单数字，则尝试解析表达式
+        value = evaluateExpression(expr)
+      }
+      
+      // 转换为毫秒
+      let milliseconds: number
+      switch (unit) {
+        case 'h':
+          milliseconds = value * 3600 * 1000
+          break
+        case 'min':
+          milliseconds = value * 60 * 1000
+          break
+        case 's':
+          milliseconds = value * 1000
+          break
+        default:
+          throw new Error('未知时间单位')
+      }
+
+      // 限制时间范围
+      if (milliseconds < MIN_DURATION) {
+        return MIN_DURATION
+      }
+      if (milliseconds > MAX_DURATION) {
+        return MAX_DURATION
+      }
+
+      return milliseconds
+    } catch (e) {
+      throw new Error(`时间解析错误: ${e.message}`)
+    }
   }
 
   // 处理入群请求
@@ -255,6 +282,25 @@ export function apply(ctx: Context) {
   ctx.on('guild-member-added', async (session) => {
     const { guildId, userId } = session
     
+    // 检查是否有未完成的禁言
+    const mutes = readData(mutesPath)
+    if (mutes[guildId]?.[userId]?.leftGroup) {
+      const muteRecord = mutes[guildId][userId]
+      
+      // 恢复禁言
+      await session.bot.muteGuildMember(guildId, userId, muteRecord.remainingTime)
+      
+      // 更新记录
+      muteRecord.startTime = Date.now()
+      muteRecord.duration = muteRecord.remainingTime
+      delete muteRecord.remainingTime
+      muteRecord.leftGroup = false
+      saveData(mutesPath, mutes)
+      
+      // 发送提示
+      await session.send(`检测到未完成的禁言，继续执行剩余 ${formatDuration(muteRecord.duration)} 的禁言`)
+    }
+    
     // 获取群配置
     const groupConfigs = readData(groupConfigPath)
     const groupConfig = groupConfigs[guildId] || { keywords: [], approvalKeywords: [] }
@@ -301,17 +347,15 @@ export function apply(ctx: Context) {
       }
 
       if (duration) {
-        let seconds = 0
-        if (duration.endsWith('h')) {
-          seconds = parseInt(duration) * 3600 * 1000
-        } else if (duration.endsWith('min')) {
-          seconds = parseInt(duration) * 60 * 1000
-        } else if (duration.endsWith('s')) {
-          seconds = parseInt(duration) * 1000
+        try {
+          const milliseconds = parseTimeString(duration)
+          await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
+          // 添加禁言记录
+          recordMute(session.guildId, userId, milliseconds)
+          return `已警告用户 ${userId}，当前警告次数：${warns[userId].count}\n已自动禁言 ${duration}`
+        } catch (e) {
+          return `警告已记录，但自动禁言失败：${e.message}`
         }
-        
-        await session.bot.muteGuildMember(session.guildId, userId, seconds)
-        return `已警告用户 ${userId}，当前警告次数：${warns[userId].count}\n已自动禁言 ${duration}`
       }
 
       return `已警告用户 ${userId}，当前警告次数：${warns[userId].count}`
@@ -371,6 +415,17 @@ export function apply(ctx: Context) {
         
         const currentWelcome = session.guildId ? (groupConfigs[session.guildId]?.welcomeMsg || '未设置') : '未设置'
         
+        const mutes = readData(mutesPath)
+        const currentMutes = mutes[session.guildId] || {}
+        
+        const formatMutes = Object.entries(currentMutes)
+          .filter(([, data]) => !(data as MuteRecord).leftGroup && Date.now() - (data as MuteRecord).startTime < (data as MuteRecord).duration)
+          .map(([userId, data]: [string, MuteRecord]) => {
+            const remainingTime = data.duration - (Date.now() - data.startTime)
+            return `用户 ${userId}：剩余 ${formatDuration(remainingTime)}`
+          })
+          .join('\n')
+        
         return `=== 入群欢迎 ===
 默认欢迎语：${ctx.config.defaultWelcome || '未设置'}
 本群欢迎语：${currentWelcome}
@@ -395,7 +450,10 @@ export function apply(ctx: Context) {
 ${formatWarns || '无记录'}
 
 === 黑名单 ===
-${formatBlacklist || '无记录'}`
+${formatBlacklist || '无记录'}
+
+=== 当前禁言 ===
+${formatMutes || '无记录'}`
       }
 
       // 黑名单管理
@@ -490,28 +548,12 @@ ${formatBlacklist || '无记录'}`
       
       try {
         const milliseconds = parseTimeString(duration)
-        const seconds = Math.floor(milliseconds / 1000)
-        const minutes = Math.floor(seconds / 60)
-        const hours = Math.floor(minutes / 60)
-
-        let timeStr = ''
-        if (hours >= 1) {
-          timeStr = `${hours}小时`
-          const remainingMinutes = minutes % 60
-          if (remainingMinutes > 0) {
-            timeStr += `${remainingMinutes}分钟`
-          }
-        } else if (minutes >= 1) {
-          timeStr = `${minutes}分钟`
-          const remainingSeconds = seconds % 60
-          if (remainingSeconds > 0) {
-            timeStr += `${remainingSeconds}秒`
-          }
-        } else {
-          timeStr = `${seconds}秒`
-        }
-
         await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
+        
+        // 记录禁言
+        recordMute(session.guildId, userId, milliseconds)
+        
+        const timeStr = formatDuration(milliseconds)
         return `已禁言用户 ${userId} ${duration} (${timeStr})`
       } catch (e) {
         return e.message
@@ -548,31 +590,21 @@ ${formatBlacklist || '无记录'}`
         return `警告次数（${warnCount}）未达到自动禁言标准`
       }
       
-      // 转换时间并执行禁言
-      let seconds = 0
-      if (duration.endsWith('h')) {
-        seconds = parseInt(duration) * 3600 * 1000
-      } else if (duration.endsWith('min')) {
-        seconds = parseInt(duration) * 60 * 1000
-      } else if (duration.endsWith('s')) {
-        seconds = parseInt(duration) * 1000
+      try {
+        const milliseconds = parseTimeString(duration)
+        await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
+        // 添加禁言记录
+        recordMute(session.guildId, userId, milliseconds)
+        return `已自动禁言用户 ${userId} ${duration}`
+      } catch (e) {
+        return `自动禁言失败：${e.message}`
       }
-      
-      await session.bot.muteGuildMember(session.guildId, userId, seconds)
-      return `已自动禁言用户 ${userId} ${duration}`
     })
 
   // grouphelper命令
   ctx.command('grouphelper', '群管理帮助', { authority: 3 })
     .action(async ({ session }) => {
-      return `=== 关键词管理 ===
-groupkw  群关键词管理：
-  -l  列出本群关键词
-  -a <关键词>  添加本群关键词
-  -r <关键词>  移除本群关键词
-  -p  管理入群审核关键词（需配合上述参数使用）
-
-=== 基础命令 ===
+      return `=== 基础命令 ===
 kick {@用户} [-b]  踢出用户，-b 表示加入黑名单
 ban {@用户} {时长}  禁言用户，支持表达式
 unban {@用户}  解除用户禁言
@@ -584,6 +616,23 @@ delmsg (回复)  撤回指定消息
 warn {@用户} [次数]  警告用户，默认1次
 check {@用户}  查询用户记录
 autoban {@用户}  根据警告次数自动禁言
+
+=== 关键词管理 ===
+groupkw  群关键词管理：
+  -l  列出本群关键词
+  -a <关键词>  添加本群关键词，多个关键词用英文逗号分隔
+  -r <关键词>  移除本群关键词，多个关键词用英文逗号分隔
+  -p  管理入群审核关键词（需配合上述参数使用）
+
+=== 欢迎设置 ===
+welcome  入群欢迎语管理：
+  -s <消息>  设置欢迎语
+  -r  移除欢迎语
+  -t  测试当前欢迎语
+支持变量：
+  {at}  @新成员
+  {user}  新成员QQ号
+  {group}  群号
 
 === 配置管理 ===
 config  配置管理：
@@ -600,15 +649,9 @@ config  配置管理：
 · 基本单位：s（秒）、min（分钟）、h（小时）
 · 基本格式：数字+单位，如：1h、10min、30s
 · 支持的运算：
-  · 加减乘除：+, -, *, /
-  · 幂运算：^
-  · 开方：sqrt()
-  · 科学计数：1e2
+  · +, -, *, /, ^, sqrt(), 1e2
 · 表达式示例：
   · (sqrt(100)+1e1)^2s = 400秒 = 6分40秒
-  · sqrt(100)min = 10分钟
-  · (1+2)^3s = 27秒
-  · 1e2s = 100秒
 · 时间范围：1秒 ~ 29天23小时59分59秒`
     })
 
@@ -786,27 +829,18 @@ welcome -t  测试当前欢迎语`
     const content = session.content
     const groupConfigs = readData(groupConfigPath)
     const groupConfig = groupConfigs[session.guildId] || { keywords: [] }
-    const keywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]  // 合并全局和群专属关键词
+    const keywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]
 
-    // 检查消息是否包含关键词
     for (const keyword of keywords) {
       try {
-        // 尝试将关键词作为正则表达式处理
         const regex = new RegExp(keyword)
         if (regex.test(content)) {
-          // 计算禁言时长
           const duration = ctx.config.keywordBan.duration
-          let seconds = 0
-          if (duration.endsWith('h')) {
-            seconds = parseInt(duration) * 3600 * 1000
-          } else if (duration.endsWith('min')) {
-            seconds = parseInt(duration) * 60 * 1000
-          } else if (duration.endsWith('s')) {
-            seconds = parseInt(duration) * 1000
-          }
-
           try {
-            await session.bot.muteGuildMember(session.guildId, session.userId, seconds)
+            const milliseconds = parseTimeString(duration)
+            await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
+            // 添加禁言记录
+            recordMute(session.guildId, session.userId, milliseconds)
             await session.send(`检测到关键词"${keyword}"，已自动禁言 ${duration}`)
           } catch (e) {
             await session.send('自动禁言失败，可能没有权限')
@@ -814,20 +848,13 @@ welcome -t  测试当前欢迎语`
           break
         }
       } catch (e) {
-        // 如果正则表达式无效，则使用普通字符串匹配
         if (content.includes(keyword)) {
           const duration = ctx.config.keywordBan.duration
-          let seconds = 0
-          if (duration.endsWith('h')) {
-            seconds = parseInt(duration) * 3600 * 1000
-          } else if (duration.endsWith('min')) {
-            seconds = parseInt(duration) * 60 * 1000
-          } else if (duration.endsWith('s')) {
-            seconds = parseInt(duration) * 1000
-          }
-
           try {
-            await session.bot.muteGuildMember(session.guildId, session.userId, seconds)
+            const milliseconds = parseTimeString(duration)
+            await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
+            // 添加禁言记录
+            recordMute(session.guildId, session.userId, milliseconds)
             await session.send(`检测到关键词"${keyword}"，已自动禁言 ${duration}`)
           } catch (e) {
             await session.send('自动禁言失败，可能没有权限')
@@ -839,4 +866,41 @@ welcome -t  测试当前欢迎语`
 
     return next()
   })
+
+  // 添加退群监控
+  ctx.on('guild-member-removed', async (session) => {
+    const { guildId, userId } = session
+    
+    const mutes = readData(mutesPath)
+    if (mutes[guildId]?.[userId]) {
+      const muteRecord = mutes[guildId][userId]
+      const elapsedTime = Date.now() - muteRecord.startTime
+      
+      if (elapsedTime < muteRecord.duration) {
+        muteRecord.remainingTime = muteRecord.duration - elapsedTime
+        muteRecord.leftGroup = true
+        saveData(mutesPath, mutes)
+      } else {
+        // 如果禁言已经结束，删除记录
+        delete mutes[guildId][userId]
+        saveData(mutesPath, mutes)
+      }
+    }
+  })
+}
+
+// 添加时间格式化函数
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.floor(milliseconds / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  const parts = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours % 24 > 0) parts.push(`${hours % 24}小时`)
+  if (minutes % 60 > 0) parts.push(`${minutes % 60}分钟`)
+  if (seconds % 60 > 0) parts.push(`${seconds % 60}秒`)
+
+  return parts.join('')
 }
