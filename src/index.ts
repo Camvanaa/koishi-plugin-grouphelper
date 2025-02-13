@@ -611,6 +611,7 @@ unban {@用户}  解除用户禁言
 ban-all  开启全体禁言
 unban-all  解除全体禁言
 delmsg (回复)  撤回指定消息
+banme  随机禁言自己(1秒~1小时)
 
 === 警告系统 ===
 warn {@用户} [次数]  警告用户，默认1次
@@ -887,6 +888,27 @@ welcome -t  测试当前欢迎语`
       }
     }
   })
+
+  // banme 命令
+  ctx.command('banme', '随机禁言自己', { authority: 1 })
+    .action(async ({ session }) => {
+      if (!session.guildId) return '此命令只能在群内使用'
+      
+      try {
+        // 随机生成 1秒 到 1小时 的毫秒数
+        const milliseconds = Math.floor(Math.random() * (3600 * 1000 - 1000 + 1)) + 1000
+        
+        await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
+        
+        // 记录禁言
+        recordMute(session.guildId, session.userId, milliseconds)
+        
+        const timeStr = formatDuration(milliseconds)
+        return `🎲 恭喜抽中 ${timeStr} 的禁言！`
+      } catch (e) {
+        return '禁言失败，可能没有权限'
+      }
+    })
 }
 
 // 添加时间格式化函数
