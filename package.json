@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-grouphelper",
   "description": "群管理插件，提供踢人、禁言、警告、关键词等功能",
-  "version": "0.0.8",
+  "version": "0.0.11",
   "main": "lib/index.js",
   "contributors": [
     "camvan <3499880997@qq.com>"
@@ -16,6 +16,10 @@
     "description": {
       "en": "Group management plugin, providing kick, ban, warn, and keyword functions",
       "zh": "群管理插件，提供踢人、禁言、警告、关键词等功能"
+    },
+    "meta": {
+      "type": "tool",
+      "category": "management"
     }
   },  
   "license": "MIT",

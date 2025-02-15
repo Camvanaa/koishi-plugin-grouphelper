@@ -17,13 +17,28 @@ declare module 'koishi' {
       duration: string
     }
     defaultWelcome: string  // 添加默认欢迎语配置
+    banme: {
+      enabled: boolean  // 是否启用banme
+      baseMin: number   // 基础最小值（秒）
+      baseMax: number   // 基础最大值（分钟）
+      growthRate: number // 递增系数
+      jackpot: {
+        enabled: boolean  // 是否启用金
+        baseProb: number  // 基础概率
+        softPity: number  // 软保底抽数
+        hardPity: number  // 硬保底抽数
+        upDuration: string // UP奖励时长
+        loseDuration: string // 歪了奖励时长
+      }
+    }
   }
 }
 
 export const name = 'grouphelper'
 
 export const usage = `
-# 使用说明请查看gitub readme。
+# 使用说明请查看github readme。
+https://github.com/camvanaa/koishi-plugin-grouphelper#readme
 `
 
 // 定义配置接口
@@ -41,6 +56,20 @@ export interface Config {
     duration: string
   }
   defaultWelcome?: string  // 默认欢迎语
+  banme: {
+    enabled: boolean  // 是否启用banme
+    baseMin: number   // 基础最小值（秒）
+    baseMax: number   // 基础最大值（分钟）
+    growthRate: number // 递增系数
+    jackpot: {
+      enabled: boolean  // 是否启用金
+      baseProb: number  // 基础概率
+      softPity: number  // 软保底抽数
+      hardPity: number  // 硬保底抽数
+      upDuration: string // UP奖励时长
+      loseDuration: string // 歪了奖励时长
+    }
+  }
 }
 
 // 群配置接口
@@ -72,7 +101,31 @@ export const Config: Schema<Config> = Schema.object({
     duration: Schema.string().default('10min')
       .description('关键词触发的禁言时长(格式：数字+单位[s/min/h])')
   }).description('关键词禁言设置'),
-  defaultWelcome: Schema.string().description('默认欢迎语')
+  defaultWelcome: Schema.string().description('默认欢迎语'),
+  banme: Schema.object({
+    enabled: Schema.boolean().default(true)
+      .description('是否启用banme指令'),
+    baseMin: Schema.number().default(1)
+      .description('基础最小禁言时长（秒）'),
+    baseMax: Schema.number().default(30)
+      .description('基础最大禁言时长（分钟）'),
+    growthRate: Schema.number().default(30)
+      .description('递增系数（越大增长越快）'),
+    jackpot: Schema.object({
+      enabled: Schema.boolean().default(true)
+        .description('是否启用金卡系统'),
+      baseProb: Schema.number().default(0.006)
+        .description('金卡基础概率'),
+      softPity: Schema.number().default(73)
+        .description('软保底抽数'),
+      hardPity: Schema.number().default(89)
+        .description('硬保底抽数'),
+      upDuration: Schema.string().default('24h')
+        .description('UP奖励时长'),
+      loseDuration: Schema.string().default('12h')
+        .description('歪了奖励时长')
+    }).description('金卡系统设置')
+  }).description('banme指令设置')
 })
 
 // 数据库接口
@@ -213,12 +266,18 @@ export function apply(ctx: Context) {
   const MIN_DURATION = 1000 // 1秒
   const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000 // 29天23小时59分59秒
 
-  // 解析时间字符串函数
+  // 修改时间解析函数
   function parseTimeString(timeStr: string): number {
     try {
+      if (!timeStr) {
+        throw new Error('未提供时间')
+      }
+
       // 匹配数值表达式和单位
       const match = timeStr.match(/^(.+?)(s|min|h)$/)
-      if (!match) throw new Error('时间格式错误')
+      if (!match) {
+        throw new Error(`时间格式错误：${timeStr}`)
+      }
 
       const [, expr, unit] = match
       let value: number
@@ -260,6 +319,28 @@ export function apply(ctx: Context) {
     } catch (e) {
       throw new Error(`时间解析错误: ${e.message}`)
     }
+  }
+
+  // 在 apply 函数开头添加日志记录函数
+  function logCommand(session: any, command: string, target: string, result: string) {
+    const time = new Date().toISOString()
+    const user = session.username || session.userId
+    const group = session.guildId || 'private'
+    console.log(`[${time}] [${command}] User(${user}) Group(${group}) Target(${target}): ${result}`)
+  }
+
+  // 添加工具函数来处理用户ID
+  function parseUserId(user: string | any): string {
+    if (!user) return null
+    
+    // 如果是字符串（QQ号）
+    if (typeof user === 'string') {
+      // 移除可能存在的@符号和空格
+      return user.replace(/^@/, '').trim()
+    }
+    
+    // 如果是 user 对象（@用户）
+    return String(user).split(':')[1]
   }
 
   // 处理入群请求
@@ -390,22 +471,81 @@ export function apply(ctx: Context) {
     })
 
   // kick命令
-  ctx.command('kick <user:user>', '踢出用户', { authority: 3 })
-    .option('black', '-b, -black  加入黑名单')
-    .action(async ({ session, options }, user) => {
-      if (!user) return '请指定用户'
-      const userId = String(user).split(':')[1]
+  ctx.command('kick <input:text>', '踢出用户', { authority: 3 })
+    .example('kick @用户')
+    .example('kick 123456789')
+    .example('kick @用户 群号')
+    .example('kick @用户 -b')
+    .example('kick 123456789 -b 群号')
+    .option('black', '-b 加入黑名单')
+    .action(async ({ session, options }, input) => {
+      // 检查是否包含 -b 选项
+      const hasBlackOption = input.includes('-b')
+      // 移除 -b 选项并规范化空格
+      input = input.replace(/-b/g, '').replace(/\s+/g, ' ').trim()
       
-      await session.bot.kickGuildMember(session.guildId, userId)
+      console.log('Normalized input:', input, 'Black option:', hasBlackOption)
       
-      if (options.black) {
-        const blacklist = readData(blacklistPath)
-        blacklist[userId] = { timestamp: Date.now() }
-        saveData(blacklistPath, blacklist)
-        return `已踢出用户 ${userId} 并加入黑名单喵~`
+      let args: string[]
+      if (input.includes('<at')) {
+        // 如果包含 at，使用特殊处理
+        const atMatch = input.match(/<at[^>]+>/)
+        if (atMatch) {
+          const atPart = atMatch[0]
+          const restPart = input.replace(atPart, '').trim()
+          args = [atPart, ...restPart.split(' ')]
+        } else {
+          args = input.split(' ')
+        }
+      } else {
+        // 普通分割
+        args = input.split(' ')
+      }
+
+      const [target, groupId] = args
+      console.log('Split params:', { target, groupId, hasBlackOption })
+      
+      // 尝试解析为 user 对象
+      let userId: string
+      try {
+        // 如果是 @ 格式
+        if (target?.startsWith('<at')) {
+          const match = target.match(/id="(\d+)"/)
+          if (match) {
+            userId = match[1]
+          }
+        } else {
+          // 如果是普通字符串（QQ号）
+          userId = parseUserId(target)
+        }
+      } catch (e) {
+        userId = parseUserId(target)
       }
       
-      return `已踢出用户 ${userId}`
+      if (!userId) {
+        logCommand(session, 'kick', 'none', 'Failed: Invalid user format')
+        return '喵呜...请输入正确的用户（@或QQ号）'
+      }
+      
+      const targetGroup = groupId || session.guildId
+      
+      try {
+        await session.bot.kickGuildMember(targetGroup, userId)
+        
+        if (hasBlackOption) {
+          const blacklist = readData(blacklistPath)
+          blacklist[userId] = { timestamp: Date.now() }
+          saveData(blacklistPath, blacklist)
+          logCommand(session, 'kick', userId, `Success: Kicked and blacklisted in group ${targetGroup}`)
+          return `已把坏人 ${userId} 踢出去并加入黑名单啦喵！`
+        }
+        
+        logCommand(session, 'kick', userId, `Success: Kicked from group ${targetGroup}`)
+        return `已把 ${userId} 踢出去喵~`
+      } catch (e) {
+        logCommand(session, 'kick', userId, `Failed: ${e.message}`)
+        return `喵呜...踢出失败了：${e.message}`
+      }
     })
 
   // config命令
@@ -564,9 +704,9 @@ ${formatMutes || '无记录'}`
       const warns = readData(warnsPath)
       const blacklist = readData(blacklistPath)
       
-      let response = `用户 ${userId} 的记录：\n`
-      response += `警告次数：${warns[userId]?.count || 0}\n`
-      response += `是否在黑名单：${blacklist[userId] ? '是' : '否'}`
+      let response = `喵喵！${userId} 的记录如下：
+警告次数：${warns[userId]?.count || 0}
+是否在黑名单：${blacklist[userId] ? '是喵...' : '不是喵~'}`
       
       return response
     })
@@ -577,37 +717,141 @@ ${formatMutes || '无记录'}`
     .action(async ({ session }, keyword) => {
       if (!keyword) return '请提供关键词'
       ctx.config.keywords.push(keyword)
-      return `已添加关键词：${keyword} 喵~`
+      return `已经添加了关键词：${keyword} 喵喵喵~`
     })
 
   // ban命令
-  ctx.command('ban <user:user> <duration>', '禁言用户', { authority: 3 })
-    .action(async ({ session }, user, duration) => {
-      if (!user) return '请指定用户'
-      const userId = String(user).split(':')[1]
+  ctx.command('ban <input:text>', '禁言用户', { authority: 3 })
+    .example('ban @用户 1h')
+    .example('ban 123456789 1h')
+    .example('ban @用户 1h 群号')
+    .action(async ({ session }, input) => {
+      // 先处理 at 格式
+      let args: string[]
+      if (input.includes('<at')) {
+        // 如果包含 at，使用特殊处理
+        const atMatch = input.match(/<at[^>]+>/)
+        if (atMatch) {
+          const atPart = atMatch[0]
+          const restPart = input.replace(atPart, '').trim()
+          args = [atPart, ...restPart.split(/\s+/)]
+        } else {
+          args = input.split(/\s+/)
+        }
+      } else {
+        // 普通分割
+        args = input.split(/\s+/)
+      }
+
+      if (!args || args.length < 2) {
+        logCommand(session, 'ban', 'none', 'Failed: Insufficient parameters')
+        return '喵呜...格式：ban <用户> <时长> [群号]'
+      }
+      
+      const [target, duration, groupId] = args
+      console.log('Split params:', { target, duration, groupId })
+      
+      // 尝试解析为 user 对象
+      let userId: string
+      try {
+        // 如果是 @ 格式
+        if (target.startsWith('<at')) {
+          const match = target.match(/id="(\d+)"/)
+          if (match) {
+            userId = match[1]
+          }
+        } else {
+          // 如果是普通字符串（QQ号）
+          userId = parseUserId(target)
+        }
+      } catch (e) {
+        userId = parseUserId(target)
+      }
+      
+      if (!userId) {
+        logCommand(session, 'ban', 'none', 'Failed: Invalid user format')
+        return '喵呜...请输入正确的用户（@或QQ号）'
+      }
+      
+      if (!duration) {
+        logCommand(session, 'ban', userId, 'Failed: No duration specified')
+        return '喵呜...请告诉我要禁言多久呀~'
+      }
+      
+      const targetGroup = groupId || session.guildId
       
       try {
         const milliseconds = parseTimeString(duration)
-        await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
-        
-        // 记录禁言
-        recordMute(session.guildId, userId, milliseconds)
+        await session.bot.muteGuildMember(targetGroup, userId, milliseconds)
+        recordMute(targetGroup, userId, milliseconds)
         
         const timeStr = formatDuration(milliseconds)
-        return `已禁言用户 ${userId} ${duration} (${timeStr}) 喵~`
+        logCommand(session, 'ban', userId, `Success: Muted for ${timeStr} in group ${targetGroup}`)
+        return `已经把 ${userId} 禁言 ${duration} (${timeStr}) 啦喵~`
       } catch (e) {
-        return `喵呜...禁言失败，可能是权限不够`
+        logCommand(session, 'ban', userId, `Failed: ${e.message}`)
+        return `喵呜...禁言失败了：${e.message}`
       }
     })
 
   // unban命令
-  ctx.command('unban <user:user>', '解除用户禁言', { authority: 3 })
-    .action(async ({ session }, user) => {
-      if (!user) return '请指定用户'
-      const userId = String(user).split(':')[1]
+  ctx.command('unban <input:text>', '解除用户禁言', { authority: 3 })
+    .example('unban @用户')
+    .example('unban 123456789')
+    .example('unban @用户 群号')
+    .action(async ({ session }, input) => {
+      // 先处理 at 格式
+      let args: string[]
+      if (input.includes('<at')) {
+        // 如果包含 at，使用特殊处理
+        const atMatch = input.match(/<at[^>]+>/)
+        if (atMatch) {
+          const atPart = atMatch[0]
+          const restPart = input.replace(atPart, '').trim()
+          args = [atPart, ...restPart.split(/\s+/)]
+        } else {
+          args = input.split(/\s+/)
+        }
+      } else {
+        // 普通分割
+        args = input.split(/\s+/)
+      }
+
+      const [target, groupId] = args
+      console.log('Split params:', { target, groupId })
       
-      await session.bot.muteGuildMember(session.guildId, userId, 0)
-      return `已解除 ${userId} 的禁言啦！`
+      // 尝试解析为 user 对象
+      let userId: string
+      try {
+        // 如果是 @ 格式
+        if (target.startsWith('<at')) {
+          const match = target.match(/id="(\d+)"/)
+          if (match) {
+            userId = match[1]
+          }
+        } else {
+          // 如果是普通字符串（QQ号）
+          userId = parseUserId(target)
+        }
+      } catch (e) {
+        userId = parseUserId(target)
+      }
+      
+      if (!userId) {
+        logCommand(session, 'unban', 'none', 'Failed: Invalid user format')
+        return '喵呜...请输入正确的用户（@或QQ号）'
+      }
+      
+      const targetGroup = groupId || session.guildId
+      
+      try {
+        await session.bot.muteGuildMember(targetGroup, userId, 0)
+        logCommand(session, 'unban', userId, `Success: Unmuted in group ${targetGroup}`)
+        return `已经把 ${userId} 的禁言解除啦喵！开心~`
+      } catch (e) {
+        logCommand(session, 'unban', userId, `Failed: ${e.message}`)
+        return `喵呜...解除禁言失败了：${e.message}`
+      }
     })
 
   // autoban命令
@@ -627,7 +871,7 @@ ${formatMutes || '无记录'}`
       } else if (warnCount >= ctx.config.warnLimit) {
         duration = ctx.config.banTimes.first
       } else {
-        return `警告次数（${warnCount}）还没到自动禁言标准喵...`
+        return `喵呜...警告次数（${warnCount}）还不够呢，再观察一下吧~`
       }
       
       try {
@@ -635,9 +879,9 @@ ${formatMutes || '无记录'}`
         await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
         // 添加禁言记录
         recordMute(session.guildId, userId, milliseconds)
-        return `已自动禁言用户 ${userId} ${duration}`
+        return `已经按照警告次数把 ${userId} 禁言啦喵！`
       } catch (e) {
-        return `自动禁言失败了喵：${e.message}`
+        return `出错啦喵...${e.message}`
       }
     })
 
@@ -645,14 +889,13 @@ ${formatMutes || '无记录'}`
   ctx.command('grouphelper', '群管理帮助', { authority: 3 })
     .action(async ({ session }) => {
       return `=== 基础命令 ===
-kick {@用户} [-b]  踢出用户，-b 表示加入黑名单
-ban {@用户} {时长}  禁言用户，支持表达式
-unban {@用户}  解除用户禁言
+kick {@用户} [-b] [群号]  踢出用户，-b 表示加入黑名单
+ban {@用户} {时长} [群号]  禁言用户，支持表达式
+unban {@用户} [群号]  解除用户禁言
 ban-all  开启全体禁言
 unban-all  解除全体禁言
 unban-allppl  解除所有人禁言
 delmsg (回复)  撤回指定消息
-remoteban {QQ号} {群号} {时长}  远程禁言（可私聊）
 banme [次数]  随机禁言自己
   · 普通抽卡：1秒~30分钟（每次使用递增上限）
   · 金卡概率：0.6%（73抽后概率提升，89抽保底）
@@ -705,13 +948,13 @@ config  配置管理：
   // delmsg命令
   ctx.command('delmsg', '撤回消息', { authority: 3 })
     .action(async ({ session }) => {
-      if (!session.quote) return '请回复要撤回的消息喵~'
+      if (!session.quote) return '喵喵！请回复要撤回的消息呀~'
       
       try {
         await session.bot.deleteMessage(session.channelId, session.quote.id)
-        return '已撤回消息喵~'
+        return '消息已经被我吃掉啦喵~'
       } catch (e) {
-        return '撤回失败了...可能没有权限或者消息太久了喵'
+        return '呜呜...撤回失败了，可能太久了或者没有权限喵...'
       }
     })
 
@@ -720,10 +963,9 @@ config  配置管理：
     .action(async ({ session }) => {
       try {
         await session.bot.internal.setGroupWholeBan(session.guildId, true)
-        return '已开启全体禁言喵...'
+        return '喵呜...全体禁言开启啦，大家都要乖乖的~'
       } catch (e) {
-        return `全体禁言失败，可能没有权限:
-`+e
+        return `出错啦喵...${e.message}`
       }
     })
 
@@ -732,10 +974,9 @@ config  配置管理：
     .action(async ({ session }) => {
       try {
         await session.bot.internal.setGroupWholeBan(session.guildId, false)
-        return '已解除全体禁言啦！'
+        return '全体禁言解除啦喵，可以开心聊天啦~'
       } catch (e) {
-        return `解除全体禁言失败，可能没有权限:
-`+e
+        return `出错啦喵...${e.message}`
       }
     })
 
@@ -746,7 +987,7 @@ config  配置管理：
     .option('l', '-l 列出关键词')
     .option('p', '-p 管理入群审核关键词')
     .action(async ({ session, options }) => {
-      if (!session.guildId) return '此命令只能在群内使用'
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
       const groupConfigs = readData(groupConfigPath)
       groupConfigs[session.guildId] = groupConfigs[session.guildId] || { 
@@ -765,7 +1006,7 @@ config  配置管理：
           const newKeywords = options.a.split(',').map(k => k.trim()).filter(k => k)
           groupConfigs[session.guildId].approvalKeywords.push(...newKeywords)
           saveData(groupConfigPath, groupConfigs)
-          return `已添加群入群审核关键词：${newKeywords.join('、')} 喵~`
+          return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
         }
 
         if (options.r) {
@@ -780,7 +1021,7 @@ config  配置管理：
           }
           if (removed.length > 0) {
             saveData(groupConfigPath, groupConfigs)
-            return `已移除群入群审核关键词：${removed.join('、')} 啦！`
+            return `已经把关键词：${removed.join('、')} 删掉啦喵！`
           }
           return '未找到指定的关键词'
         }
@@ -796,7 +1037,7 @@ config  配置管理：
         const newKeywords = options.a.split(',').map(k => k.trim()).filter(k => k)
         groupConfigs[session.guildId].keywords.push(...newKeywords)
         saveData(groupConfigPath, groupConfigs)
-        return `已添加群禁言关键词：${newKeywords.join('、')} 喵~`
+        return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
       }
 
       if (options.r) {
@@ -811,7 +1052,7 @@ config  配置管理：
         }
         if (removed.length > 0) {
           saveData(groupConfigPath, groupConfigs)
-          return `已移除群禁言关键词：${removed.join('、')} 啦！`
+          return `已经把关键词：${removed.join('、')} 删掉啦喵！`
         }
         return '未找到指定的关键词'
       }
@@ -825,7 +1066,7 @@ config  配置管理：
     .option('r', '-r 移除欢迎语')
     .option('t', '-t 测试当前欢迎语')
     .action(async ({ session, options }) => {
-      if (!session.guildId) return '此命令只能在群内使用'
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
       const groupConfigs = readData(groupConfigPath)
       groupConfigs[session.guildId] = groupConfigs[session.guildId] || { 
@@ -837,13 +1078,13 @@ config  配置管理：
       if (options.s) {
         groupConfigs[session.guildId].welcomeMsg = options.s
         saveData(groupConfigPath, groupConfigs)
-        return `已设置欢迎语，可以用 -t 试试看效果喵~`
+        return `已经设置好欢迎语啦喵，要不要用 -t 试试看效果呀？`
       }
 
       if (options.r) {
         delete groupConfigs[session.guildId].welcomeMsg
         saveData(groupConfigPath, groupConfigs)
-        return `已移除群欢迎语啦！`
+        return `欢迎语已经被我吃掉啦喵~`
       }
 
       if (options.t) {
@@ -888,7 +1129,7 @@ welcome -t  测试当前欢迎语`
             await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
             // 添加禁言记录
             recordMute(session.guildId, session.userId, milliseconds)
-            await session.send(`检测到关键词"${keyword}"，喵呜...要被禁言 ${duration} 啦`)
+            await session.send(`喵呜！发现了关键词"${keyword}"，要被禁言 ${duration} 啦...`)
           } catch (e) {
             await session.send('自动禁言失败了...可能是权限不够喵')
           }
@@ -902,7 +1143,7 @@ welcome -t  测试当前欢迎语`
             await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
             // 添加禁言记录
             recordMute(session.guildId, session.userId, milliseconds)
-            await session.send(`检测到关键词"${keyword}"，喵呜...要被禁言 ${duration} 啦`)
+            await session.send(`喵呜！发现了关键词"${keyword}"，要被禁言 ${duration} 啦...`)
           } catch (e) {
             await session.send('自动禁言失败了...可能是权限不够喵')
           }
@@ -936,9 +1177,14 @@ welcome -t  测试当前欢迎语`
   })
 
   // banme 命令
-  ctx.command('banme', '随机禁言自己', { authority: 1 })
-    .action(async ({ session }) => {
-      if (!session.guildId) return '此命令只能在群内使用'
+  ctx.command('banme [times:number]', '随机禁言自己', { authority: 1 })
+    .action(async ({ session }, times = 1) => {
+      if (!ctx.config.banme.enabled) {
+        logCommand(session, 'banme', session.userId, 'Failed: Feature disabled')
+        return '喵呜...banme功能现在被禁用了呢...'
+      }
+      
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
       
       try {
         // 读取并更新调用记录
@@ -1010,21 +1256,25 @@ welcome -t  测试当前欢迎语`
         
         // 计算禁言时长
         let milliseconds
-        if (isJackpot) {
+        if (isJackpot && ctx.config.banme.jackpot.enabled) {
           if (records[session.guildId].guaranteed) {
-            // 歪了 - 12小时
-            milliseconds = 12 * 60 * 60 * 1000
+            milliseconds = parseTimeString(ctx.config.banme.jackpot.loseDuration)
           } else {
-            // 没歪 - 24小时
-            milliseconds = 24 * 60 * 60 * 1000
+            milliseconds = parseTimeString(ctx.config.banme.jackpot.upDuration)
           }
         } else {
-          // 没中奖 - 常规随机时长
-          const baseMaxMinutes = 30
-          // 使用三次开根函数计算额外时间
-          const additionalMinutes = Math.floor(Math.pow(records[session.guildId].count - 1, 1/3) * 30)
-          const maxMilliseconds = (baseMaxMinutes + additionalMinutes) * 60 * 1000
-          milliseconds = Math.floor(Math.random() * (maxMilliseconds - 1000 + 1)) + 1000
+          const baseMaxMillis = ctx.config.banme.baseMax * 60 * 1000
+          const baseMinMillis = ctx.config.banme.baseMin * 1000
+          const additionalMinutes = Math.floor(Math.pow(records[session.guildId].count - 1, 1/3) * ctx.config.banme.growthRate)
+          const maxMilliseconds = baseMaxMillis + (additionalMinutes * 60 * 1000)
+          milliseconds = Math.floor(Math.random() * (maxMilliseconds - baseMinMillis + 1)) + baseMinMillis
+        }
+        
+        // 计算金卡概率
+        currentProb = ctx.config.banme.jackpot.baseProb
+        if (records[session.guildId].pity >= ctx.config.banme.jackpot.softPity) {
+          currentProb = ctx.config.banme.jackpot.baseProb + 
+            (records[session.guildId].pity - ctx.config.banme.jackpot.softPity + 1) * 0.06
         }
         
         await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
@@ -1037,29 +1287,28 @@ welcome -t  测试当前欢迎语`
         
         if (isJackpot) {
           if (records[session.guildId].guaranteed) {
-            message += '【金】呜呜呜歪掉了！但是下次一定会中的！\n'
+            message += '【金】呜呜呜歪掉了！但是下次一定会中的喵！\n'
           } else {
-            message += '【金】喵呜！恭喜中了UP！\n'
+            message += '【金】喵喵喵！恭喜主人中了UP！\n'
           }
           if (isGuaranteed) {
-            message += '触发保底啦！\n'
+            message += '触发保底啦喵~\n'
           }
         }
         
-        const baseMaxMinutes = 30
-        const additionalMinutes = Math.floor(Math.pow(records[session.guildId].count - 1, 1/3) * 30)
-        const currentMaxTime = formatDuration((baseMaxMinutes + additionalMinutes) * 60 * 1000)
-        
+        logCommand(session, 'banme', session.userId, 
+          `Success: ${timeStr} (Jackpot: ${isJackpot}, Pity: ${records[session.guildId].pity}, Count: ${records[session.guildId].count})`)
         return message
       } catch (e) {
-        return '喵呜...禁言失败，可能是权限不够'
+        logCommand(session, 'banme', session.userId, `Failed: ${e.message}`)
+        return `喵呜...禁言失败了：${e.message}`
       }
     })
 
   // unban-allppl命令
   ctx.command('unban-allppl', '解除所有人禁言', { authority: 3 })
     .action(async ({ session }) => {
-      if (!session.guildId) return '此命令只能在群内使用'
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
       
       try {
         // 读取当前禁言记录
@@ -1087,7 +1336,7 @@ welcome -t  测试当前欢迎语`
         
         return count > 0 ? `已解除 ${count} 人的禁言啦！` : '当前没有被禁言的成员喵~'
       } catch (e) {
-        return `操作失败，可能没有权限：${e}`
+        return `出错啦喵...${e}`
       }
     })
 
@@ -1108,10 +1357,11 @@ welcome -t  测试当前欢迎语`
         const timeStr = formatDuration(milliseconds)
         return `已在群 ${groupId} 禁言用户 ${userId} ${duration} (${timeStr}) 喵~`
       } catch (e) {
-        return `远程禁言失败了喵...：${e.message}`
+        return `出错啦喵...${e.message}`
       }
     })
   }
+
 // 添加时间格式化函数
 function formatDuration(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000)
