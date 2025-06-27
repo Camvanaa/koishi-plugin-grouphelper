@@ -124,7 +124,7 @@ export class DataService {
       .replace('Z', '')
       .slice(0, 16)
 
-    const user = session.username || session.userId
+    const user =  session.userId || session.username
     const group = session.guildId || 'private'
     const logLine = `[${time}] [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}\n`
 

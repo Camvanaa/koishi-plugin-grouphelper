@@ -446,4 +446,45 @@ antirepeat 0 - 关闭复读检测`
       dataService.logCommand(session, 'antirepeat', session.guildId, `已设置阈值为 ${threshold} 并启用`)
       return `已设置本群复读阈值为 ${threshold} 条并启用检测喵~`
     })
-}
+
+    // 随机数生成器，格式 dice <面数> [个数]
+  ctx.command('dice <sides:number> [count:number]', '掷骰子', { authority: 1 })
+    .example('dice 6') // 掷一个6面骰
+    .example('dice 20 3') // 掷三个20面骰
+    .action(async ({ session }, sides, count = 1) => {
+      if (sides < 2 || count < 1) {
+        return '喵呜...骰子面数至少为2，个数至少为1喵~'
+      }
+      
+      const results = []
+      for (let i = 0; i < count; i++) {
+        results.push(Math.floor(Math.random() * sides) + 1)
+      }
+      if(count === 1) {
+        return `掷骰子结果：${results[0]}`
+      }
+      else {
+        return `掷骰子结果：${results.join(', ')}`+`\n 总和：${results.reduce((a, b) => a + b, 0)}`
+      }
+    })
+      // 引用一条消息，向指定群聊发送指定消息，使用 -s 选项静默发送
+  ctx.command('send <groupId:string>', '向指定群发送消息', { authority: 3 })
+    .example('send 123456789')
+    .option('s', '-s 静默发送，不显示发送者信息')
+    .action(async ({ session, options }, groupId) => {
+      if (!session.quote) return '喵喵！请回复要发送的消息呀~'
+
+      try {
+        if(options.s)
+          await session.bot.sendMessage(groupId, session.quote.content)
+        else
+          await session.bot.sendMessage(groupId, '用户' + session.userId + '远程投送消息：\n' +session.quote.content)
+
+        dataService.logCommand(session, 'send', groupId, `已发送消息：${session.quote.messageId}`)
+        return `已将消息发送到群 ${groupId} 喵~`
+      } catch (e) {
+        dataService.logCommand(session, 'send', groupId, `Failed: ${e.message}`)
+        return `喵呜...发送失败了：${e.message}`
+      }
+    })
+  }
