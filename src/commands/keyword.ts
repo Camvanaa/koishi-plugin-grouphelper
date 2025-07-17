@@ -93,7 +93,8 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
     .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')
     .option('clear', '--clear 清除所有关键词')
     .option('l', '-l 列出关键词')
-    .option('d', '-d <true/false> 设置是否自动撤回包含关键词的消息')
+    .option('d', '-d {true|false} 设置是否自动撤回包含关键词的消息')
+    .option('b', '-b {true|false} 设置是否自动禁言')
     .option('t', '-t <时长> 设置自动禁言时长')
     .action(async ({ session, options }) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
@@ -116,7 +117,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         const newKeywords = options.a.split(',').map(k => k.trim()).filter(k => k)
         groupConfigs[session.guildId].keywords.push(...newKeywords)
         saveData(dataService.groupConfigPath, groupConfigs)
-        dataService.logCommand(session, 'forbidden', 'add', `已添加关键词：${newKeywords.join('、')}`)
+        dataService.logCommand(session, 'forbidden', 'add', `成功：已添加关键词：${newKeywords.join('、')}`)
         return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
       }
 
@@ -132,7 +133,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         }
         if (removed.length > 0) {
           saveData(dataService.groupConfigPath, groupConfigs)
-          dataService.logCommand(session, 'forbidden', 'remove', `已移除关键词：${removed.join('、')}`)
+          dataService.logCommand(session, 'forbidden', 'remove', `成功：已移除关键词：${removed.join('、')}`)
           return `已经把关键词：${removed.join('、')} 删掉啦喵！`
         }
         return '未找到指定的关键词'
@@ -144,7 +145,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         }
         groupConfigs[session.guildId].keywords = []
         saveData(dataService.groupConfigPath, groupConfigs)
-        dataService.logCommand(session, 'forbidden', 'clear', `已清除所有关键词`)
+        dataService.logCommand(session, 'forbidden', 'clear', `成功：已清除所有关键词`)
         return '所有禁言关键词已清除喵~' 
       }
 
@@ -158,8 +159,22 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
           return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
         }
         saveData(dataService.groupConfigPath, groupConfigs)
-        dataService.logCommand(session, 'forbidden', 'recall', `已设置自动撤回：${groupConfigs[session.guildId].autoDelete}`)
+        dataService.logCommand(session, 'forbidden', 'recall', `成功：已设置自动撤回：${groupConfigs[session.guildId].autoDelete}`)
         return `自动撤回状态更新为${groupConfigs[session.guildId].autoDelete}`
+      }
+
+      if (options.b !== undefined) {
+        const value = String(options.b).toLowerCase()
+        if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
+          ctx.config.keywordBan.enabled = true
+        } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
+          ctx.config.keywordBan.enabled = false
+        } else {
+          return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
+        }
+        saveData(dataService.groupConfigPath, groupConfigs)
+        dataService.logCommand(session, 'forbidden', 'ban', `成功：已设置自动禁言：${groupConfigs[session.guildId].autoBan}`)
+        return `自动禁言状态更新为${ctx.config.keywordBan.enabled}`
       }
 
       if (options.t) {
@@ -168,7 +183,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
           const milliseconds = parseTimeString(duration)
           groupConfigs[session.guildId].muteDuration = milliseconds
           saveData(dataService.groupConfigPath, groupConfigs)
-          dataService.logCommand(session, 'forbidden', 'set', `已设置禁言时间：${duration}`)
+          dataService.logCommand(session, 'forbidden', 'set', `成功：已设置禁言时间：${duration}`)
           return `禁言时间已更新为：${duration} 喵喵喵~`
         } catch (e) {
           return `无效的时间格式：${duration}，请使用类似 "1h" 或 "30m" 的格式`
@@ -209,8 +224,10 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
               await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
 
               dataService.recordMute(session.guildId, session.userId, milliseconds)
+              dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${duration}`)
               await session.send(`喵呜！发现了关键词，要被禁言 ${duration} 啦...`)
             } catch (e) {
+              dataService.logCommand(session, 'keyword-ban', session.userId, `失败`)
               await session.send('自动禁言失败了...可能是权限不够喵')
             }
             break
@@ -223,8 +240,10 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
               await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
 
               dataService.recordMute(session.guildId, session.userId, milliseconds)
+              dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${duration}`)
               await session.send(`喵呜！发现了关键词，要被禁言 ${duration} 啦...`)
             } catch (e) {
+              dataService.logCommand(session, 'keyword-ban', session.userId, `失败`)
               await session.send('自动禁言失败了...可能是权限不够喵')
             }
             break
@@ -241,8 +260,10 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
           if (regex.test(content)) {
             try {
               await session.bot.deleteMessage(session.guildId, session.messageId)
+              dataService.logCommand(session, 'keyword-delete', session.userId, `成功：关键词匹配，消息已撤回`)
               await session.send(`喵呜！发现了关键词，消息已被撤回...`)
             } catch (e) {
+              dataService.logCommand(session, 'keyword-delete', session.userId, `失败`)
               await session.send('自动撤回失败了...可能是权限不够喵')
             }
             break
@@ -251,8 +272,10 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
           if (content.includes(keyword)) {
             try {
               await session.bot.deleteMessage(session.guildId, session.messageId)
+              dataService.logCommand(session, 'keyword-delete', session.userId, `成功：关键词匹配，消息已撤回`)
               await session.send(`喵呜！发现了关键词，消息已被撤回...`)
             } catch (e) {
+              dataService.logCommand(session, 'keyword-delete', session.userId, `失败`)
               await session.send('自动撤回失败了...可能是权限不够喵')
             }
             break
