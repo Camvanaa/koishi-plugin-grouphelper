@@ -29,7 +29,12 @@ export const ConfigSchema: Schema<Config> = Schema.object({
     duration: Schema.string().default('10min')
       .description('关键词触发的禁言时长(格式：数字+单位[s/min/h])')
   }).description('关键词禁言设置'),
-  defaultWelcome: Schema.string().description('默认欢迎语'),
+  dice: Schema.object({
+    enabled: Schema.boolean().default(true)
+      .description('是否启用掷骰子功能'),
+    lengthLimit: Schema.number().default(1000)
+      .description('掷骰子结果长度限制，超过此长度将无法显示结果')
+  }).description('掷骰子设置'),
   banme: Schema.object({
     enabled: Schema.boolean().default(true)
       .description('是否启用banme指令'),
