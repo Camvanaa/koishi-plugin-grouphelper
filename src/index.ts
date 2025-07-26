@@ -6,6 +6,7 @@ import * as config from './config'
 
 import { DataService } from './services'
 import { AIService } from './services/ai.service'
+import { CommandLogService } from './services/command-log.service'
 import { registerEventListeners, setupScheduledTasks } from './services/event.service'
 
 
@@ -23,7 +24,8 @@ import {
   registerLogCommands,
   registerSubscriptionCommands,
   registerAICommands,
-  registerReportCommands
+  registerReportCommands,
+  registerCommandLogCommands
 } from './commands'
 
 
@@ -40,6 +42,7 @@ export function apply(ctx: Context) {
 
   const dataService = new DataService(ctx)
 
+  const commandLogService = new CommandLogService(ctx, dataService)
 
   const aiService = new AIService(ctx, dataService.dataPath)
 
@@ -57,6 +60,7 @@ export function apply(ctx: Context) {
   registerSubscriptionCommands(ctx, dataService)
   registerAICommands(ctx, dataService, aiService)
   registerReportCommands(ctx, dataService, aiService)
+  registerCommandLogCommands(ctx, commandLogService)
 
 
   registerEventListeners(ctx, dataService)
@@ -67,5 +71,6 @@ export function apply(ctx: Context) {
   ctx.on('dispose', () => {
     dataService.dispose()
     aiService.dispose()
+    commandLogService.dispose()
   })
 }
