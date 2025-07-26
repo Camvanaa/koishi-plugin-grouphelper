@@ -23,6 +23,13 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         autoDelete: false
       }
 
+      if (!Array.isArray(groupConfigs[session.guildId].keywords)) {
+        groupConfigs[session.guildId].keywords = []
+      }
+      if (!Array.isArray(groupConfigs[session.guildId].approvalKeywords)) {
+        groupConfigs[session.guildId].approvalKeywords = []
+      }
+
       if (options.l) {
         const keywords = groupConfigs[session.guildId].approvalKeywords
         return `当前群入群审核关键词：\n${keywords.join('、') || '无'}\n自动拒绝状态：${groupConfigs[session.guildId].auto}\n拒绝词：${groupConfigs[session.guildId].reject}`
@@ -106,6 +113,13 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         auto: 'false',
         reject: '答案错误，请重新申请',
         autoDelete: false
+      }
+
+      if (!Array.isArray(groupConfigs[session.guildId].keywords)) {
+        groupConfigs[session.guildId].keywords = []
+      }
+      if (!Array.isArray(groupConfigs[session.guildId].approvalKeywords)) {
+        groupConfigs[session.guildId].approvalKeywords = []
       }
 
       if (options.l) {
@@ -211,6 +225,10 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
       autoDelete: false
     }
 
+    if (!Array.isArray(groupConfig.keywords)) {
+      groupConfig.keywords = []
+    }
+
     if (ctx.config.keywordBan.enabled) {
       const keywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]
 
@@ -253,6 +271,9 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
     }
 
     if (groupConfig.autoDelete) {
+      if (!Array.isArray(groupConfig.keywords)) {
+        groupConfig.keywords = []
+      }
       const deleteKeywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]
       for (const keyword of deleteKeywords) {
         try {

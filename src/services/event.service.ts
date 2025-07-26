@@ -95,6 +95,10 @@ export function registerEventListeners(ctx: Context, dataService: DataService) {
     }
 
     // 检查关键词
+    // 确保 approvalKeywords 是数组
+    if (!Array.isArray(groupConfig.approvalKeywords)) {
+      groupConfig.approvalKeywords = []
+    }
     const keywords = [...ctx.config.keywords, ...groupConfig.approvalKeywords]
     if (keywords.length > 0 && data.comment) {
       const comment = data.comment.toLowerCase()
