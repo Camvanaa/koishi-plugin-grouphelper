@@ -1,6 +1,26 @@
 import { Context } from 'koishi'
 import { CommandLogService } from '../services'
 
+function getGroupByName(groupBy: string): string {
+  switch (groupBy) {
+    case 'command': return '命令'
+    case 'guild': return '群组'
+    case 'user': return '用户'
+    case 'platform': return '平台'
+    default: return '项目'
+  }
+}
+
+function getSortByName(sortBy: string): string {
+  switch (sortBy) {
+    case 'count': return '使用次数'
+    case 'time': return '最近使用时间'
+    case 'guild': return '群组数量'
+    case 'user': return '用户数量'
+    default: return '次数'
+  }
+}
+
 export function registerCommandLogCommands(ctx: Context, commandLogService: CommandLogService) {
 
   ctx.command('cmdlogs.check', '查看命令执行日志')
@@ -126,6 +146,9 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
     .option('authority', '-a <level> 筛选特定权限级别')
     .option('since', '-s <date> 统计指定时间之后的数据')
     .option('until', '--until <date> 统计指定时间之前的数据')
+    .option('sortBy', '--sort <type> 排序方式: count(次数), time(时间), guild(群号), user(用户)', { fallback: 'count' })
+    .option('groupBy', '--group <type> 分组方式: command(命令), guild(群组), user(用户), platform(平台)')
+    .option('desc', '--desc 降序排列', { fallback: true })
     .action(async ({ options }) => {
       try {
         const allLogs = await commandLogService.getRecentLogs(10000)
@@ -180,45 +203,111 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
           return '没有符合条件的命令记录'
         }
 
-        const commandStats = new Map<string, { count: number, lastUsed: number, successRate: number, totalSuccess: number }>()
+        const groupBy = options.groupBy || 'command'
+        const sortBy = options.sortBy || 'count'
+        const isDesc = options.desc !== false
+
+        const statsMap = new Map<string, {
+          count: number,
+          lastUsed: number,
+          successRate: number,
+          totalSuccess: number,
+          guilds: Set<string>,
+          users: Set<string>,
+          platforms: Set<string>
+        }>()
 
         filteredLogs.forEach(log => {
-          const stats = commandStats.get(log.command) || {
+          let key: string
+          switch (groupBy) {
+            case 'guild':
+              key = log.guildId || 'private'
+              break
+            case 'user':
+              key = log.userId || 'unknown'
+              break
+            case 'platform':
+              key = log.platform || 'unknown'
+              break
+            default:
+              key = log.command
+          }
+
+          const stats = statsMap.get(key) || {
             count: 0,
             lastUsed: 0,
             successRate: 0,
-            totalSuccess: 0
+            totalSuccess: 0,
+            guilds: new Set<string>(),
+            users: new Set<string>(),
+            platforms: new Set<string>()
           }
+
           stats.count++
           if (log.success) stats.totalSuccess++
+
           const logTime = new Date(log.timestamp).getTime()
           if (logTime > stats.lastUsed) {
             stats.lastUsed = logTime
           }
+
           stats.successRate = (stats.totalSuccess / stats.count) * 100
-          commandStats.set(log.command, stats)
+
+          if (log.guildId) stats.guilds.add(log.guildId)
+          if (log.userId) stats.users.add(log.userId)
+          if (log.platform) stats.platforms.add(log.platform)
+
+          statsMap.set(key, stats)
         })
 
-        const sortedStats = Array.from(commandStats.entries())
+        const sortedStats = Array.from(statsMap.entries())
 
-        if (options.recent) {
-          sortedStats.sort((a, b) => b[1].lastUsed - a[1].lastUsed)
-        } else {
-          sortedStats.sort((a, b) => b[1].count - a[1].count)
-        }
+        sortedStats.sort((a, b) => {
+          let compareValue = 0
+          switch (sortBy) {
+            case 'time':
+              compareValue = a[1].lastUsed - b[1].lastUsed
+              break
+            case 'guild':
+              compareValue = a[1].guilds.size - b[1].guilds.size
+              break
+            case 'user':
+              compareValue = a[1].users.size - b[1].users.size
+              break
+            case 'count':
+            default:
+              compareValue = a[1].count - b[1].count
+          }
+          return isDesc ? -compareValue : compareValue
+        })
 
         const topStats = sortedStats.slice(0, options.limit)
 
-        let message = `命令使用统计 (${options.recent ? '按最近使用' : '按使用次数'})\n`
-        message += `总记录: ${filteredLogs.length} 条，命令种类: ${commandStats.size} 个\n\n`
+        let message = `命令使用统计\n`
+        message += `分组: ${getGroupByName(groupBy)} | 排序: ${getSortByName(sortBy)} ${isDesc ? '(降序)' : '(升序)'}\n`
+        message += `总记录: ${filteredLogs.length} 条，${getGroupByName(groupBy)}数: ${statsMap.size} 个\n\n`
 
-        topStats.forEach(([command, stat], index) => {
+        topStats.forEach(([key, stat], index) => {
           const lastUsedTime = new Date(stat.lastUsed).toLocaleString('zh-CN')
           const successRate = stat.successRate.toFixed(1)
-          message += `${index + 1}. ${command}\n`
+
+          message += `${index + 1}. ${key}\n`
           message += `   使用次数: ${stat.count}\n`
           message += `   成功率: ${successRate}% (${stat.totalSuccess}/${stat.count})\n`
-          message += `   最后使用: ${lastUsedTime}\n\n`
+          message += `   最后使用: ${lastUsedTime}\n`
+
+          if (groupBy === 'command') {
+            message += `   涉及群组: ${stat.guilds.size} 个\n`
+            message += `   涉及用户: ${stat.users.size} 个\n`
+          } else if (groupBy === 'guild') {
+            message += `   命令种类: ${stat.platforms.size} 个\n`
+            message += `   用户数: ${stat.users.size} 个\n`
+          } else if (groupBy === 'user') {
+            message += `   使用群组: ${stat.guilds.size} 个\n`
+            message += `   命令种类: ${stat.platforms.size} 个\n`
+          }
+
+          message += `\n`
         })
 
         return message.trim()
@@ -239,10 +328,10 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
 
         if (options.all) {
           commandLogService.clearCommandLogs()
-          return '✅ 已清除所有命令日志'
+          return '已清除所有命令日志'
         } else if (options.days > 0) {
           const removedCount = await commandLogService.cleanOldLogs(options.days)
-          return `✅ 已清理 ${removedCount} 条超过 ${options.days} 天的命令日志`
+          return `已清理 ${removedCount} 条超过 ${options.days} 天的命令日志`
         } else {
           return '请指定 --all 清除所有日志，或使用 -d <天数> 清除指定天数前的日志'
         }
@@ -255,7 +344,7 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
     .alias('导出日志')
     .option('days', '-d <number> 导出最近N天的日志', { fallback: 7 })
     .option('format', '-f <format> 导出格式 (json|csv)', { fallback: 'json' })
-    .action(async ({ session, options }) => {
+    .action(async ({ options }) => {
       try {
 
         const logs = await commandLogService.getRecentLogs(10000)
@@ -275,12 +364,13 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
             `"${log.timestamp}","${log.userId}","${log.username}","${log.userAuthority || ''}","${log.guildId || ''}","${log.platform}","${log.command}","${log.success}","${log.executionTime}","${log.error || ''}"`
           ).join('\n')
 
-          return `📄 CSV格式日志 (${filteredLogs.length} 条记录)\n\n${csvHeader}${csvRows}`
+          return `CSV格式日志 (${filteredLogs.length} 条记录)\n\n${csvHeader}${csvRows}`
         } else {
-          return `📄 JSON格式日志 (${filteredLogs.length} 条记录)\n\n${JSON.stringify(filteredLogs, null, 2)}`
+          return `JSON格式日志 (${filteredLogs.length} 条记录)\n\n${JSON.stringify(filteredLogs, null, 2)}`
         }
       } catch (error) {
         return `导出日志失败: ${error.message}`
       }
     })
 }
+//鸣谢：claude-4-opus，确实好用，就是太贵了。
