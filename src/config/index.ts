@@ -239,5 +239,15 @@ export const ConfigSchema: Schema<Config> = Schema.object({
       .description('举报失败后的冷却时间（分钟）'),
     minAuthorityNoLimit: Schema.number().default(2)
       .description('不受举报冷却限制的最低权限等级')
-  }).description('举报功能设置')
+  }).description('举报功能设置'),
+  antiRecall: Schema.object({
+    enabled: Schema.boolean().default(false)
+      .description('是否启用防撤回功能'),
+    retentionDays: Schema.number().default(7)
+      .description('撤回消息保存天数'),
+    maxRecordsPerUser: Schema.number().default(50)
+      .description('每个用户最多保存的撤回记录数'),
+    showOriginalTime: Schema.boolean().default(true)
+      .description('是否显示原消息发送时间')
+  }).description('防撤回功能设置')
 })

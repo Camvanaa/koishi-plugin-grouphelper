@@ -7,6 +7,7 @@ import * as config from './config'
 import { DataService } from './services'
 import { AIService } from './services/ai.service'
 import { CommandLogService } from './services/command-log.service'
+import { AntiRecallService } from './services/anti-recall.service'
 import { registerEventListeners, setupScheduledTasks } from './services/event.service'
 
 
@@ -25,7 +26,8 @@ import {
   registerSubscriptionCommands,
   registerAICommands,
   registerReportCommands,
-  registerCommandLogCommands
+  registerCommandLogCommands,
+  registerAntiRecallCommands
 } from './commands'
 
 
@@ -44,6 +46,8 @@ export function apply(ctx: Context) {
 
   const commandLogService = new CommandLogService(ctx, dataService)
 
+  const antiRecallService = new AntiRecallService(ctx, dataService)
+
   const aiService = new AIService(ctx, dataService.dataPath)
 
 
@@ -61,6 +65,7 @@ export function apply(ctx: Context) {
   registerAICommands(ctx, dataService, aiService)
   registerReportCommands(ctx, dataService, aiService)
   registerCommandLogCommands(ctx, commandLogService)
+  registerAntiRecallCommands(ctx, antiRecallService, dataService)
 
 
   registerEventListeners(ctx, dataService)
@@ -72,5 +77,6 @@ export function apply(ctx: Context) {
     dataService.dispose()
     aiService.dispose()
     commandLogService.dispose()
+    antiRecallService.dispose()
   })
 }

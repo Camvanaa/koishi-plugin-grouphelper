@@ -63,6 +63,13 @@ declare module 'koishi' {
       contextLimit: number
       translatePrompt: string
     }
+    antiRecall: {
+      enabled: boolean
+      retentionDays: number
+      maxRecordsPerUser: number
+      showOriginalTime: boolean
+      authority: number
+    }
   }
 }
 
@@ -126,6 +133,12 @@ export interface Config {
     contextLimit: number
     translatePrompt: string
   }
+  antiRecall: {
+    enabled: boolean
+    retentionDays: number
+    maxRecordsPerUser: number
+    showOriginalTime: boolean
+  }
 }
 
 
@@ -138,6 +151,9 @@ export interface GroupConfig {
     enabled: boolean
     systemPrompt?: string
     translatePrompt?: string
+  }
+  antiRecall?: {
+    enabled: boolean
   }
 }
 
@@ -212,6 +228,7 @@ export interface Subscription {
     muteExpire?: boolean
     blacklist?: boolean
     warning?: boolean
+    antiRecall?: boolean
   }
 }
 
@@ -281,4 +298,24 @@ export interface UserContext {
   userId: string
   messages: ChatMessage[]
   lastTimestamp: number
+}
+
+// 防撤回相关接口
+export interface RecalledMessage {
+  id: string
+  messageId: string
+  userId: string
+  username: string
+  guildId: string
+  channelId?: string
+  content: string
+  timestamp: number
+  recallTime: number
+  elements?: any[]
+}
+
+export interface RecallRecord {
+  [guildId: string]: {
+    [userId: string]: RecalledMessage[]
+  }
 }
