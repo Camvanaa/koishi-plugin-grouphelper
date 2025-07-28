@@ -7,7 +7,7 @@ import { GroupConfig } from '../types'
 export function registerAntiRecallCommands(ctx: Context, antiRecallService: AntiRecallService, dataService: DataService) {
 
   // 查询撤回消息命令
-  ctx.command('recall <input:text>', '查询用户撤回消息记录', { authority: 3 })
+  ctx.command('antirecall.recall <input:text>', '查询用户撤回消息记录', { authority: 3 })
     .alias('撤回查询')
     .usage('查询用户的撤回消息记录\n示例：\nrecall @用户\nrecall 123456789\nrecall @用户 5\nrecall 123456789 10 群号')
     .example('recall @用户')
@@ -204,23 +204,5 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
     .action(async () => {
       antiRecallService.clearAllRecords()
       return '已清理所有撤回记录'
-    })
-
-  ctx.command('recallstats', '查看撤回记录统计', { authority: 3 })
-    .alias('撤回统计')
-    .action(async () => {
-      const stats = antiRecallService.getStatistics()
-
-      let message = `撤回记录统计\n\n`
-      message += `总体数据:\n`
-      message += `总记录数: ${stats.totalRecords}\n`
-      message += `涉及用户: ${stats.totalUsers}\n`
-      message += `涉及群组: ${stats.totalGuilds}\n\n`
-      message += `系统配置:\n`
-      message += `保存天数: ${ctx.config.antiRecall?.retentionDays || 7} 天\n`
-      message += `每用户最大记录: ${ctx.config.antiRecall?.maxRecordsPerUser || 50} 条\n`
-      message += `显示原始时间: ${ctx.config.antiRecall?.showOriginalTime ? '是' : '否'}`
-
-      return message
     })
 }

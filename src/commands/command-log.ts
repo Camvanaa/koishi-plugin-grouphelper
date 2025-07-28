@@ -203,108 +203,114 @@ export function registerCommandLogCommands(ctx: Context, commandLogService: Comm
           return '没有符合条件的命令记录'
         }
 
-        const groupBy = options.groupBy || 'command'
+        // 新的统计逻辑：先按命令分组，然后在每个命令下按指定方式排序
         const sortBy = options.sortBy || 'count'
         const isDesc = options.desc !== false
 
-        const statsMap = new Map<string, {
-          count: number,
-          lastUsed: number,
-          successRate: number,
-          totalSuccess: number,
-          guilds: Set<string>,
-          users: Set<string>,
-          platforms: Set<string>
-        }>()
+        // 首先按命令分组
+        const commandGroups = new Map<string, any[]>()
 
         filteredLogs.forEach(log => {
-          let key: string
-          switch (groupBy) {
-            case 'guild':
-              key = log.guildId || 'private'
-              break
-            case 'user':
-              key = log.userId || 'unknown'
-              break
-            case 'platform':
-              key = log.platform || 'unknown'
-              break
-            default:
-              key = log.command
+          if (!commandGroups.has(log.command)) {
+            commandGroups.set(log.command, [])
           }
-
-          const stats = statsMap.get(key) || {
-            count: 0,
-            lastUsed: 0,
-            successRate: 0,
-            totalSuccess: 0,
-            guilds: new Set<string>(),
-            users: new Set<string>(),
-            platforms: new Set<string>()
-          }
-
-          stats.count++
-          if (log.success) stats.totalSuccess++
-
-          const logTime = new Date(log.timestamp).getTime()
-          if (logTime > stats.lastUsed) {
-            stats.lastUsed = logTime
-          }
-
-          stats.successRate = (stats.totalSuccess / stats.count) * 100
-
-          if (log.guildId) stats.guilds.add(log.guildId)
-          if (log.userId) stats.users.add(log.userId)
-          if (log.platform) stats.platforms.add(log.platform)
-
-          statsMap.set(key, stats)
+          commandGroups.get(log.command)!.push(log)
         })
 
-        const sortedStats = Array.from(statsMap.entries())
+        // 按命令使用总次数排序命令列表
+        const sortedCommands = Array.from(commandGroups.entries())
+          .sort((a, b) => b[1].length - a[1].length)
+          .slice(0, options.limit)
 
-        sortedStats.sort((a, b) => {
-          let compareValue = 0
-          switch (sortBy) {
-            case 'time':
-              compareValue = a[1].lastUsed - b[1].lastUsed
-              break
-            case 'guild':
-              compareValue = a[1].guilds.size - b[1].guilds.size
-              break
-            case 'user':
-              compareValue = a[1].users.size - b[1].users.size
-              break
-            case 'count':
-            default:
-              compareValue = a[1].count - b[1].count
-          }
-          return isDesc ? -compareValue : compareValue
-        })
+        let message = `📊 命令使用统计 (按${getSortByName(sortBy)}排序)\n`
+        message += `总记录: ${filteredLogs.length} 条，命令种类: ${commandGroups.size} 个\n\n`
 
-        const topStats = sortedStats.slice(0, options.limit)
+        sortedCommands.forEach(([command, logs], cmdIndex) => {
+          message += `${cmdIndex + 1}. ${command} (总计 ${logs.length} 次)\n`
 
-        let message = `命令使用统计\n`
-        message += `分组: ${getGroupByName(groupBy)} | 排序: ${getSortByName(sortBy)} ${isDesc ? '(降序)' : '(升序)'}\n`
-        message += `总记录: ${filteredLogs.length} 条，${getGroupByName(groupBy)}数: ${statsMap.size} 个\n\n`
+          // 根据sortBy对该命令的使用情况进行分组和排序
+          const subGroups = new Map<string, {
+            count: number,
+            lastUsed: number,
+            successRate: number,
+            totalSuccess: number,
+            users: Set<string>
+          }>()
 
-        topStats.forEach(([key, stat], index) => {
-          const lastUsedTime = new Date(stat.lastUsed).toLocaleString('zh-CN')
-          const successRate = stat.successRate.toFixed(1)
+          logs.forEach(log => {
+            let key: string
+            switch (sortBy) {
+              case 'guild':
+                key = log.guildId || 'private'
+                break
+              case 'user':
+                key = log.userId || 'unknown'
+                break
+              case 'time':
+              case 'count':
+              default:
+                key = log.guildId || 'private' // 默认按群组显示
+            }
 
-          message += `${index + 1}. ${key}\n`
-          message += `   使用次数: ${stat.count}\n`
-          message += `   成功率: ${successRate}% (${stat.totalSuccess}/${stat.count})\n`
-          message += `   最后使用: ${lastUsedTime}\n`
+            const stats = subGroups.get(key) || {
+              count: 0,
+              lastUsed: 0,
+              successRate: 0,
+              totalSuccess: 0,
+              users: new Set<string>()
+            }
 
-          if (groupBy === 'command') {
-            message += `   涉及群组: ${stat.guilds.size} 个\n`
-            message += `   涉及用户: ${stat.users.size} 个\n`
-          } else if (groupBy === 'guild') {
-            message += `   命令种类: ${stat.platforms.size} 个\n`
-            message += `   用户数: ${stat.users.size} 个\n`
-          } else if (groupBy === 'user') {
-            message += `   使用群组: ${stat.guilds.size} 个\n`
-            message += `   命令种类: ${stat.platforms.size} 个\n`
+            stats.count++
+            if (log.success) stats.totalSuccess++
+
+            const logTime = new Date(log.timestamp).getTime()
+            if (logTime > stats.lastUsed) {
+              stats.lastUsed = logTime
+            }
+
+            stats.successRate = (stats.totalSuccess / stats.count) * 100
+            if (log.userId) stats.users.add(log.userId)
+
+            subGroups.set(key, stats)
+          })
+
+          // 对子分组进行排序
+          const sortedSubGroups = Array.from(subGroups.entries())
+          sortedSubGroups.sort((a, b) => {
+            let compareValue = 0
+            switch (sortBy) {
+              case 'time':
+                compareValue = a[1].lastUsed - b[1].lastUsed
+                break
+              case 'user':
+                compareValue = a[1].users.size - b[1].users.size
+                break
+              case 'guild':
+              case 'count':
+              default:
+                compareValue = a[1].count - b[1].count
+            }
+            return isDesc ? -compareValue : compareValue
+          })
+
+          // 显示前5个子分组
+          const topSubGroups = sortedSubGroups.slice(0, 5)
+          topSubGroups.forEach(([key, stat], subIndex) => {
+            const lastUsedTime = new Date(stat.lastUsed).toLocaleString('zh-CN')
+            const successRate = stat.successRate.toFixed(1)
+
+            let keyName = key
+            if (sortBy === 'guild' || (!sortBy || sortBy === 'count')) {
+              keyName = key === 'private' ? '私聊' : `群组 ${key}`
+            } else if (sortBy === 'user') {
+              keyName = `用户 ${key}`
+            }
+
+            message += `   ${subIndex + 1}. ${keyName}: ${stat.count}次 (成功率${successRate}%) 最后使用: ${lastUsedTime.split(' ')[0]}\n`
+          })
+
+          if (sortedSubGroups.length > 5) {
+            message += `   ... 还有 ${sortedSubGroups.length - 5} 个${getSortByName(sortBy)}\n`
           }
 
           message += `\n`
