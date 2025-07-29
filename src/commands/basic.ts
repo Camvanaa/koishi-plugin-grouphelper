@@ -568,21 +568,21 @@ antirepeat 0 - 关闭复读检测`
       }
     })
 
-  ctx.command('nickname <user:user> <nickname:string>', '设置用户昵称', { authority: 3 })
+  ctx.command('nickname <user:user> <nickname:string> <group:string>', '设置用户昵称', { authority: 3 })
     .example('nickname 123456789 小猫咪')
-    .action(async ({ session }, user, nickname) => {
+    .action(async ({ session }, user, nickname, group) => {
       if (!user) return '喵呜...请指定用户喵~'
 
       const userId = String(user).split(':')[1]
       try {
         if (nickname) {
-          await session.bot.internal.setGroupCard(session.guildId, userId, nickname)
-          dataService.logCommand(session, 'nickname', userId, `成功：已设置昵称为 ${nickname}`)
+          await session.bot.internal.setGroupCard(group||session.guildId, userId, nickname)
+          dataService.logCommand(session, 'nickname', userId, `成功：已设置昵称为 ${nickname}, 群号 ${group||session.guildId}`)
           return `已将 ${userId} 的昵称设置为 "${nickname}" 喵~`
         }
         else{
-          await session.bot.internal.setGroupCard(session.guildId, userId)
-          dataService.logCommand(session, 'nickname', userId, `成功：已清除昵称`)
+          await session.bot.internal.setGroupCard(group||session.guildId, userId)
+          dataService.logCommand(session, 'nickname', userId, `成功：已清除昵称, 群号 ${group||session.guildId}`)
           return `已将 ${userId} 的昵称清除喵~`
         }
       } catch (e) {
