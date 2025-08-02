@@ -19,10 +19,7 @@ function setDefaultSimilarChars() {
 
 function normalizeCommand(command: string): string {
   // 移除所有类型的空白字符
-  command = command.replace(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, '')
-
-  // 移除所有标点符号
-  command = command.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+  command = command.replace(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, '')
 
   // 移除所有数学符号
   //command = command.replace(/[\u2200-\u22FF\u2100-\u214F]/g, '')
@@ -51,6 +48,9 @@ function normalizeCommand(command: string): string {
     const regex = new RegExp(char, 'g')
     command = command.replace(regex, replacement as string)
   }
+
+  // 移除所有标点符号
+  command = command.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
 
   // 移除重复字符
   command = command.replace(/(.)\1+/g, '$1')
