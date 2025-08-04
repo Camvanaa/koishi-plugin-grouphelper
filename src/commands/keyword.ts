@@ -1,6 +1,6 @@
 import { Context } from 'koishi'
 import { DataService } from '../services'
-import { readData, parseTimeString } from '../utils'
+import { readData, parseTimeString, formatDuration } from '../utils'
 import { saveData } from '../utils'
 
 export function registerKeywordCommands(ctx: Context, dataService: DataService) {
@@ -236,14 +236,31 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
         try {
           const regex = new RegExp(keyword)
           if (regex.test(content)) {
-            const duration = ctx.config.keywordBan.duration
+            var duration = ctx.config.keywordBan.duration
+            var milliseconds = parseTimeString(duration)
+
             try {
-              const milliseconds = parseTimeString(duration)
+              // 查询用户剩余禁言时间，如果更长的话，则覆盖
+              const mutes = readData(dataService.mutesPath)
+              const lastMute = mutes[session.guildId][session.userId]
+              var covered=false
+              console.log(`${lastMute.startTime+lastMute.duration} , ${Date.now()+milliseconds}`)
+              if(lastMute && lastMute.startTime+lastMute.duration > Date.now()+milliseconds) {
+                milliseconds = lastMute.startTime+lastMute.duration - Date.now()
+                covered = true
+              }
+              
               await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
 
               dataService.recordMute(session.guildId, session.userId, milliseconds)
-              dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${duration}`)
-              await session.send(`喵呜！发现了关键词，要被禁言 ${duration} 啦...`)
+              if(covered){
+                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(milliseconds)}`)
+                await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(milliseconds)} 啦...`)
+              }
+              else {
+                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${formatDuration(milliseconds)}`)
+                await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(milliseconds)} 啦...`)
+              }
             } catch (e) {
               dataService.logCommand(session, 'keyword-ban', session.userId, `失败`)
               await session.send('自动禁言失败了...可能是权限不够喵')
