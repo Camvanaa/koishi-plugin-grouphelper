@@ -7,18 +7,18 @@ import { GroupConfig } from '../types'
 export function registerAntiRecallCommands(ctx: Context, antiRecallService: AntiRecallService, dataService: DataService) {
 
   // 查询撤回消息命令
-  ctx.command('antirecall.recall <input:text>', '查询用户撤回消息记录', { authority: 3 })
+  ctx.command('antirecall <input:text>', '查询用户撤回消息记录', { authority: 3 })
     .alias('撤回查询')
     .usage('查询用户的撤回消息记录\n示例：\nrecall @用户\nrecall 123456789\nrecall @用户 5\nrecall 123456789 10 群号')
-    .example('recall @用户')
-    .example('recall 123456789')
-    .example('recall @用户 5')
-    .example('recall 123456789 10 群号')
+    .example('antirecall @用户')
+    .example('antirecall 123456789')
+    .example('antirecall @用户 5')
+    .example('antirecall 123456789 10 群号')
     .action(async ({ session }, input) => {
       try {
 
         if (!input) {
-          return '请指定要查询的用户\n用法：recall @用户 [数量] [群号]'
+          return '请指定要查询的用户\n用法：antirecall @用户 [数量] [群号]'
         }
 
         let args: string[]
@@ -112,55 +112,36 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
       }
     })
 
-  ctx.command('antirecall', '防撤回功能配置', { authority: 3 })
+  ctx.command('antirecall-config', '防撤回功能配置', { authority: 3 })
     .alias('防撤回配置')
-    .subcommand('.enable', '启用防撤回功能')
-    .action(async ({ session }) => {
+    .option('e', '-e <enabled:string> 启用防撤回功能')
+    .action(async ({ session, options }) => {
       /*if (!session.guildId) {
         return '此命令只能在群聊中使用'
       }*/
-
-      const groupConfigs = readData(dataService.groupConfigPath)
-      if (!groupConfigs[session.guildId]) {
-        groupConfigs[session.guildId] = {
-          keywords: [],
-          approvalKeywords: []
+     if(options.e)
+     {
+        const enabled = options.e.toString().toLowerCase()
+        if (enabled === 'true' || enabled === '1' || enabled === 'yes' || enabled === 'y' || enabled === 'on') {
+          const groupConfigs = readData(dataService.groupConfigPath)
+          groupConfigs[session.guildId] = groupConfigs[session.guildId] || {}
+          groupConfigs[session.guildId].antiRecall.enabled = true
+          saveData(dataService.groupConfigPath, groupConfigs)
+            dataService.logCommand(session, 'antirecall-config', session.guildId, '成功：已启用防撤回功能')
+            return '防撤回功能已启用喵~'
+        } else if (enabled === 'false' || enabled === '0' || enabled === 'no' || enabled === 'n' || enabled === 'off') {
+            const groupConfigs = readData(dataService.groupConfigPath)
+          groupConfigs[session.guildId] = groupConfigs[session.guildId] || {}
+          groupConfigs[session.guildId].antiRecall.enabled = false
+          saveData(dataService.groupConfigPath, groupConfigs)
+            dataService.logCommand(session, 'antirecall-config', session.guildId, '成功：已禁用防撤回功能')
+            return '防撤回功能已禁用喵~'
+        } else {
+            dataService.logCommand(session, 'antirecall-config', session.guildId, '失败：设置无效')
+            return '防撤回选项无效，请输入 true/false'
         }
-      }
+     }
 
-      if (!groupConfigs[session.guildId].antiRecall) {
-        groupConfigs[session.guildId].antiRecall = { enabled: true }
-      } else {
-        groupConfigs[session.guildId].antiRecall.enabled = true
-      }
-
-      saveData(dataService.groupConfigPath, groupConfigs)
-      return '已启用本群防撤回功能'
-    })
-
-  ctx.command('antirecall.disable', '禁用防撤回功能', { authority: 3 })
-    .action(async ({ session }) => {
-      /*if (!session.guildId) {
-        return '此命令只能在群聊中使用'
-      }*/
-
-      const groupConfigs = readData(dataService.groupConfigPath)
-      if (!groupConfigs[session.guildId]) {
-        groupConfigs[session.guildId] = {
-          keywords: [],
-          approvalKeywords: []
-        }
-      }
-
-      if (!groupConfigs[session.guildId].antiRecall) {
-        groupConfigs[session.guildId].antiRecall = { enabled: false }
-      } else {
-        groupConfigs[session.guildId].antiRecall.enabled = false
-      }
-
-      saveData(dataService.groupConfigPath, groupConfigs)
-      return '已禁用本群防撤回功能'
-    })
 
   ctx.command('antirecall.status', '查看防撤回功能状态', { authority: 3 })
     .action(async ({ session }) => {
