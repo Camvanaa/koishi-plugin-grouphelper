@@ -2,6 +2,7 @@
 import { Context } from 'koishi'
 import { DataService } from '../services'
 import { parseUserId, parseTimeString, formatDuration, readData, saveData } from '../utils'
+import { WarnRecord, BlacklistRecord, MuteRecord } from '../types'
 import { AntiRepeatConfig } from '../types'
 
 export function registerBasicCommands(ctx: Context, dataService: DataService) {
@@ -316,6 +317,79 @@ export function registerBasicCommands(ctx: Context, dataService: DataService) {
       }
     })
 
+  // 查询当前禁言名单
+  ctx.command('ban-list', '查询当前禁言名单', { authority: 3 })
+    .action(async ({ session }) => {
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+      const mutes = readData(dataService.mutesPath)
+      const currentMutes = mutes[session.guildId] || {}
+
+      const formatMutes = Object.entries(currentMutes)
+        .filter(([, data]) => !(data as MuteRecord).leftGroup && Date.now() - (data as MuteRecord).startTime < (data as MuteRecord).duration)
+        .map(([userId, data]: [string, MuteRecord]) => {
+          const remainingTime = data.duration - (Date.now() - data.startTime)
+          return `用户 ${userId}：剩余 ${formatDuration(remainingTime)}`
+        })
+        .join('\n')
+
+      if (formatMutes) {
+        return `当前禁言名单：\n${formatMutes}`
+      }
+      else {
+        return '当前没有被禁言的成员喵~'
+      }
+    })
+
+  // 随机解除若干人禁言
+  ctx.command('unban-random <count:number>', '随机解除若干人禁言', { authority: 3 })
+    .action(async ({ session }, count) => {
+      if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+      const mutes = readData(dataService.mutesPath)
+      const currentMutes = mutes[session.guildId] || {}
+      var banList = []
+
+      // 遍历，取 starttime+duration 大于当前时间的用户
+      for (const userId in currentMutes) {
+        const muteEndTime = currentMutes[userId].startTime + currentMutes[userId].duration
+        if (muteEndTime > Date.now()) {
+          banList.push(userId)
+        }
+      }
+
+      // 选取列表中 count 个随机用户
+      if (banList.length === 0) {
+        dataService.logCommand(session, 'unban-random', session.guildId, '失败：当前没有被禁言的成员')
+        return '当前没有被禁言的成员喵~'
+      }
+
+      // 选取列表中 count 个随机用户
+      const unbanList = getRandomElements(banList, count)
+
+      // 随机选取 count 个元素的辅助函数
+      function getRandomElements(arr: string[], n: number): string[] {
+        const result = []
+        const arrCopy = [...arr]
+        n = Math.min(n, arrCopy.length)
+        for (let i = 0; i < n; i++) {
+          const idx = Math.floor(Math.random() * arrCopy.length)
+          result.push(arrCopy[idx])
+          arrCopy.splice(idx, 1)
+        }
+        return result
+      }
+
+
+      for (const userId of unbanList) {
+        await session.bot.muteGuildMember(session.guildId, userId, 0)
+        currentMutes[userId].startTime = Date.now()
+        currentMutes[userId].duration = 0
+      }
+
+      mutes[session.guildId] = currentMutes
+      saveData(dataService.mutesPath, mutes)  
+      dataService.logCommand(session, 'unban-random', session.guildId, `成功：已随机解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}`)
+      return `已随机解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}`
+    })
 
   ctx.command('unban-allppl', '解除所有人禁言', { authority: 3 })
     .action(async ({ session }) => {
