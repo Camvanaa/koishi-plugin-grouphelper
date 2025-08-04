@@ -19,7 +19,7 @@ function setDefaultSimilarChars() {
 
 function normalizeCommand(command: string): string {
   // 移除所有类型的空白字符
-  command = command.replace(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, '')
+  command = command.replace(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u2060-\u206F\u205F\u3000\uFEFF]/g, '')
 
   // 移除所有标点符号
   command = command.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
