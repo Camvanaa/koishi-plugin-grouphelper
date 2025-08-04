@@ -344,6 +344,8 @@ export function registerBasicCommands(ctx: Context, dataService: DataService) {
   ctx.command('unban-random <count:number>', '随机解除若干人禁言', { authority: 3 })
     .action(async ({ session }, count) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+      // count 默认为1
+      count = count || 1
       const mutes = readData(dataService.mutesPath)
       const currentMutes = mutes[session.guildId] || {}
       var banList = []
