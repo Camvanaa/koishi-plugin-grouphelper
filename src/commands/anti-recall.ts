@@ -87,6 +87,7 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
         const records = antiRecallService.getUserRecallRecords(targetGuildId, userId, count)
 
         if (records.length === 0) {
+          dataService.logCommand(session, 'antirecall', userId, `成功：查询到 ${targetGuildId} 无记录`)
           return `用户 ${userId} 在群 ${targetGuildId} 暂无撤回记录`
         }
 
@@ -103,11 +104,12 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
           message += `   撤回时间: ${recallTime}\n`
           message += `   内容: ${record.content}\n\n`
         })
-
+        dataService.logCommand(session, 'antirecall', userId, `成功：查询到 ${targetGuildId} 撤回记录数 ${records.length}`)
         return message.trim()
 
       } catch (error) {
         console.error('查询撤回记录失败:', error)
+        dataService.logCommand(session, 'antirecall', input, `失败: 未知错误`)
         return `查询撤回记录失败: ${error.message}`
       }
     })
@@ -140,7 +142,7 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
             dataService.logCommand(session, 'antirecall-config', session.guildId, '失败：设置无效')
             return '防撤回选项无效，请输入 true/false'
         }
-     }
+     }})
 
 
   ctx.command('antirecall.status', '查看防撤回功能状态', { authority: 3 })
@@ -177,13 +179,14 @@ export function registerAntiRecallCommands(ctx: Context, antiRecallService: Anti
       message += `配置信息:\n`
       message += `保存天数: ${ctx.config.antiRecall?.retentionDays || 7} 天\n`
       message += `每用户最大记录: ${ctx.config.antiRecall?.maxRecordsPerUser || 50} 条\n`
-
+      dataService.logCommand(session, 'antirecall.status', session.guildId, `成功：查询防撤回状态`)
       return message
     })
 
   ctx.command('antirecall.clear', '清理所有撤回记录', { authority: 3 })
     .action(async () => {
       antiRecallService.clearAllRecords()
+      dataService.logCommand(null, 'antirecall.clear', '', '成功：清理所有撤回记录')
       return '已清理所有撤回记录'
     })
 }
