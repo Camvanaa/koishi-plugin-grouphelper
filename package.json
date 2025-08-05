@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-grouphelper",
   "description": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)",
-  "version": "0.2.15.2",
+  "version": "0.2.16",
   "main": "lib/index.js",
   "contributors": [
     "camvan <3499880997@qq.com>",
