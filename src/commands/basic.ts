@@ -165,7 +165,10 @@ export function registerBasicCommands(ctx: Context, dataService: DataService) {
       const userId = String(user).split(':')[1]
       // 从 mutes 中读取剩余禁言时长
       const mutes = readData(dataService.mutesPath)
-      const lastMute = mutes[session.guildId][userId]
+      const lastMute = mutes[session.guildId][userId] || {
+        startTime: 0,
+        duration: 0
+      }
       if (lastMute.startTime + lastMute.duration > Date.now()) {
         dataService.logCommand(session, 'stop', userId, '失败：已在禁言中')
         return `喵呜...${userId} 已经处于禁言状态啦，不需要短期禁言喵~`
