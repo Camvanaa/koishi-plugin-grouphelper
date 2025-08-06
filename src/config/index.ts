@@ -21,14 +21,16 @@ export const ConfigSchema: Schema<Config> = Schema.object({
     expression: Schema.string().default('{t}^2h')
       .description('警告禁言时长表达式，{t}代表警告次数。例：{t}^2h 表示警告次数的平方小时')
   }).description('自动禁言时长设置'),
-  keywordBan: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否启用关键词自动禁言'),
+  forbidden: Schema.object({
+    autoDelete: Schema.boolean().default(false)
+      .description('是否自动撤回包含禁言关键词的消息'),
+    autoBan: Schema.boolean().default(false)
+      .description('是否自动禁言包含禁言关键词的消息的发送者'),
+    muteDuration: Schema.number().default(600000)
+      .description('自动禁言时长，单位毫秒'),
     keywords: Schema.array(Schema.string()).default([])
-      .description('触发禁言的关键词列表'),
-    duration: Schema.string().default('10min')
-      .description('关键词触发的禁言时长(格式：数字+单位[s/min/h])')
-  }).description('关键词禁言设置'),
+      .description('禁言关键词列表')
+  }).description('禁言关键词设置'),
   dice: Schema.object({
     enabled: Schema.boolean().default(true)
       .description('是否启用掷骰子功能'),

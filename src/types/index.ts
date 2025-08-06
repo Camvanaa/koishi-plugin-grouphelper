@@ -1,5 +1,6 @@
 
 import { Context } from 'koishi'
+import { deprecate } from 'util'
 
 
 declare module 'koishi' {
@@ -9,10 +10,11 @@ declare module 'koishi' {
     banTimes: {
       expression: string
     }
-    keywordBan: {
-      enabled: boolean
+    forbidden: {
+      autoDelete: boolean
+      autoBan: boolean
+      muteDuration: number
       keywords: string[]
-      duration: string
     }
     defaultWelcome: string
     banme: {
@@ -80,10 +82,11 @@ export interface Config {
   banTimes: {
     expression: string
   }
-  keywordBan: {
-    enabled: boolean
+  forbidden: {
+    autoDelete: boolean
+    autoBan: boolean
+    muteDuration: number
     keywords: string[]
-    duration: string
   }
   defaultWelcome?: string
   banme: {
@@ -144,7 +147,12 @@ export interface Config {
 
 export interface GroupConfig {
   keywords: string[]
-  approvalKeywords: string[]
+  approvalKeywords?: string[]
+  forbidden: {
+    autoDelete: boolean
+    autoBan: boolean
+    muteDuration: number
+  }
   welcomeMsg?: string
   banme?: BanMeConfig
   openai?: {

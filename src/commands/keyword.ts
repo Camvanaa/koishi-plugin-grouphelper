@@ -1,7 +1,8 @@
-import { Context } from 'koishi'
+import { Context, Schema } from 'koishi'
 import { DataService } from '../services'
 import { readData, parseTimeString, formatDuration } from '../utils'
 import { saveData } from '../utils'
+import { group } from 'console'
 
 export function registerKeywordCommands(ctx: Context, dataService: DataService) {
   ctx.command('verify', '入群验证关键词管理', { authority: 3 })
@@ -100,19 +101,17 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
     .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')
     .option('clear', '--clear 清除所有关键词')
     .option('l', '-l 列出关键词')
-    .option('d', '-d {true|false} 设置是否自动撤回包含关键词的消息')
-    .option('b', '-b {true|false} 设置是否自动禁言')
+    .option('d', '-d <value:string> 设置是否自动撤回包含关键词的消息')
+    .option('b', '-b <value:string> 设置是否自动禁言')
     .option('t', '-t <时长> 设置自动禁言时长')
     .action(async ({ session, options }) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
       const groupConfigs = readData(dataService.groupConfigPath)
-      groupConfigs[session.guildId] = groupConfigs[session.guildId] || {
-        keywords: [],
-        approvalKeywords: [],
-        auto: 'false',
-        reject: '答案错误，请重新申请',
-        autoDelete: false
+      groupConfigs[session.guildId] = groupConfigs[session.guildId]
+
+      if (!groupConfigs[session.guildId].forbidden) {
+        groupConfigs[session.guildId].forbidden = ctx.config.forbidden
       }
 
       if (!Array.isArray(groupConfigs[session.guildId].keywords)) {
@@ -124,7 +123,12 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
 
       if (options.l) {
         const keywords = groupConfigs[session.guildId].keywords
-        return `当前群禁言关键词：\n${keywords.join('、') || '无'}\n自动撤回状态：${groupConfigs[session.guildId].autoDelete}`
+        const autoDelete = groupConfigs[session.guildId].forbidden.autoDelete === undefined ? ctx.config.forbidden.autoDelete : groupConfigs[session.guildId].forbidden.autoDelete
+        const autoBan = groupConfigs[session.guildId].forbidden.autoBan === undefined ? ctx.config.forbidden.autoBan : groupConfigs[session.guildId].forbidden.autoBan
+        return `当前群禁言关键词：\n${keywords.join('、') || '无'}
+自动撤回状态：${autoDelete ? '开启' : '关闭'}
+自动禁言状态：${autoBan ? '开启' : '关闭'}
+自动禁言时长：${formatDuration(groupConfigs[session.guildId].forbidden.muteDuration || ctx.config.forbidden.muteDuration || 600000)}`
       }
 
       if (options.a) {
@@ -164,38 +168,38 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
       }
 
       if (options.d !== undefined) {
-        const value = String(options.d).toLowerCase()
+        const value = options.d.toString().toLowerCase()
         if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
-          groupConfigs[session.guildId].autoDelete = true
+          groupConfigs[session.guildId].forbidden.autoDelete = true
         } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
-          groupConfigs[session.guildId].autoDelete = false
+          groupConfigs[session.guildId].forbidden.autoDelete = false
         } else {
-          return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
+          return '无效的值，请使用 true/false'
         }
         saveData(dataService.groupConfigPath, groupConfigs)
-        dataService.logCommand(session, 'forbidden', 'recall', `成功：已设置自动撤回：${groupConfigs[session.guildId].autoDelete}`)
-        return `自动撤回状态更新为${groupConfigs[session.guildId].autoDelete}`
+        dataService.logCommand(session, 'forbidden', 'recall', `成功：已设置自动撤回：${groupConfigs[session.guildId].forbidden.autoDelete}`)
+        return `自动撤回状态更新为${groupConfigs[session.guildId].forbidden.autoDelete}`
       }
 
       if (options.b !== undefined) {
-        const value = String(options.b).toLowerCase()
+        const value = options.b.toString().toLowerCase()
         if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
-          ctx.config.keywordBan.enabled = true
+          groupConfigs[session.guildId].forbidden.autoBan = true
         } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
-          ctx.config.keywordBan.enabled = false
+          groupConfigs[session.guildId].forbidden.autoBan = false
         } else {
-          return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
+          return '无效的值，请使用 true/false'
         }
         saveData(dataService.groupConfigPath, groupConfigs)
-        dataService.logCommand(session, 'forbidden', 'ban', `成功：已设置自动禁言：${groupConfigs[session.guildId].autoBan}`)
-        return `自动禁言状态更新为${ctx.config.keywordBan.enabled}`
+        dataService.logCommand(session, 'forbidden', 'ban', `成功：已设置自动禁言：${groupConfigs[session.guildId].forbidden.autoBan}`)
+        return `自动禁言状态更新为${groupConfigs[session.guildId].forbidden.autoBan}`
       }
 
       if (options.t) {
         const duration = options.t
         try {
           const milliseconds = parseTimeString(duration)
-          groupConfigs[session.guildId].muteDuration = milliseconds
+          groupConfigs[session.guildId].forbidden.muteDuration = milliseconds
           saveData(dataService.groupConfigPath, groupConfigs)
           dataService.logCommand(session, 'forbidden', 'set', `成功：已设置禁言时间：${duration}`)
           return `禁言时间已更新为：${duration} 喵喵喵~`
@@ -204,7 +208,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         }
       }
 
-      return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
+      return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
     })
 }
 
@@ -220,46 +224,51 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
     if (!content) return next()
 
     const groupConfigs = readData(dataService.groupConfigPath)
-    const groupConfig = groupConfigs[session.guildId] || {
-      keywords: [],
-      autoDelete: false
+    const groupConfig = groupConfigs[session.guildId] || {}
+
+    if (!groupConfig.keywords) {
+      groupConfig.keywords = ctx.config.forbidden.keywords || []
+    }
+    if (!groupConfig.forbidden) {
+      groupConfig.forbidden = ctx.config.forbidden
     }
 
     if (!Array.isArray(groupConfig.keywords)) {
       groupConfig.keywords = []
     }
 
-    if (ctx.config.keywordBan.enabled) {
-      const keywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]
+    if (groupConfig.forbidden.autoBan===undefined ? ctx.config.forbidden.autoBan : groupConfig.forbidden.autoBan) {
+      const keywords = [...ctx.config.forbidden.keywords, ...groupConfig.keywords]
 
       for (const keyword of keywords) {
         try {
           const regex = new RegExp(keyword)
           if (regex.test(content)) {
-            var duration = ctx.config.keywordBan.duration
-            var milliseconds = parseTimeString(duration)
-
+            var duration = groupConfig.forbidden.muteDuration || ctx.config.forbidden.muteDuration || 600000 // 默认600秒
             try {
               // 查询用户剩余禁言时间，如果更长的话，则覆盖
               const mutes = readData(dataService.mutesPath)
-              const lastMute = mutes[session.guildId][session.userId]
+              const lastMute = mutes[session.guildId][session.userId] || {
+                startTime: 0,
+                duration: 0
+              }
               var covered=false
-              console.log(`${lastMute.startTime+lastMute.duration} , ${Date.now()+milliseconds}`)
-              if(lastMute && lastMute.startTime+lastMute.duration > Date.now()+milliseconds) {
-                milliseconds = lastMute.startTime+lastMute.duration - Date.now()
+              console.log(`${lastMute.startTime+lastMute.duration} , ${Date.now()+duration}`)
+              if(lastMute && lastMute.startTime+lastMute.duration > Date.now()+duration) {
+                duration = lastMute.startTime+lastMute.duration - Date.now()
                 covered = true
               }
-              
-              await session.bot.muteGuildMember(session.guildId, session.userId, milliseconds)
 
-              dataService.recordMute(session.guildId, session.userId, milliseconds)
+              await session.bot.muteGuildMember(session.guildId, session.userId, duration)
+
+              dataService.recordMute(session.guildId, session.userId, duration)
               if(covered){
-                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(milliseconds)}`)
-                await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(milliseconds)} 啦...`)
+                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(duration)}`)
+                await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(duration)} 啦...`)
               }
               else {
-                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${formatDuration(milliseconds)}`)
-                await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(milliseconds)} 啦...`)
+                dataService.logCommand(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${formatDuration(duration)}`)
+                await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(duration)} 啦...`)
               }
             } catch (e) {
               dataService.logCommand(session, 'keyword-ban', session.userId, `失败`)
@@ -287,11 +296,11 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
       }
     }
 
-    if (groupConfig.autoDelete) {
+    if (groupConfig.forbidden.autoDelete===undefined ? ctx.config.forbidden.autoDelete : groupConfig.forbidden.autoDelete) {
       if (!Array.isArray(groupConfig.keywords)) {
         groupConfig.keywords = []
       }
-      const deleteKeywords = [...ctx.config.keywordBan.keywords, ...groupConfig.keywords]
+      const deleteKeywords = [...ctx.config.forbidden.keywords, ...groupConfig.keywords || []]
       for (const keyword of deleteKeywords) {
         try {
           const regex = new RegExp(keyword)
