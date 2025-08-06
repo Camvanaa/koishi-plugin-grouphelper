@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { Context, Session } from 'koishi'
 import { DataService } from './data.service'
-import { RecalledMessage, RecallRecord, GroupConfig } from '../types'
+import { RecalledMessage, RecallRecord, GroupConfig, Config } from '../types'
 import { readData, saveData } from '../utils'
 
 interface CachedMessage {
@@ -27,45 +27,22 @@ export class AntiRecallService {
     if (!fs.existsSync(this.recallRecordsPath)) {
       this.saveRecallRecords({})
     }
-    
     this.scheduleCleanup()
-  }
-
-  private readRecallRecords(): RecallRecord {
-    try {
-      const content = fs.readFileSync(this.recallRecordsPath, 'utf-8')
-      return JSON.parse(content) || {}
-    } catch (e) {
-      console.error('读取撤回记录失败:', e)
-      return {}
-    }
-  }
-
-  private saveRecallRecords(records: RecallRecord) {
-    try {
-      fs.writeFileSync(this.recallRecordsPath, JSON.stringify(records, null, 2), 'utf-8')
-    } catch (e) {
-      console.error('保存撤回记录失败:', e)
-    }
   }
 
   private registerEventListeners() {
     this.ctx.on('message', (session) => {
-      if (!this.isAntiRecallEnabled(session.guildId)) return
+      if (!this.getGuildConfig(session.guildId).enabled) return
 
       if (session.messageId && session.content) {
-        const cachedMessage: CachedMessage = {
+        this.messageCache.set(session.messageId, {
           content: session.content,
           userId: session.userId,
           username: session.author?.name || session.author?.nick || `用户${session.userId}`,
           timestamp: Date.now()
-        }
+        })
 
-        this.messageCache.set(session.messageId, cachedMessage)
-
-        setTimeout(() => {
-          this.messageCache.delete(session.messageId)
-        }, this.CACHE_EXPIRATION_MS)
+        setTimeout(() => this.messageCache.delete(session.messageId), this.CACHE_EXPIRATION_MS)
       }
     })
 
@@ -74,205 +51,175 @@ export class AntiRecallService {
     })
   }
 
-  private isAntiRecallEnabled(guildId?: string): boolean {
-    if (!guildId) {
-      return this.ctx.config.antiRecall?.enabled || false
-    }
-
-    const groupConfigs = readData(this.dataService.groupConfigPath)
-    const groupConfig: GroupConfig = groupConfigs[guildId]
-
-    if (groupConfig?.antiRecall !== undefined) {
-      return groupConfig.antiRecall.enabled
-    }
-
-    return this.ctx.config.antiRecall?.enabled || false
-  }
-
   private async handleMessageRecall(session: Session) {
-    try {
-      if (session.userId === session.selfId) {
-        return
-      }
+    if (session.userId === session.selfId) return
+    if (!session.guildId || !this.getGuildConfig(session.guildId).enabled) return
 
-      if (!session.guildId || !this.isAntiRecallEnabled(session.guildId)) return
+    const messageId = session.messageId
+    const cachedMessage = this.messageCache.get(messageId)
 
-      const messageId = session.messageId
+    let content: string, username: string, originalTimestamp: number
 
-      const cachedMessage = this.messageCache.get(messageId)
-
-      let content: string
-      let username: string
-      let originalTimestamp: number
-
-      if (cachedMessage) {
-        content = cachedMessage.content
-        username = cachedMessage.username
-        originalTimestamp = cachedMessage.timestamp
-        this.messageCache.delete(messageId)
-      } else if (session.content) {
-        content = session.content
-        username = session.author?.name || session.author?.nick || `用户${session.userId}` || 'Unknown'
-        originalTimestamp = Date.now()
-      } else {
-        content = '[无法获取消息内容 - 消息发送时间过久或在机器人离线/重启期间发送]'
-        username = session.author?.name || session.author?.nick || `用户${session.userId}` || 'Unknown'
-        originalTimestamp = Date.now()
-      }
-
-      const recalledMessage: RecalledMessage = {
-        id: `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-        messageId: messageId,
-        userId: session.userId || 'unknown',
-        username: username,
-        guildId: session.guildId,
-        channelId: session.channelId,
-        content: content,
-        timestamp: originalTimestamp,
-        recallTime: Date.now(),
-        elements: session.elements || []
-      }
-
-      this.saveRecalledMessage(recalledMessage)
-
-      await this.sendRecallNotification(session, recalledMessage)
-
-    } catch (e) {
-      console.error('处理消息撤回失败:', e)
-    }
-  }
-
-  private saveRecalledMessage(recalledMessage: RecalledMessage) {
-    const records = this.readRecallRecords()
-    
-    if (!records[recalledMessage.guildId]) {
-      records[recalledMessage.guildId] = {}
-    }
-    
-    if (!records[recalledMessage.guildId][recalledMessage.userId]) {
-      records[recalledMessage.guildId][recalledMessage.userId] = []
+    if (cachedMessage) {
+      content = cachedMessage.content;
+      username = cachedMessage.username;
+      originalTimestamp = cachedMessage.timestamp; 
+      
+      this.messageCache.delete(messageId)
+    } else {
+      content = '[无法获取消息内容 - 消息发送时间过久或在机器人离线/重启期间发送]'
+      username = session.author?.name || session.author?.nick || `用户${session.userId}` || 'Unknown'
+      originalTimestamp = Date.now()
     }
 
-    records[recalledMessage.guildId][recalledMessage.userId].unshift(recalledMessage)
-
-    const maxRecords = this.ctx.config.antiRecall.maxRecordsPerUser || 50
-    if (records[recalledMessage.guildId][recalledMessage.userId].length > maxRecords) {
-      records[recalledMessage.guildId][recalledMessage.userId] = 
-        records[recalledMessage.guildId][recalledMessage.userId].slice(0, maxRecords)
+    const recalledMessage: RecalledMessage = {
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      messageId,
+      userId: session.userId || 'unknown',
+      username,
+      guildId: session.guildId,
+      channelId: session.channelId,
+      content,
+      timestamp: originalTimestamp,
+      recallTime: Date.now(),
+      elements: session.elements || []
     }
 
-    this.saveRecallRecords(records)
+    this.saveRecalledMessage(recalledMessage)
+    await this.sendRecallNotification(session, recalledMessage)
   }
 
   private async sendRecallNotification(session: Session, recalledMessage: RecalledMessage) {
     try {
-      const showTime = this.ctx.config.antiRecall.showOriginalTime
-      const timeStr = showTime ? new Date(recalledMessage.timestamp).toLocaleString('zh-CN') : ''
+      const config = this.getGuildConfig(session.guildId)
+
+      const timeStr = config.showOriginalTime ? new Date(recalledMessage.timestamp).toLocaleString('zh-CN') : ''
       
       let notification = `检测到撤回消息\n`
       notification += `用户: ${recalledMessage.username}(${recalledMessage.userId})\n`
-      if (showTime) {
+      if (timeStr) {
         notification += `发送时间: ${timeStr}\n`
       }
       notification += `内容: ${recalledMessage.content}`
 
       await this.dataService.pushMessage(session.bot, notification, 'antiRecall')
     } catch (e) {
-      console.error('发送撤回通知失败:', e)
+      this.ctx.logger('anti-recall').error('发送撤回通知失败:', e)
     }
   }
-
-  /**
-   * 检查指定群组是否启用防撤回功能（公共方法）
-   */
-  isEnabledForGuild(guildId: string): boolean {
-    return this.isAntiRecallEnabled(guildId)
+  
+  private readRecallRecords(): RecallRecord {
+    return readData(this.recallRecordsPath) || {}
   }
 
-  /**
-   * 获取用户的撤回记录
-   */
-  getUserRecallRecords(guildId: string, userId: string, limit: number = 10): RecalledMessage[] {
+  private saveRecallRecords(records: RecallRecord) {
+    saveData(this.recallRecordsPath, records)
+  }
+
+  private saveRecalledMessage(recalledMessage: RecalledMessage) {
     const records = this.readRecallRecords()
-    const userRecords = records[guildId]?.[userId] || []
-    return userRecords.slice(0, limit)
-  }
+    const { guildId, userId } = recalledMessage
+    const config = this.getGuildConfig(guildId)
 
-  /**
-   * 清理过期记录
-   */
-  private scheduleCleanup() {
-    setInterval(() => {
-      this.cleanExpiredRecords()
-    }, 24 * 60 * 60 * 1000)
+    if (!records[guildId]) records[guildId] = {}
+    if (!records[guildId][userId]) records[guildId][userId] = []
 
-    this.cleanExpiredRecords()
-  }
+    records[guildId][userId].unshift(recalledMessage)
 
-  private cleanExpiredRecords() {
-    try {
-      const records = this.readRecallRecords()
-      const retentionDays = this.ctx.config.antiRecall.retentionDays || 7
-      const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000)
-      
-      let hasChanges = false
-
-      Object.keys(records).forEach(guildId => {
-        Object.keys(records[guildId]).forEach(userId => {
-          const originalLength = records[guildId][userId].length
-          records[guildId][userId] = records[guildId][userId].filter(
-            record => record.recallTime > cutoffTime
-          )
-          
-          if (records[guildId][userId].length !== originalLength) {
-            hasChanges = true
-          }
-
-          if (records[guildId][userId].length === 0) {
-            delete records[guildId][userId]
-          }
-        })
-
-        if (Object.keys(records[guildId]).length === 0) {
-          delete records[guildId]
-        }
-      })
-
-      if (hasChanges) {
-        this.saveRecallRecords(records)
-        console.log('已清理过期的撤回记录')
-      }
-    } catch (e) {
-      console.error('清理过期撤回记录失败:', e)
+    const maxRecords = config.maxRecordsPerUser
+    if (records[guildId][userId].length > maxRecords) {
+      records[guildId][userId] = records[guildId][userId].slice(0, maxRecords)
     }
+
+    this.saveRecallRecords(records)
   }
 
-  /**
-   * 清除所有撤回记录
-   */
-  clearAllRecords() {
-    this.saveRecallRecords({})
-    this.messageCache.clear()
+  public getGuildConfig(guildId?: string): Config['antiRecall'] {
+    const globalConfig = this.ctx.config.antiRecall || {}
+    if (!guildId) return globalConfig as Config['antiRecall']
+
+    const groupConfigs = readData(this.dataService.groupConfigPath) as { [key: string]: GroupConfig }
+    const groupConfig = groupConfigs[guildId]?.antiRecall || {}
+
+    return { ...globalConfig, ...groupConfig } as Config['antiRecall']
   }
 
-  /**
-   * 获取统计信息
-   */
-  getStatistics(): { totalRecords: number, totalUsers: number, totalGuilds: number } {
+  public setGuildEnabled(guildId: string, enabled: boolean) {
+    const groupConfigs = readData(this.dataService.groupConfigPath) as { [key: string]: GroupConfig }
+    if (!groupConfigs[guildId]) groupConfigs[guildId] = {} as GroupConfig
+    if (!groupConfigs[guildId].antiRecall) groupConfigs[guildId].antiRecall = { enabled: false }
+    
+    groupConfigs[guildId].antiRecall.enabled = enabled
+    saveData(this.dataService.groupConfigPath, groupConfigs)
+  }
+  
+  public isEnabledForGuild(guildId: string): boolean {
+    return this.getGuildConfig(guildId).enabled
+  }
+
+  public getUserRecallRecords(guildId: string, userId: string, limit: number = 10): RecalledMessage[] {
     const records = this.readRecallRecords()
-    let totalRecords = 0
-    let totalUsers = 0
+    return (records[guildId]?.[userId] || []).slice(0, limit)
+  }
+
+  public getStatus(guildId: string) {
+    const records = this.readRecallRecords()
+    let totalRecords = 0, totalUsers = 0
     const totalGuilds = Object.keys(records).length
 
     Object.values(records).forEach(guildRecords => {
       const users = Object.keys(guildRecords)
       totalUsers += users.length
-      users.forEach(userId => {
-        totalRecords += guildRecords[userId].length
-      })
+      users.forEach(userId => totalRecords += guildRecords[userId].length)
     })
 
-    return { totalRecords, totalUsers, totalGuilds }
+    const effectiveConfig = this.getGuildConfig(guildId)
+    const globalEnabled = this.ctx.config.antiRecall?.enabled || false
+    const groupConfigs = readData(this.dataService.groupConfigPath) as { [key: string]: GroupConfig }
+    const groupSpecificEnabled = groupConfigs[guildId]?.antiRecall?.enabled
+
+    return {
+      globalEnabled,
+      groupSpecificEnabled,
+      effectiveConfig,
+      statistics: { totalRecords, totalUsers, totalGuilds }
+    }
+  }
+
+  public clearAllRecords() {
+    this.saveRecallRecords({})
+    this.messageCache.clear()
+  }
+
+  private scheduleCleanup() {
+    this.cleanExpiredRecords()
+    setInterval(() => this.cleanExpiredRecords(), 24 * 60 * 60 * 1000)
+  }
+
+  private cleanExpiredRecords() {
+    try {
+      const records = this.readRecallRecords()
+      const globalRetentionDays = this.ctx.config.antiRecall?.retentionDays || 7
+      const cutoffTime = Date.now() - (globalRetentionDays * 24 * 60 * 60 * 1000)
+      let hasChanges = false
+
+      for (const guildId in records) {
+        for (const userId in records[guildId]) {
+          const originalLength = records[guildId][userId].length
+          records[guildId][userId] = records[guildId][userId].filter(r => r.recallTime > cutoffTime)
+          if (records[guildId][userId].length !== originalLength) hasChanges = true
+          if (records[guildId][userId].length === 0) delete records[guildId][userId]
+        }
+        if (Object.keys(records[guildId]).length === 0) delete records[guildId]
+      }
+
+      if (hasChanges) {
+        this.saveRecallRecords(records)
+        this.ctx.logger('anti-recall').info('已清理过期的撤回记录')
+      }
+    } catch (e) {
+      this.ctx.logger('anti-recall').error('清理过期撤回记录失败:', e)
+    }
   }
 
   dispose() {
