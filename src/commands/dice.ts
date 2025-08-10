@@ -100,7 +100,7 @@ export function registerDiceCommands(ctx: Context, dataService: DataService) {
             return next();
         }
 
-        const diceRegex = /(\d*)d(\d+)/i;
+        const diceRegex = /^(\d*)d(\d+)$/i;
         const match = diceRegex.exec(session.content.trim());
 
         if (!match) return next();
