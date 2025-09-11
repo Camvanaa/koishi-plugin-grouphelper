@@ -97,6 +97,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
     .option('l', '-l 列出关键词')
     .option('d', '-d <value:string> 设置是否自动撤回包含关键词的消息')
     .option('b', '-b <value:string> 设置是否自动禁言')
+    .option('k', '-k <value:string> 设置是否自动踢出')
     .option('t', '-t <时长> 设置自动禁言时长')
     .action(async ({ session, options }) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
@@ -113,6 +114,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
 当前群禁言关键词：\n${keywords.join('、') || '无'}
 自动撤回状态：${forbiddenConfig.autoDelete ? '开启' : '关闭'}
 自动禁言状态：${forbiddenConfig.autoBan ? '开启' : '关闭'}
+自动踢出状态：${forbiddenConfig.autoKick ? '开启' : '关闭'}
 自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}`
       }
 
@@ -193,6 +195,23 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         return `自动禁言状态更新为${state}`
       }
 
+      if (options.k !== undefined) {
+        const value = options.k.toString().toLowerCase()
+        let state: boolean
+        if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
+          state = true
+        } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
+          state = false
+        } else {
+          return '无效的值，请使用 true/false'
+        }
+        ensureForbiddenExists()
+        groupConfig.forbidden.autoKick = state
+        saveData(dataService.groupConfigPath, groupConfigs)
+        dataService.logCommand(session, 'forbidden', 'kick', `成功：已设置自动踢出：${state}`)
+        return `自动踢出状态更新为${state}`
+      }
+
       if (options.t) {
         const duration = options.t
         try {
@@ -207,7 +226,7 @@ export function registerKeywordCommands(ctx: Context, dataService: DataService) 
         }
       }
 
-      return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
+      return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
     })
 }
 
@@ -238,6 +257,18 @@ export function registerKeywordMiddleware(ctx: Context, dataService: DataService
         try {
           const regex = new RegExp(keyword, 'i')
           if (regex.test(content)) {
+            if (forbiddenConfig.autoKick) {
+              try {
+                await session.bot.kickGuildMember(session.guildId, session.userId)
+                dataService.logCommand(session, 'keyword-kick', session.userId, `成功：关键词匹配，已踢出群聊`)
+                await session.send(`喵呜！发现了关键词，${session.username} 已被踢出群聊...`)
+                return
+              } catch (e) {
+                dataService.logCommand(session, 'keyword-kick', session.userId, `失败`)
+                await session.send('自动踢出失败了...可能是权限不够喵')
+              }
+            }
+
             let duration = forbiddenConfig.muteDuration
             try {
               const mutes = readData(dataService.mutesPath)

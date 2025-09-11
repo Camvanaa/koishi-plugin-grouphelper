@@ -26,6 +26,8 @@ export const ConfigSchema: Schema<Config> = Schema.object({
       .description('是否自动撤回包含禁言关键词的消息'),
     autoBan: Schema.boolean().default(false)
       .description('是否自动禁言包含禁言关键词的消息的发送者'),
+    autoKick: Schema.boolean().default(false)
+      .description('是否自动踢出包含禁言关键词的消息的发送者'),
     muteDuration: Schema.number().default(600000)
       .description('自动禁言时长，单位毫秒'),
     keywords: Schema.array(Schema.string()).default([])

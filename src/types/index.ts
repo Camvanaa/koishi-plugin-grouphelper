@@ -13,6 +13,7 @@ declare module 'koishi' {
     forbidden: {
       autoDelete: boolean
       autoBan: boolean
+      autoKick: boolean
       muteDuration: number
       keywords: string[]
     }
@@ -85,6 +86,7 @@ export interface Config {
   forbidden: {
     autoDelete: boolean
     autoBan: boolean
+    autoKick: boolean
     muteDuration: number
     keywords: string[]
   }
@@ -151,6 +153,7 @@ export interface GroupConfig {
   forbidden: {
     autoDelete: boolean
     autoBan: boolean
+    autoKick: boolean
     muteDuration: number
   }
   welcomeMsg?: string
