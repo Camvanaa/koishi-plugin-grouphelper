@@ -28,7 +28,8 @@ import {
   registerReportCommands,
   registerCommandLogCommands,
   registerAntiRecallCommands,
-  registerDiceCommands
+  registerDiceCommands,
+  registerGetAuthCommand
 } from './commands'
 
 
@@ -68,6 +69,7 @@ export function apply(ctx: Context) {
   registerCommandLogCommands(ctx, commandLogService)
   registerAntiRecallCommands(ctx, antiRecallService, dataService)
   registerDiceCommands(ctx, dataService)
+  registerGetAuthCommand(ctx, dataService)
 
 
   registerEventListeners(ctx, dataService)
