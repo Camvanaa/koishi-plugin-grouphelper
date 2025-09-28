@@ -4,9 +4,9 @@ import { readData, saveData } from '../utils'
 
 export function registerDiceCommands(ctx: Context, dataService: DataService) {
     // dice 功能开关
-    ctx.command('dice-config', '掷骰子功能开关', { authority: 3 })
-    .option('e', '-e <enabled:string> 启用或禁用掷骰子功能')
-    .option('l', '-l <length:number> 设置掷骰子结果长度限制')
+    ctx.command('config.dice', '掷骰子功能开关', { authority: 3 })
+    .option('enable', '-e <enabled:string> 启用或禁用掷骰子功能')
+    .option('length', '-l <length:number> 设置掷骰子结果长度限制')
         .action(async ({ session, options }) => {
         if (!session.guildId) return '此命令只能在群聊中使用。';
 
@@ -15,9 +15,9 @@ export function registerDiceCommands(ctx: Context, dataService: DataService) {
         const diceConfig = groupConfigs[session.guildId].dice || { ...(ctx.config.dice || {}) }
         groupConfigs[session.guildId].dice = diceConfig
 
-        if (options.e !== undefined)
+        if (options.enable !== undefined)
         {
-            const enabled = options.e.toString().toLowerCase()
+            const enabled = options.enable.toString().toLowerCase()
             if (['true', '1', 'yes', 'y', 'on'].includes(enabled)) {
                 diceConfig.enabled = true
                 saveData(dataService.groupConfigPath, groupConfigs)
@@ -33,9 +33,9 @@ export function registerDiceCommands(ctx: Context, dataService: DataService) {
                 return '掷骰子选项无效，请输入 true/false'
             }
         }
-        else if (options.l !== undefined)
+        else if (options.length !== undefined)
         {
-            const length = Number(options.l)
+            const length = Number(options.length)
             if (isNaN(length) || length < 1) return '长度限制必须是大于0的数字。'
             
             diceConfig.lengthLimit = length

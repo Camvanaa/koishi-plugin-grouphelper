@@ -362,8 +362,8 @@ export function registerBanmeCommands(ctx: Context, dataService: DataService) {
       return '已记录字符串映射喵~\n'+'原字符串：' + quotedMessage + '\n' + '对应的标准串：' + standardCommand
     })
 
-  ctx.command('banme-config', '设置banme配置', { authority: 3 })
-    .option('enabled', '--enabled <enabled:boolean> 是否启用')
+  ctx.command('config.banme', '设置banme配置', { authority: 3 })
+    .option('enable', '-e <enabled:boolean> 是否启用')
     .option('baseMin', '--baseMin <seconds:number> 最小禁言时间(秒)')
     .option('baseMax', '--baseMax <minutes:number> 最大禁言时间(分)')
     .option('rate', '--rate <rate:number> 增长率')
@@ -391,9 +391,9 @@ export function registerBanmeCommands(ctx: Context, dataService: DataService) {
       banmeConfig.jackpot = banmeConfig.jackpot || { ...ctx.config.banme.jackpot }
 
 
-      if (options.enabled !== undefined)
+      if (options.enable !== undefined)
       {
-        const enabled = options.enabled.toString().toLowerCase()
+        const enabled = options.enable.toString().toLowerCase()
         if (enabled === 'true' || enabled === '1' || enabled === 'yes' || enabled === 'y' || enabled === 'on') {
           banmeConfig.enabled = true
         } else if (enabled === 'false' || enabled === '0' || enabled === 'no' || enabled === 'n' || enabled === 'off') {
