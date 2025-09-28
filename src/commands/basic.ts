@@ -89,7 +89,12 @@ export function registerBasicCommands(ctx: Context, dataService: DataService) {
     .example('ban 123456789 1h')
     .example('ban @用户 1h 群号')
     .action(async ({ session }, input) => {
-
+      if (!input) {
+        return '喵呜...请指定要禁言的用户和时长'
+      }
+      if (session.quote && input.endsWith(session.quote.content.toString())) {
+        input = input.slice(0, input.length - session.quote.content.length).trim()
+      }
       let args: string[]
       if (input.includes('<at')) {
 
