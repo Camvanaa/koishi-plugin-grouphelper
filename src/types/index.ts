@@ -246,6 +246,8 @@ export interface GroupConfig {
   }
   antiRecall?: {
     enabled: boolean
+    retentionDays?: number
+    maxRecordsPerUser?: number
   }
 }
 

@@ -42,39 +42,64 @@
             <k-icon name="users" class="guild-icon" />
             <span class="guild-id">{{ config.guildName ? `${config.guildName} (${guildId})` : guildId }}</span>
           </div>
-          <div class="card-actions">
-            <k-button size="small" @click.stop="editConfig(guildId as string)">
-              <k-icon name="edit-2" />
-            </k-button>
-          </div>
         </div>
         <div class="card-body">
-          <div class="config-item">
-            <span class="item-label">欢迎消息</span>
-            <span class="item-value" :class="{ enabled: config.welcomeEnabled }">
-              {{ config.welcomeEnabled ? '已启用' : '已禁用' }}
-            </span>
+          <div class="features-grid">
+            <div class="feature-item" :class="{ active: config.welcomeEnabled }">
+              <span class="dot"></span>
+              欢迎消息
+            </div>
+            <div class="feature-item" :class="{ active: config.antiRecall?.enabled }">
+              <span class="dot"></span>
+              防撤回
+            </div>
+            <div class="feature-item" :class="{ active: config.antiRepeat?.enabled }">
+              <span class="dot"></span>
+              复读检测
+            </div>
+            <div class="feature-item" :class="{ active: config.dice?.enabled }">
+              <span class="dot"></span>
+              掷骰子
+            </div>
+            <div class="feature-item" :class="{ active: config.banme?.enabled }">
+              <span class="dot"></span>
+              Banme
+            </div>
+            <div class="feature-item" :class="{ active: config.openai?.enabled }">
+              <span class="dot"></span>
+              AI助手
+            </div>
           </div>
-          <div class="config-item">
-            <span class="item-label">防撤回</span>
-            <span class="item-value" :class="{ enabled: config.antiRecall?.enabled }">
-              {{ config.antiRecall?.enabled ? '已启用' : '已禁用' }}
-            </span>
+          
+          <div class="stats-row">
+            <div class="stat-pill">
+              <span class="stat-label">入群词</span>
+              <span class="stat-value">{{ config.approvalKeywords?.length || 0 }}</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-label">禁言词</span>
+              <span class="stat-value">{{ config.keywords?.length || 0 }}</span>
+            </div>
+            <div class="stat-pill" v-if="config.antiRepeat?.enabled">
+              <span class="stat-label">复读阈值</span>
+              <span class="stat-value">{{ config.antiRepeat.threshold }}</span>
+            </div>
           </div>
-          <div class="config-item">
-            <span class="item-label">复读检测</span>
-            <span class="item-value" :class="{ enabled: config.antiRepeat?.enabled }">
-              {{ config.antiRepeat?.enabled ? (config.antiRepeat?.threshold + '条') : '已禁用' }}
-            </span>
-          </div>
-          <div class="config-item">
-            <span class="item-label">入群关键词</span>
-            <span class="item-value">{{ config.approvalKeywords?.length || 0 }}</span>
-          </div>
-          <div class="config-item">
-            <span class="item-label">禁言关键词</span>
-            <span class="item-value">{{ config.keywords?.length || 0 }}</span>
-          </div>
+        </div>
+        
+        <div class="card-footer">
+          <k-button size="small" @click.stop="copyGuildId(guildId as string)" title="复制群号">
+            <template #icon><k-icon name="copy" /></template>
+            复制
+          </k-button>
+          <k-button size="small" @click.stop="editConfig(guildId as string)" title="编辑配置">
+            <template #icon><k-icon name="edit-2" /></template>
+            编辑
+          </k-button>
+          <k-button size="small" type="danger" @click.stop="deleteConfig(guildId as string)" title="删除配置">
+            <template #icon><k-icon name="trash-2" /></template>
+            删除
+          </k-button>
         </div>
       </div>
     </div>
@@ -230,9 +255,36 @@
 
             <!-- 功能插件 -->
             <div v-show="activeTab === 'plugins'" class="config-section">
+
+              <!-- 防撤回 -->
+              <div class="plugin-card">
+                <div class="plugin-header" @click="togglePlugin('antiRecall')">
+                  <div class="plugin-title">
+                    <k-icon name="eye" />
+                    <span>防撤回</span>
+                  </div>
+                  <div class="plugin-status">
+                    <label class="toggle-switch" @click.stop>
+                      <input type="checkbox" v-model="editingConfig.antiRecall.enabled" />
+                      <span class="slider"></span>
+                    </label>
+                    <k-icon :name="expandedPlugins['antiRecall'] ? 'chevron-up' : 'chevron-down'" />
+                  </div>
+                </div>
+                <div class="plugin-body" v-show="expandedPlugins['antiRecall']">
+                   <div class="form-group">
+                    <label>保存天数</label>
+                    <el-input-number v-model="editingConfig.antiRecall.retentionDays" :min="1" :max="30" placeholder="默认使用全局设置" style="width: 100%" />
+                  </div>
+                  <div class="form-group">
+                    <label>最大记录数</label>
+                    <el-input-number v-model="editingConfig.antiRecall.maxRecordsPerUser" :min="10" :max="200" placeholder="默认使用全局设置" style="width: 100%" />
+                  </div>
+                </div>
+              </div>
               
               <!-- 复读检测 -->
-              <div class="plugin-card">
+              <div class="plugin-card" style="margin-top: 1rem;">
                 <div class="plugin-header" @click="togglePlugin('repeat')">
                   <div class="plugin-title">
                     <k-icon name="repeat" />
@@ -418,7 +470,7 @@
           <p class="warning-text">警告：此操作不可撤销！</p>
           <p class="info-text">
             请输入群号
-            <code class="code-highlight" @click="copyGuildId">{{ editingGuildId }}</code>
+            <code class="code-highlight" @click="() => copyGuildId()">{{ editingGuildId }}</code>
             以确认删除
           </p>
           <div class="form-group">
@@ -579,7 +631,10 @@ const createConfig = async () => {
   }
 }
 
-const deleteConfig = () => {
+const deleteConfig = (guildId?: string) => {
+  if (guildId) {
+    editingGuildId.value = guildId
+  }
   deleteConfirmId.value = ''
   showDeleteDialog.value = true
 }
@@ -601,8 +656,9 @@ const confirmDelete = async () => {
   }
 }
 
-const copyGuildId = () => {
-  navigator.clipboard.writeText(editingGuildId.value)
+const copyGuildId = (guildId?: string) => {
+  const id = guildId || editingGuildId.value
+  navigator.clipboard.writeText(id)
   message.success('已复制群号')
 }
 
@@ -709,6 +765,15 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-border);
 }
 
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--k-color-border);
+  background: var(--k-color-bg-2);
+}
+
 .guild-info {
   display: flex;
   align-items: center;
@@ -725,32 +790,67 @@ onMounted(() => {
 }
 
 .card-body {
-  padding: 1rem;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-.config-item {
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.feature-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-}
-
-.config-item:not(:last-child) {
-  border-bottom: 1px dashed var(--k-color-border);
-}
-
-.item-label {
-  color: var(--k-color-text-description);
+  gap: 6px;
   font-size: 0.875rem;
+  color: var(--k-color-text-description);
+  opacity: 0.5;
 }
 
-.item-value {
-  font-weight: 500;
+.feature-item.active {
+  opacity: 1;
   color: var(--k-color-text);
 }
 
-.item-value.enabled {
-  color: #67c23a;
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k-color-border);
+}
+
+.feature-item.active .dot {
+  background: #67c23a;
+}
+
+.stats-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  background: var(--k-color-bg-1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 99px;
+  padding: 2px 8px;
+  gap: 6px;
+}
+
+.stat-label {
+  color: var(--k-color-text-description);
+}
+
+.stat-value {
+  font-weight: 600;
+  color: var(--k-color-text);
 }
 
 .edit-overlay, .dialog-overlay {

@@ -63,9 +63,10 @@ export const blacklistApi = {
 
 // 订阅 API
 export const subscriptionApi = {
-  list: () => call<Subscription[]>('grouphelper/subscriptions/list'),
+  list: (fetchNames?: boolean) => call<Subscription[]>('grouphelper/subscriptions/list', { fetchNames }),
   add: (subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/add', { subscription }),
   remove: (index: number) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { index }),
+  update: (index: number, subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/update', { index, subscription }),
 }
 
 // 统计 API

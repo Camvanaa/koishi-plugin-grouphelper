@@ -55,9 +55,9 @@ export class AntiRecallModule extends BaseModule {
   }
 
   /**
-   * 设置群组启用状态
+   * 更新群组配置
    */
-  setGuildEnabled(guildId: string, enabled: boolean): void {
+  updateGuildConfig(guildId: string, updates: Partial<Config['antiRecall']>): void {
     const groupConfigs = this.data.groupConfig.getAll()
     if (!groupConfigs[guildId]) {
       groupConfigs[guildId] = {} as GroupConfig
@@ -65,7 +65,12 @@ export class AntiRecallModule extends BaseModule {
     if (!groupConfigs[guildId].antiRecall) {
       groupConfigs[guildId].antiRecall = { enabled: false }
     }
-    groupConfigs[guildId].antiRecall.enabled = enabled
+    
+    groupConfigs[guildId].antiRecall = {
+      ...groupConfigs[guildId].antiRecall,
+      ...updates
+    }
+    
     this.data.groupConfig.setAll(groupConfigs)
   }
 
@@ -255,11 +260,13 @@ export class AntiRecallModule extends BaseModule {
   private cleanExpiredRecords(): void {
     try {
       const records = this.data.recallRecords.getAll()
-      const globalRetentionDays = this.config.antiRecall?.retentionDays || 7
-      const cutoffTime = Date.now() - (globalRetentionDays * 24 * 60 * 60 * 1000)
       let hasChanges = false
 
       for (const guildId in records) {
+        const config = this.getAntiRecallConfig(guildId)
+        const retentionDays = config?.retentionDays || 7
+        const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000)
+
         for (const userId in records[guildId]) {
           const originalLength = records[guildId][userId].length
           records[guildId][userId] = records[guildId][userId].filter(r => r.recallTime > cutoffTime)
@@ -426,24 +433,56 @@ export class AntiRecallModule extends BaseModule {
     // antirecall-config 命令 - 配置防撤回
     this.ctx.command('antirecall-config', '防撤回功能配置', { authority: 3 })
       .alias('防撤回配置')
-      .option('e', '-e <enabled:string> 启用或禁用防撤回功能 (true/false)')
+      .usage('配置群组防撤回功能\n选项：\n  -e <true/false> 启用/禁用\n  -d <days> 设置消息保留天数\n  -m <count> 设置每人最大记录数')
+      .option('enabled', '-e <enabled:string> 启用或禁用防撤回功能')
+      .option('days', '-d <days:number> 设置保留天数')
+      .option('max', '-m <max:number> 设置每用户最大记录数')
       .action(async ({ session, options }) => {
         if (!session.guildId) return '此命令只能在群聊中使用'
-        if (options.e === undefined) return '请输入 -e true 或 -e false 来启用或禁用'
-
-        const enabledStr = options.e.toString().toLowerCase()
-        if (['true', '1', 'yes', 'y', 'on'].includes(enabledStr)) {
-          this.setGuildEnabled(session.guildId, true)
-          this.log(session, 'antirecall-config', session.guildId, '成功：已启用防撤回功能')
-          return '本群防撤回功能已启用喵~'
-        } else if (['false', '0', 'no', 'n', 'off'].includes(enabledStr)) {
-          this.setGuildEnabled(session.guildId, false)
-          this.log(session, 'antirecall-config', session.guildId, '成功：已禁用防撤回功能')
-          return '本群防撤回功能已禁用喵~'
-        } else {
-          this.log(session, 'antirecall-config', session.guildId, '失败：设置无效')
-          return '防撤回选项无效，请输入 true/false'
+        
+        if (Object.keys(options).length === 0) {
+          return '请指定要配置的选项：-e (启用/禁用), -d (天数), -m (最大条数)'
         }
+
+        const updates: any = {}
+        const messages: string[] = []
+
+        if (options.enabled !== undefined) {
+          const enabledStr = options.enabled.toString().toLowerCase()
+          if (['true', '1', 'yes', 'y', 'on'].includes(enabledStr)) {
+            updates.enabled = true
+            messages.push('已启用防撤回')
+          } else if (['false', '0', 'no', 'n', 'off'].includes(enabledStr)) {
+            updates.enabled = false
+            messages.push('已禁用防撤回')
+          }
+        }
+
+        if (options.days !== undefined) {
+          if (options.days > 0 && options.days <= 365) {
+            updates.retentionDays = options.days
+            messages.push(`保留天数设为 ${options.days} 天`)
+          } else {
+            messages.push('保留天数无效 (需 1-365)')
+          }
+        }
+
+        if (options.max !== undefined) {
+          if (options.max > 0 && options.max <= 1000) {
+            updates.maxRecordsPerUser = options.max
+            messages.push(`最大记录数设为 ${options.max} 条`)
+          } else {
+            messages.push('最大记录数无效 (需 1-1000)')
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          this.updateGuildConfig(session.guildId, updates)
+          this.log(session, 'antirecall-config', session.guildId, `更新配置: ${JSON.stringify(updates)}`)
+          return `配置已更新：\n${messages.join('\n')}`
+        }
+
+        return '未进行任何更改'
       })
 
     // antirecall.status 命令 - 查看状态

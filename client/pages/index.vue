@@ -40,6 +40,7 @@ import ConfigView from '../components/ConfigView.vue'
 import WarnsView from '../components/WarnsView.vue'
 import BlacklistView from '../components/BlacklistView.vue'
 import LogsView from '../components/LogsView.vue'
+import SubscriptionView from '../components/SubscriptionView.vue'
 import SettingsView from '../components/SettingsView.vue'
 
 const currentView = ref('dashboard')
@@ -51,6 +52,7 @@ const activeComponent = computed(() => {
     case 'warns': return WarnsView
     case 'blacklist': return BlacklistView
     case 'logs': return LogsView
+    case 'subscriptions': return SubscriptionView
     case 'settings': return SettingsView
     default: return DashboardView
   }
@@ -62,6 +64,7 @@ const menuItems = [
   { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
   { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
   { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
+  { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:subscription' },
   { id: 'settings', label: '设置', icon: 'grouphelper:settings' },
 ]
 </script>

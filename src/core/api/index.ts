@@ -243,9 +243,39 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 订阅 API =====
 
   /** 获取订阅列表 */
-  ctx.console.addListener('grouphelper/subscriptions/list', async () => {
-    const subsData = data.subscriptions.get('list')
-    return success(subsData || [])
+  ctx.console.addListener('grouphelper/subscriptions/list', async (params?: { fetchNames?: boolean }) => {
+    const subsData = data.subscriptions.get('list') || []
+    
+    if (params?.fetchNames) {
+      const enrichedList = await Promise.all(subsData.map(async (sub) => {
+        let name = ''
+        if (sub.type === 'group') {
+          for (const bot of ctx.bots) {
+            try {
+              const guild = await bot.getGuild(sub.id)
+              if (guild?.name) {
+                name = guild.name
+                break
+              }
+            } catch {}
+          }
+        } else if (sub.type === 'private') {
+          for (const bot of ctx.bots) {
+            try {
+              const user = await bot.getUser(sub.id)
+              if (user?.name || user?.nick) {
+                name = user.nick || user.name
+                break
+              }
+            } catch {}
+          }
+        }
+        return { ...sub, name }
+      }))
+      return success(enrichedList)
+    }
+
+    return success(subsData)
   })
 
   /** 添加订阅 */
@@ -262,6 +292,17 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     const list = data.subscriptions.get('list') || []
     if (params.index >= 0 && params.index < list.length) {
       list.splice(params.index, 1)
+      data.subscriptions.set('list', list)
+      await data.subscriptions.flush()
+    }
+    return success({ success: true })
+  })
+
+  /** 更新订阅 */
+  ctx.console.addListener('grouphelper/subscriptions/update', async (params: { index: number, subscription: Subscription }) => {
+    const list = data.subscriptions.get('list') || []
+    if (params.index >= 0 && params.index < list.length) {
+      list[params.index] = params.subscription
       data.subscriptions.set('list', list)
       await data.subscriptions.flush()
     }

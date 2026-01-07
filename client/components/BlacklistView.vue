@@ -42,7 +42,7 @@
             <k-icon name="user-x" class="user-icon" />
             <span>{{ formatUserId(userId as string) }}</span>
           </div>
-          <div class="col-time">{{ formatTime(record.timestamp || record.addedAt) }}</div>
+          <div class="col-time">{{ formatTime(record.timestamp) }}</div>
           <div class="col-actions">
             <k-button size="small" type="danger" @click="removeUser(userId as string)">
               <k-icon name="trash-2" />
@@ -116,7 +116,8 @@ const addUser = async () => {
   adding.value = true
   try {
     await blacklistApi.add(newUser.userId, {
-      addedAt: Date.now()
+      userId: newUser.userId,
+      timestamp: Date.now()
     })
     message.success('已添加到黑名单')
     showAddDialog.value = false
@@ -181,7 +182,8 @@ onMounted(() => {
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 1rem;
 }
 
 .loading-state {

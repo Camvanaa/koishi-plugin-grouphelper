@@ -37,6 +37,7 @@ declare module '@koishijs/plugin-console' {
     'grouphelper/subscriptions/list'(): Promise<ApiResponse<Subscription[]>>
     'grouphelper/subscriptions/add'(params: { subscription: Subscription }): Promise<ApiResponse<{ success: boolean }>>
     'grouphelper/subscriptions/remove'(params: { index: number }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/subscriptions/update'(params: { index: number, subscription: Subscription }): Promise<ApiResponse<{ success: boolean }>>
 
     // 统计 API
     'grouphelper/stats/dashboard'(): Promise<ApiResponse<{
