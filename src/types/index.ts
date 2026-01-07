@@ -79,11 +79,16 @@ declare module 'koishi' {
 
 
 export interface Config {
+  /** 入群审核关键词列表 */
   keywords: string[]
+  /** 警告达到多少次触发自动禁言 */
   warnLimit: number
+  /** 自动禁言时长设置 */
   banTimes: {
+    /** 警告禁言时长表达式 */
     expression: string
   }
+  /** 禁言关键词设置 */
   forbidden: {
     autoDelete: boolean
     autoBan: boolean
@@ -91,13 +96,21 @@ export interface Config {
     muteDuration: number
     keywords: string[]
   }
+  /** 默认欢迎语 */
   defaultWelcome?: string
+  /** 掷骰子设置 */
+  dice: {
+    enabled: boolean
+    lengthLimit: number
+  }
+  /** banme指令设置 */
   banme: {
     enabled: boolean
     baseMin: number
     baseMax: number
     growthRate: number
-    autoBan?: boolean
+    autoBan?: boolean // 兼容旧配置
+    autoBanEnabled?: boolean // 新配置名
     jackpot: {
       enabled: boolean
       baseProb: number
@@ -107,46 +120,71 @@ export interface Config {
       loseDuration: string
     }
   }
+  /** 好友申请设置 */
   friendRequest: {
     enabled: boolean
     keywords: string[]
     rejectMessage: string
   }
+  /** 入群邀请设置 */
   guildRequest: {
     enabled: boolean
     rejectMessage: string
   }
+  /** 精华消息设置 */
   setEssenceMsg: {
     enabled: boolean
     authority: number
   }
+  /** 头衔设置 */
   setTitle: {
     enabled: boolean
     authority: number
     maxLength: number
   }
+  /** 反复读设置 */
   antiRepeat: {
     enabled: boolean
     threshold: number
   }
+  /** AI功能设置 */
   openai: {
     enabled: boolean
+    chatEnabled?: boolean
+    translateEnabled?: boolean
     apiKey: string
     apiUrl: string
-    maxTokens: number
-    temperature: number
     model: string
     systemPrompt: string
-    contextLimit: number
     translatePrompt: string
+    maxTokens: number
+    temperature: number
+    contextLimit: number
   }
+  /** 举报功能设置 */
+  report: {
+    enabled: boolean
+    authority: number
+    autoProcess: boolean
+    defaultPrompt: string
+    contextPrompt: string
+    maxReportTime: number
+    guildConfigs: Record<string, {
+      enabled: boolean
+      includeContext: boolean
+      contextSize: number
+      autoProcess: boolean
+    }>
+    maxReportCooldown: number
+    minAuthorityNoLimit: number
+  }
+  /** 防撤回功能设置 */
   antiRecall: {
     enabled: boolean
     retentionDays: number
     maxRecordsPerUser: number
     showOriginalTime: boolean
   }
-  report?: ReportConfig
 }
 
 export interface ReportConfig {

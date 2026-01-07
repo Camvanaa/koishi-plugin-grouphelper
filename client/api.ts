@@ -75,3 +75,10 @@ import type { LogSearchParams, LogResponse } from './types'
 export const logsApi = {
   search: (params: LogSearchParams) => call<LogResponse>('grouphelper/logs/search', params),
 }
+
+// 全局设置 API
+export const settingsApi = {
+  get: () => call<any>('grouphelper/settings/get'),
+  update: (settings: any) => call<{ success: boolean }>('grouphelper/settings/update', { settings }),
+  reset: () => call<{ success: boolean }>('grouphelper/settings/reset'),
+}

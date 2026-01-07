@@ -1,123 +1,80 @@
-// 配置模块
-import { Schema } from 'koishi'
-import { Config } from '../types'
+/**
+ * 设置管理器
+ * 管理插件的所有配置，从 settings.json 加载配置
+ * 替代原来的 Koishi Schema 配置
+ */
+import { JsonDataStore } from '../data/json.store'
+import * as path from 'path'
+import * as fs from 'fs'
 
-export const name = 'grouphelper'
+import { Config as PluginSettings } from '../../types'
 
-export const usage = `
-# 使用说明请查看github readme。
-https://github.com/camvanaa/koishi-plugin-grouphelper#readme
+export type { PluginSettings }
 
-本配置页面默认为全局配置，群配置请到群内使用指令配置
-`
-
-// 配置模式
-export const ConfigSchema: Schema<Config> = Schema.object({
-  keywords: Schema.array(Schema.string()).default([])
-    .description('入群审核关键词列表'),
-  warnLimit: Schema.number().default(3)
-    .description('警告达到多少次触发自动禁言'),
-  banTimes: Schema.object({
-    expression: Schema.string().default('{t}^2h')
-      .description('警告禁言时长表达式，{t}代表警告次数。例：{t}^2h 表示警告次数的平方小时')
-  }).description('自动禁言时长设置'),
-  forbidden: Schema.object({
-    autoDelete: Schema.boolean().default(false)
-      .description('是否自动撤回包含禁言关键词的消息'),
-    autoBan: Schema.boolean().default(false)
-      .description('是否自动禁言包含禁言关键词的消息的发送者'),
-    autoKick: Schema.boolean().default(false)
-      .description('是否自动踢出包含禁言关键词的消息的发送者'),
-    muteDuration: Schema.number().default(600000)
-      .description('自动禁言时长，单位毫秒'),
-    keywords: Schema.array(Schema.string()).default([])
-      .description('禁言关键词列表')
-  }).description('禁言关键词设置'),
-  dice: Schema.object({
-    enabled: Schema.boolean().default(true)
-      .description('是否启用掷骰子功能'),
-    lengthLimit: Schema.number().default(1000)
-      .description('掷骰子结果长度限制，超过此长度将无法显示结果')
-  }).description('掷骰子设置'),
-  banme: Schema.object({
-    enabled: Schema.boolean().default(true)
-      .description('是否启用banme指令'),
-    baseMin: Schema.number().default(1)
-      .description('基础最小禁言时长（秒）'),
-    baseMax: Schema.number().default(30)
-      .description('基础最大禁言时长（分钟）'),
-    growthRate: Schema.number().default(30)
-      .description('递增系数（越大增长越快）'),
-    autoBan: Schema.boolean().default(false)
-      .description('是否自动禁言模糊匹配'),
-    jackpot: Schema.object({
-      enabled: Schema.boolean().default(true)
-        .description('是否启用金卡系统'),
-      baseProb: Schema.number().default(0.006)
-        .description('金卡基础概率'),
-      softPity: Schema.number().default(73)
-        .description('软保底抽数'),
-      hardPity: Schema.number().default(89)
-        .description('硬保底抽数'),
-      upDuration: Schema.string().default('24h')
-        .description('UP奖励时长'),
-      loseDuration: Schema.string().default('12h')
-        .description('歪奖励时长')
-    }).description('金卡系统设置')
-  }).description('banme指令设置'),
-  friendRequest: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否启用好友申请关键词验证'),
-    keywords: Schema.array(Schema.string()).default([])
-      .description('好友申请通过关键词列表'),
-    rejectMessage: Schema.string().default('请输入正确的验证信息')
-      .description('好友申请拒绝时的提示消息')
-  }).description('好友申请设置'),
-  guildRequest: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否自动同意入群邀请（启用时同意所有，禁用时拒绝所有）'),
-    rejectMessage: Schema.string().default('暂不接受入群邀请')
-      .description('拒绝入群邀请时的提示消息')
-  }).description('入群邀请设置'),
-  setEssenceMsg: Schema.object({
-    enabled: Schema.boolean().default(true)
-      .description('是否启用精华消息功能'),
-    authority: Schema.number().default(3)
-      .description('设置精华消息所需权限等级')
-  }).description('精华消息设置'),
-  setTitle: Schema.object({
-    enabled: Schema.boolean().default(true)
-      .description('是否启用头衔功能'),
-    authority: Schema.number().default(3)
-      .description('设置头衔所需权限等级'),
-    maxLength: Schema.number().default(18)
-      .description('头衔最大长度')
-  }).description('头衔设置'),
-  antiRepeat: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否启用反复读功能'),
-    threshold: Schema.number().default(3)
-      .description('触发反复读处理的次数阈值（超过该次数将撤回除第一条外的所有复读消息）')
-  }).description('反复读设置'),
-  openai: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否启用AI功能（总开关）'),
-    chatEnabled: Schema.boolean().default(true)
-      .description('是否启用AI对话功能'),
-    translateEnabled: Schema.boolean().default(true)
-      .description('是否启用翻译功能'),
-    apiKey: Schema.string().description('OpenAI API密钥'),
-    apiUrl: Schema.string().default('https://api.openai.com/v1')
-      .description('API接口地址，可使用第三方接口'),
-    model: Schema.string().default('gpt-3.5-turbo')
-      .description('使用的模型名称'),
-    systemPrompt: Schema.string()
-      .role('textarea')
-      .default('你是一个有帮助的AI助手，请简短、准确地回答问题。')
-      .description('系统提示词'),
-    translatePrompt: Schema.string()
-      .role('textarea')
-      .default(`你是一名多语翻译专家，擅长将内容地道自然地翻译成流畅。译文应忠实原意，语言表达符合习惯，不带翻译腔的母语级别，风格口吻贴合上下文场景。
+/** 默认配置 - 从原 config/index.ts 提取 */
+export const DEFAULT_SETTINGS: PluginSettings = {
+  keywords: [],
+  warnLimit: 3,
+  banTimes: {
+    expression: '{t}^2h'
+  },
+  forbidden: {
+    autoDelete: false,
+    autoBan: false,
+    autoKick: false,
+    muteDuration: 600000,
+    keywords: []
+  },
+  dice: {
+    enabled: true,
+    lengthLimit: 1000
+  },
+  banme: {
+    enabled: true,
+    baseMin: 1,
+    baseMax: 30,
+    growthRate: 30,
+    autoBan: false,
+    jackpot: {
+      enabled: true,
+      baseProb: 0.006,
+      softPity: 73,
+      hardPity: 89,
+      upDuration: '24h',
+      loseDuration: '12h'
+    }
+  },
+  friendRequest: {
+    enabled: false,
+    keywords: [],
+    rejectMessage: '请输入正确的验证信息'
+  },
+  guildRequest: {
+    enabled: false,
+    rejectMessage: '暂不接受入群邀请'
+  },
+  setEssenceMsg: {
+    enabled: true,
+    authority: 3
+  },
+  setTitle: {
+    enabled: true,
+    authority: 3,
+    maxLength: 18
+  },
+  antiRepeat: {
+    enabled: false,
+    threshold: 3
+  },
+  openai: {
+    enabled: false,
+    chatEnabled: true,
+    translateEnabled: true,
+    apiKey: '',
+    apiUrl: 'https://api.openai.com/v1',
+    model: 'gpt-3.5-turbo',
+    systemPrompt: '你是一个有帮助的AI助手，请简短、准确地回答问题。',
+    translatePrompt: `你是一名多语翻译专家，擅长将内容地道自然地翻译成流畅。译文应忠实原意，语言表达符合习惯，不带翻译腔的母语级别，风格口吻贴合上下文场景。
 
 翻译原则：
 
@@ -133,25 +90,16 @@ export const ConfigSchema: Schema<Config> = Schema.object({
 
 如果是中文则翻译为英文，如果是其他语言则翻译为中文。不要添加任何解释或额外内容。
 
-待翻译的文本内容:`)
-      .description('翻译提示词'),
-    maxTokens: Schema.number().default(2048)
-      .description('最大生成长度'),
-    temperature: Schema.number().default(0.7)
-      .description('温度参数（越高越随机）'),
-    contextLimit: Schema.number().default(10)
-      .description('上下文消息数量限制')
-  }).description('AI功能设置'),
-  report: Schema.object({
-    enabled: Schema.boolean().default(true)
-      .description('是否启用举报功能'),
-    authority: Schema.number().default(1)
-      .description('使用举报功能所需的权限等级'),
-    autoProcess: Schema.boolean().default(true)
-      .description('是否自动处理违规行为'),
-    defaultPrompt: Schema.string()
-      .role('textarea')
-      .default(`你是一个群组内容安全审查助手，负责严格遵循中国大陆法律法规和互联网内容管理规范。你的核心任务是客观公正地分析用户发送的消息，判断其是否违规，并根据违规程度进行分级和处罚。请分析以下消息内容：
+待翻译的文本内容:`,
+    maxTokens: 2048,
+    temperature: 0.7,
+    contextLimit: 10
+  },
+  report: {
+    enabled: true,
+    authority: 1,
+    autoProcess: true,
+    defaultPrompt: `你是一个群组内容安全审查助手，负责严格遵循中国大陆法律法规和互联网内容管理规范。你的核心任务是客观公正地分析用户发送的消息，判断其是否违规，并根据违规程度进行分级和处罚。请分析以下消息内容：
 
 {content}
 
@@ -195,11 +143,8 @@ export const ConfigSchema: Schema<Config> = Schema.object({
 5.对于"action"字段的操作，你在建议的范围内拥有自主裁量权：
    - 1/2/3级违规的禁言时长（单位为秒）和2/3级违规的警告次数，都需要按违规情节轻重自主决定
    - 3级违规的处罚只有情节非常严重时才直接踢出，需要慎重踢出
-   - 可以支持同时进行多个操作（如某个中度违规(2)可以处以禁言1800秒并警告1次，某个严重违规(3)可以处以警告5次并踢出）。但是注意如果达到极其严重违规(4)，只要踢出并拉黑这一个操作，因为其他禁言、警告处罚都是没有意义的。`)
-      .description('AI审核默认提示词（留空使用内置提示词）'),
-    contextPrompt: Schema.string()
-      .role('textarea')
-      .default(`你是一个群组内容安全审查助手，负责严格遵循中国大陆法律法规和互联网内容管理规范。你的核心任务是客观公正地分析用户发送的消息，结合上下文内容，判断其是否违规，并根据违规程度进行分级和处罚。
+   - 可以支持同时进行多个操作（如某个中度违规(2)可以处以禁言1800秒并警告1次，某个严重违规(3)可以处以警告5次并踢出）。但是注意如果达到极其严重违规(4)，只要踢出并拉黑这一个操作，因为其他禁言、警告处罚都是没有意义的。`,
+    contextPrompt: `你是一个群组内容安全审查助手，负责严格遵循中国大陆法律法规和互联网内容管理规范。你的核心任务是客观公正地分析用户发送的消息，结合上下文内容，判断其是否违规，并根据违规程度进行分级和处罚。
 
 请先查看以下群聊的上下文消息：
 {context}
@@ -247,35 +192,162 @@ export const ConfigSchema: Schema<Config> = Schema.object({
 5.对于"action"字段的操作，你在建议的范围内拥有自主裁量权：
    - 1/2/3级违规的禁言时长（单位为秒）和2/3级违规的警告次数，都需要按违规情节轻重（攻击严重性、影响范围、恶劣程度）自主决定
    - 3级违规的处罚只有情节非常严重时才直接踢出，需要慎重踢出
-   - 可以支持同时进行多个操作（如某个中度违规(2)可以处以禁言1800秒并警告1次，某个严重违规(3)可以处以警告5次并踢出）。但是注意如果达到极其严重违规(4)，只要踢出并拉黑这一个操作，因为其他禁言、警告处罚都是没有意义的。`)
-      .description('带上下文的AI审核提示词（留空使用内置提示词）'),
-    maxReportTime: Schema.number().default(30)
-      .description('普通用户可举报的消息最长时间（分钟，0表示不限制）'),
-    guildConfigs: Schema.dict(
-      Schema.object({
-        enabled: Schema.boolean().default(true)
-          .description('是否在该群启用举报功能'),
-        includeContext: Schema.boolean().default(false)
-          .description('是否包含群聊上下文'),
-        contextSize: Schema.number().min(1).max(20).default(5)
-          .description('包含的上下文消息数量（最近的n条消息）'),
-        autoProcess: Schema.boolean().default(true)
-          .description('是否自动处理该群的违规行为')
-      })
-    ).description('群聊单独配置'),
-    maxReportCooldown: Schema.number().default(60)
-      .description('举报失败后的冷却时间（分钟）'),
-    minAuthorityNoLimit: Schema.number().default(2)
-      .description('不受举报冷却限制的最低权限等级')
-  }).description('举报功能设置'),
-  antiRecall: Schema.object({
-    enabled: Schema.boolean().default(false)
-      .description('是否启用防撤回功能'),
-    retentionDays: Schema.number().default(7)
-      .description('撤回消息保存天数'),
-    maxRecordsPerUser: Schema.number().default(50)
-      .description('每个用户最多保存的撤回记录数'),
-    showOriginalTime: Schema.boolean().default(true)
-      .description('是否显示原消息发送时间')
-  }).description('防撤回功能设置')
-})
+   - 可以支持同时进行多个操作（如某个中度违规(2)可以处以禁言1800秒并警告1次，某个严重违规(3)可以处以警告5次并踢出）。但是注意如果达到极其严重违规(4)，只要踢出并拉黑这一个操作，因为其他禁言、警告处罚都是没有意义的。`,
+    maxReportTime: 30,
+    guildConfigs: {},
+    maxReportCooldown: 60,
+    minAuthorityNoLimit: 2
+  },
+  antiRecall: {
+    enabled: false,
+    retentionDays: 7,
+    maxRecordsPerUser: 50,
+    showOriginalTime: true
+  }
+}
+
+/**
+ * 设置管理器类
+ */
+export class SettingsManager {
+  private store: JsonDataStore<Partial<PluginSettings>>
+  private _settings: PluginSettings
+
+  constructor(dataPath: string) {
+    const settingsPath = path.resolve(dataPath, 'settings.json')
+    
+    // 确保数据目录存在
+    if (!fs.existsSync(dataPath)) {
+      fs.mkdirSync(dataPath, { recursive: true })
+    }
+
+    this.store = new JsonDataStore(settingsPath, {})
+    this._settings = this.loadSettings()
+  }
+
+  /**
+   * 加载设置，合并默认值
+   */
+  private loadSettings(): PluginSettings {
+    const saved = this.store.getAll()
+    return this.deepMerge(DEFAULT_SETTINGS, saved)
+  }
+
+  /**
+   * 深度合并对象
+   */
+  private deepMerge<T extends Record<string, any>>(defaults: T, overrides: Partial<T>): T {
+    const result = { ...defaults }
+    
+    for (const key of Object.keys(overrides) as Array<keyof T>) {
+      const value = overrides[key]
+      if (value !== undefined) {
+        if (
+          typeof value === 'object' &&
+          value !== null &&
+          !Array.isArray(value) &&
+          typeof defaults[key] === 'object' &&
+          defaults[key] !== null &&
+          !Array.isArray(defaults[key])
+        ) {
+          result[key] = this.deepMerge(defaults[key] as any, value as any)
+        } else {
+          result[key] = value as T[keyof T]
+        }
+      }
+    }
+    
+    return result
+  }
+
+  /**
+   * 获取所有设置
+   */
+  get settings(): PluginSettings {
+    return this._settings
+  }
+
+  /**
+   * 获取特定设置项
+   */
+  get<K extends keyof PluginSettings>(key: K): PluginSettings[K] {
+    return this._settings[key]
+  }
+
+  /**
+   * 更新设置
+   */
+  async update(updates: Partial<PluginSettings>): Promise<void> {
+    // 更新内存中的设置
+    this._settings = this.deepMerge(this._settings, updates)
+    
+    // 保存到文件（只保存与默认值不同的部分）
+    const toSave = this.getDiff(DEFAULT_SETTINGS, this._settings)
+    
+    // 清空并重新设置
+    for (const key of Object.keys(toSave) as Array<keyof PluginSettings>) {
+      this.store.set(key, (toSave as any)[key])
+    }
+    
+    await this.store.flush()
+  }
+
+  /**
+   * 获取与默认值的差异
+   */
+  private getDiff<T extends Record<string, any>>(defaults: T, current: T): Partial<T> {
+    const diff: Partial<T> = {}
+    
+    for (const key of Object.keys(current) as Array<keyof T>) {
+      const defaultValue = defaults[key]
+      const currentValue = current[key]
+      
+      if (typeof currentValue === 'object' && currentValue !== null && !Array.isArray(currentValue)) {
+        if (typeof defaultValue === 'object' && defaultValue !== null && !Array.isArray(defaultValue)) {
+          const nestedDiff = this.getDiff(defaultValue, currentValue)
+          if (Object.keys(nestedDiff).length > 0) {
+            diff[key] = nestedDiff as any
+          }
+        } else {
+          diff[key] = currentValue
+        }
+      } else if (Array.isArray(currentValue)) {
+        if (!this.arraysEqual(currentValue, defaultValue as any[])) {
+          diff[key] = currentValue
+        }
+      } else if (currentValue !== defaultValue) {
+        diff[key] = currentValue
+      }
+    }
+    
+    return diff
+  }
+
+  /**
+   * 比较数组是否相等
+   */
+  private arraysEqual(a: any[], b: any[]): boolean {
+    if (!Array.isArray(b)) return false
+    if (a.length !== b.length) return false
+    return a.every((v, i) => v === b[i])
+  }
+
+  /**
+   * 重置为默认设置
+   */
+  async reset(): Promise<void> {
+    this._settings = { ...DEFAULT_SETTINGS }
+    // 清空存储
+    for (const key of Object.keys(this.store.getAll()) as Array<keyof PluginSettings>) {
+      this.store.delete(key)
+    }
+    await this.store.flush()
+  }
+
+  /**
+   * 释放资源
+   */
+  dispose(): void {
+    this.store.dispose()
+  }
+}

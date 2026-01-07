@@ -25,7 +25,10 @@ export const iconPaths = {
   blacklist: 'M12 2a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 8a3 3 0 1 1 3-3 3 3 0 0 1-3 3zm9 11v-1a7 7 0 0 0-7-7h-4a7 7 0 0 0-7 7v1h2v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1z',
 
   // 日志: 文件/列表
-  log: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'
+  log: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z',
+
+  // 设置: 滑块调节
+  settings: 'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z'
 }
 
 export const icons = {
@@ -33,5 +36,6 @@ export const icons = {
   config: createIcon(iconPaths.config),
   warn: createIcon(iconPaths.warn),
   blacklist: createIcon(iconPaths.blacklist),
-  log: createIcon(iconPaths.log)
+  log: createIcon(iconPaths.log),
+  settings: createIcon(iconPaths.settings)
 }

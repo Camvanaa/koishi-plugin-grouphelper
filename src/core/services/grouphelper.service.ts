@@ -5,7 +5,8 @@
 import { Context, Service } from 'koishi'
 import { DataManager } from '../data'
 import { BaseModule } from '../modules'
-import type { Config, Subscription } from '../../types'
+import { SettingsManager, PluginSettings } from '../settings'
+import type { Subscription } from '../../types'
 
 // 声明服务类型
 declare module 'koishi' {
@@ -21,13 +22,13 @@ export class GroupHelperService extends Service {
   private _data: DataManager
   /** 功能模块注册表 */
   private _modules: Map<string, BaseModule> = new Map()
-  /** 插件配置 */
-  private _pluginConfig: Config
+  /** 设置管理器 */
+  private _settingsManager: SettingsManager
 
-  constructor(ctx: Context, config: Config) {
+  constructor(ctx: Context) {
     super(ctx, 'groupHelper')
-    this._pluginConfig = config
     this._data = new DataManager(ctx)
+    this._settingsManager = new SettingsManager(this._data.dataPath)
   }
 
   /** 获取数据管理器 */
@@ -35,9 +36,14 @@ export class GroupHelperService extends Service {
     return this._data
   }
 
-  /** 获取插件配置 */
-  get pluginConfig(): Config {
-    return this._pluginConfig
+  /** 获取设置管理器 */
+  get settings(): SettingsManager {
+    return this._settingsManager
+  }
+
+  /** 获取插件配置（兼容旧代码） */
+  get pluginConfig(): PluginSettings {
+    return this._settingsManager.settings
   }
 
   /**
@@ -174,5 +180,6 @@ export class GroupHelperService extends Service {
 
     // 释放数据管理器
     this._data.dispose()
+    this._settingsManager.dispose()
   }
 }

@@ -59,5 +59,10 @@ declare module '@koishijs/plugin-console' {
       page: number
       pageSize: number
     }>>
+
+    // 设置 API
+    'grouphelper/settings/get'(): Promise<ApiResponse<any>>
+    'grouphelper/settings/update'(params: { settings: any }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/settings/reset'(): Promise<ApiResponse<{ success: boolean }>>
   }
 }

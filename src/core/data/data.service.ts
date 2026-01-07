@@ -208,6 +208,7 @@ export class DataManager {
     return this.stores.leaveRecords
   }
 
+
   /**
    * 写入日志
    */

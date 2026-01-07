@@ -11,6 +11,7 @@ icons.register('grouphelper:config', customIcons.config)
 icons.register('grouphelper:warn', customIcons.warn)
 icons.register('grouphelper:blacklist', customIcons.blacklist)
 icons.register('grouphelper:log', customIcons.log)
+icons.register('grouphelper:settings', customIcons.settings)
 
 export default (ctx: Context) => {
   ctx.page({

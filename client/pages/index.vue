@@ -40,6 +40,7 @@ import ConfigView from '../components/ConfigView.vue'
 import WarnsView from '../components/WarnsView.vue'
 import BlacklistView from '../components/BlacklistView.vue'
 import LogsView from '../components/LogsView.vue'
+import SettingsView from '../components/SettingsView.vue'
 
 const currentView = ref('dashboard')
 
@@ -50,6 +51,7 @@ const activeComponent = computed(() => {
     case 'warns': return WarnsView
     case 'blacklist': return BlacklistView
     case 'logs': return LogsView
+    case 'settings': return SettingsView
     default: return DashboardView
   }
 })
@@ -60,6 +62,7 @@ const menuItems = [
   { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
   { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
   { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
+  { id: 'settings', label: '设置', icon: 'grouphelper:settings' },
 ]
 </script>
 
@@ -146,8 +149,7 @@ const menuItems = [
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  height: calc(100vh - 50px); /* Adjust based on new nav height if needed, or use flex */
-  flex: 1;
+  height: 90vh;
   overflow: auto;
   box-sizing: border-box;
 }

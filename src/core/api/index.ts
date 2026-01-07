@@ -271,4 +271,45 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
     return success({ list, total, page, pageSize })
   })
+
+  // ===== 设置 API =====
+
+  /** 获取插件设置 */
+  ctx.console.addListener('grouphelper/settings/get', async () => {
+    // 获取当前设置
+    return success(service.settings.settings)
+  })
+
+  /** 更新插件设置 */
+  ctx.console.addListener('grouphelper/settings/update', async (params: { settings: any }) => {
+    try {
+      const { settings } = params
+      
+      // 检查 settings 是否有效
+      if (!settings || typeof settings !== 'object') {
+        return error('无效的设置数据')
+      }
+      
+      // 更新设置
+      await service.settings.update(settings)
+      
+      ctx.logger('grouphelper').info('设置已更新')
+      return success({ success: true })
+    } catch (e) {
+      ctx.logger('grouphelper').error('更新设置失败:', e)
+      return error(e instanceof Error ? e.message : '更新设置失败')
+    }
+  })
+
+  /** 重置插件设置 */
+  ctx.console.addListener('grouphelper/settings/reset', async () => {
+    try {
+      await service.settings.reset()
+      ctx.logger('grouphelper').info('设置已重置为默认值')
+      return success({ success: true })
+    } catch (e) {
+      ctx.logger('grouphelper').error('重置设置失败:', e)
+      return error(e instanceof Error ? e.message : '重置设置失败')
+    }
+  })
 }
