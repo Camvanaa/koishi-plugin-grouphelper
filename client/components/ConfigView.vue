@@ -7,6 +7,10 @@
           <label>解析群名</label>
           <el-switch v-model="fetchNames" @change="refreshConfigs" />
         </div>
+        <k-button @click="showCreateDialog = true">
+          <template #icon><k-icon name="plus" /></template>
+          新建配置
+        </k-button>
         <k-button type="primary" @click="refreshConfigs">
           <template #icon><k-icon name="refresh-cw" /></template>
           刷新
@@ -71,6 +75,34 @@
             <span class="item-label">禁言关键词</span>
             <span class="item-value">{{ config.keywords?.length || 0 }}</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新建配置弹窗 -->
+    <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
+      <div class="dialog-card">
+        <div class="dialog-header">
+          <h3>新建群组配置</h3>
+          <button class="close-btn" @click="showCreateDialog = false">
+            <k-icon name="x" />
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>群号</label>
+            <input
+              v-model="newConfig.guildId"
+              type="text"
+              placeholder="输入群号..."
+              class="form-input"
+              @keyup.enter="createConfig"
+            />
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <k-button @click="showCreateDialog = false">取消</k-button>
+          <k-button type="primary" @click="createConfig" :loading="creating">创建</k-button>
         </div>
       </div>
     </div>
@@ -359,8 +391,50 @@
         </div>
 
         <div class="dialog-footer">
-          <k-button @click="showEditDialog = false">取消</k-button>
-          <k-button type="primary" @click="saveConfig" :loading="saving">保存</k-button>
+          <div class="footer-left">
+            <k-button type="danger" @click="deleteConfig">
+              <template #icon><k-icon name="trash-2" /></template>
+              删除配置
+            </k-button>
+          </div>
+          <div class="footer-right">
+            <k-button @click="showEditDialog = false">取消</k-button>
+            <k-button type="primary" @click="saveConfig" :loading="saving">保存</k-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteDialog" class="dialog-overlay" style="z-index: 1100" @click.self="showDeleteDialog = false">
+      <div class="dialog-card">
+        <div class="dialog-header">
+          <h3>删除群组配置</h3>
+          <button class="close-btn" @click="showDeleteDialog = false">
+            <k-icon name="x" />
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p class="warning-text">警告：此操作不可撤销！</p>
+          <p class="info-text">
+            请输入群号
+            <code class="code-highlight" @click="copyGuildId">{{ editingGuildId }}</code>
+            以确认删除
+          </p>
+          <div class="form-group">
+            <label>确认群号</label>
+            <input
+              v-model="deleteConfirmId"
+              type="text"
+              :placeholder="'请输入 ' + editingGuildId"
+              class="form-input"
+              @keyup.enter="confirmDelete"
+            />
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <k-button @click="showDeleteDialog = false">取消</k-button>
+          <k-button type="danger" @click="confirmDelete" :loading="deleting" :disabled="deleteConfirmId !== editingGuildId">删除</k-button>
         </div>
       </div>
     </div>
@@ -375,9 +449,15 @@ import type { GroupConfig } from '../types'
 
 const loading = ref(false)
 const saving = ref(false)
+const creating = ref(false)
+const deleting = ref(false)
 const fetchNames = ref(false)
 const configs = ref<Record<string, GroupConfig>>({})
 const showEditDialog = ref(false)
+const showCreateDialog = ref(false)
+const showDeleteDialog = ref(false)
+const newConfig = ref({ guildId: '' })
+const deleteConfirmId = ref('')
 const editingGuildId = ref('')
 const editingConfig = ref<GroupConfig | null>(null)
 const editingApprovalKeywords = ref('')
@@ -475,6 +555,55 @@ const saveConfig = async () => {
   } finally {
     saving.value = false
   }
+}
+
+const createConfig = async () => {
+  const guildId = newConfig.value.guildId.trim()
+  if (!guildId) {
+    message.warning('请输入群号')
+    return
+  }
+
+  creating.value = true
+  try {
+    await configApi.create(guildId)
+    message.success('创建成功')
+    showCreateDialog.value = false
+    newConfig.value.guildId = ''
+    await refreshConfigs()
+    editConfig(guildId)
+  } catch (e: any) {
+    message.error(e.message || '创建失败')
+  } finally {
+    creating.value = false
+  }
+}
+
+const deleteConfig = () => {
+  deleteConfirmId.value = ''
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = async () => {
+  if (deleteConfirmId.value !== editingGuildId.value) return
+
+  deleting.value = true
+  try {
+    await configApi.delete(editingGuildId.value)
+    message.success('删除成功')
+    showDeleteDialog.value = false
+    showEditDialog.value = false
+    await refreshConfigs()
+  } catch (e: any) {
+    message.error(e.message || '删除失败')
+  } finally {
+    deleting.value = false
+  }
+}
+
+const copyGuildId = () => {
+  navigator.clipboard.writeText(editingGuildId.value)
+  message.success('已复制群号')
 }
 
 onMounted(() => {
@@ -624,7 +753,7 @@ onMounted(() => {
   color: #67c23a;
 }
 
-.edit-overlay {
+.edit-overlay, .dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -646,6 +775,37 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.dialog-card {
+  background: var(--k-card-bg);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-body {
+  padding: 1.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  background: var(--k-color-bg-1);
+  color: var(--k-color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--k-color-active);
 }
 
 .edit-dialog.large {
@@ -880,10 +1040,20 @@ onMounted(() => {
 
 .dialog-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--k-color-border);
+}
+
+.footer-left {
+  display: flex;
+  gap: 8px;
+}
+
+.footer-right {
+  display: flex;
+  gap: 8px;
 }
 
 /* 滚动条样式 */
@@ -908,5 +1078,32 @@ onMounted(() => {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+.warning-text {
+  color: #f56c6c;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.info-text {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+}
+
+.code-highlight {
+  background: var(--k-color-bg-2);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: all;
+  border: 1px solid var(--k-color-border);
+}
+
+.code-highlight:hover {
+  border-color: var(--k-color-active);
+  color: var(--k-color-active);
 }
 </style>

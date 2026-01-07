@@ -33,8 +33,16 @@
         <el-input v-model="searchParams.userId" placeholder="搜索用户ID..." clearable />
       </div>
       <div class="search-item">
+        <label>用户名</label>
+        <el-input v-model="searchParams.username" placeholder="搜索用户名..." clearable />
+      </div>
+      <div class="search-item">
         <label>群组ID</label>
         <el-input v-model="searchParams.guildId" placeholder="搜索群组ID..." clearable />
+      </div>
+      <div class="search-item">
+        <label>详情</label>
+        <el-input v-model="searchParams.details" placeholder="搜索详情..." clearable />
       </div>
     </div>
 
@@ -56,6 +64,7 @@
           <div class="col-time">时间</div>
           <div class="col-cmd">命令</div>
           <div class="col-user">用户</div>
+          <div class="col-userid">用户ID</div>
           <div class="col-group">群组</div>
           <div class="col-status">状态</div>
           <div class="col-detail">详情</div>
@@ -67,7 +76,8 @@
         >
           <div class="col-time">{{ formatTime(log.timestamp) }}</div>
           <div class="col-cmd"><code>{{ log.command }}</code></div>
-          <div class="col-user" :title="log.userId">{{ log.username || log.userId }}</div>
+          <div class="col-user" :title="log.username">{{ log.username || '-' }}</div>
+          <div class="col-userid" :title="log.userId">{{ log.userId }}</div>
           <div class="col-group" :title="log.guildId">{{ log.guildName || log.guildId || '私聊' }}</div>
           <div class="col-status">
             <span :class="log.success ? 'status-success' : 'status-fail'">
@@ -270,6 +280,7 @@ onMounted(() => {
 .col-time { width: 160px; flex-shrink: 0; color: var(--k-color-text-description); }
 .col-cmd { width: 100px; flex-shrink: 0; font-family: monospace; color: var(--k-color-active); }
 .col-user { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col-userid { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; color: var(--k-color-text-description); }
 .col-group { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .col-status { width: 60px; flex-shrink: 0; }
 .col-detail { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--k-color-text-description); }

@@ -7,6 +7,10 @@
           <label>解析名称</label>
           <el-switch v-model="fetchNames" @change="refreshWarns" />
         </div>
+        <k-button @click="showAddDialog = true">
+          <template #icon><k-icon name="plus" /></template>
+          添加警告
+        </k-button>
         <k-button type="primary" @click="refreshWarns">
           <template #icon><k-icon name="refresh-cw" /></template>
           刷新
@@ -65,17 +69,59 @@
         </div>
       </div>
     </div>
+    <!-- 添加警告弹窗 -->
+    <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
+      <div class="dialog-card">
+        <div class="dialog-header">
+          <h3>添加警告</h3>
+          <button class="close-btn" @click="showAddDialog = false">
+            <k-icon name="x" />
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>群号</label>
+            <input
+              v-model="newWarn.guildId"
+              type="text"
+              placeholder="输入群号..."
+              class="form-input"
+            />
+          </div>
+          <div class="form-group">
+            <label>用户ID</label>
+            <input
+              v-model="newWarn.userId"
+              type="text"
+              placeholder="输入用户ID..."
+              class="form-input"
+            />
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <k-button @click="showAddDialog = false">取消</k-button>
+          <k-button type="primary" @click="addWarn" :loading="adding">添加</k-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { message } from '@koishijs/client'
 import { warnsApi } from '../api'
 import type { WarnRecord } from '../types'
 
 const loading = ref(false)
+const adding = ref(false)
 const fetchNames = ref(false)
+const showAddDialog = ref(false)
+
+const newWarn = reactive({
+  guildId: '',
+  userId: ''
+})
 
 interface ProcessedWarn {
   key: string
@@ -112,6 +158,27 @@ const refreshWarns = async () => {
     message.error(e.message || '加载警告记录失败')
   } finally {
     loading.value = false
+  }
+}
+
+const addWarn = async () => {
+  if (!newWarn.guildId.trim() || !newWarn.userId.trim()) {
+    message.warning('请输入群号和用户ID')
+    return
+  }
+
+  adding.value = true
+  try {
+    await warnsApi.add(newWarn.guildId, newWarn.userId)
+    message.success('添加成功')
+    showAddDialog.value = false
+    newWarn.guildId = ''
+    newWarn.userId = ''
+    await refreshWarns()
+  } catch (e: any) {
+    message.error(e.message || '添加失败')
+  } finally {
+    adding.value = false
   }
 }
 
@@ -370,5 +437,99 @@ onMounted(() => {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-card {
+  background: var(--k-card-bg);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--k-color-border);
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--k-color-text);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--k-color-text-description);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: var(--k-color-text);
+}
+
+.dialog-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--k-color-text);
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  background: var(--k-color-bg-1);
+  color: var(--k-color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--k-color-active);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--k-color-border);
 }
 </style>

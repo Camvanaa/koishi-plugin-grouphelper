@@ -18,6 +18,12 @@ export interface GroupConfig {
   }
   welcomeMsg?: string
   welcomeEnabled?: boolean
+  levelLimit?: number
+  leaveCooldown?: number
+  dice?: {
+    enabled: boolean
+    lengthLimit: number
+  }
   antiRepeat?: {
     enabled: boolean
     threshold: number
@@ -27,6 +33,7 @@ export interface GroupConfig {
     baseMin: number
     baseMax: number
     growthRate: number
+    autoBan?: boolean
     jackpot: {
       enabled: boolean
       baseProb: number
@@ -91,6 +98,8 @@ export interface LogSearchParams {
   endTime?: string | number
   command?: string
   userId?: string
+  username?: string
+  details?: string
   guildId?: string
   page?: number
   pageSize?: number

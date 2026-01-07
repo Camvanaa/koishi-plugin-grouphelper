@@ -18,11 +18,14 @@ declare module '@koishijs/plugin-console' {
     'grouphelper/config/list'(params?: { fetchNames?: boolean }): Promise<ApiResponse<Record<string, GroupConfig>>>
     'grouphelper/config/get'(params: { guildId: string }): Promise<ApiResponse<GroupConfig | undefined>>
     'grouphelper/config/update'(params: { guildId: string, config: GroupConfig }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/config/create'(params: { guildId: string }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/config/delete'(params: { guildId: string }): Promise<ApiResponse<{ success: boolean }>>
 
     // 警告记录 API
     'grouphelper/warns/list'(params?: { fetchNames?: boolean }): Promise<ApiResponse<any[]>>
     'grouphelper/warns/get'(params: { key: string }): Promise<ApiResponse<WarnRecord | undefined>>
     'grouphelper/warns/update'(params: { key: string, count: number }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/warns/add'(params: { guildId: string, userId: string }): Promise<ApiResponse<{ success: boolean }>>
     'grouphelper/warns/clear'(params: { key: string }): Promise<ApiResponse<{ success: boolean }>>
 
     // 黑名单 API
@@ -50,6 +53,8 @@ declare module '@koishijs/plugin-console' {
       endTime?: string | number
       command?: string
       userId?: string
+      username?: string
+      details?: string
       guildId?: string
       page?: number
       pageSize?: number

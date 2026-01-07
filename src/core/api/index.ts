@@ -78,6 +78,36 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     return success({ success: true })
   })
 
+  /** 创建群组配置 */
+  ctx.console.addListener('grouphelper/config/create', async (params: { guildId: string }) => {
+    if (data.groupConfig.get(params.guildId)) {
+      return error('配置已存在')
+    }
+    // 创建默认配置
+    const defaultConfig = {
+      welcomeEnabled: false,
+      antiRecall: { enabled: false },
+      antiRepeat: { enabled: false, threshold: 3 },
+      forbidden: { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 },
+      dice: { enabled: true, lengthLimit: 1000 },
+      banme: {
+        enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
+        jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
+      },
+      openai: { enabled: true }
+    }
+    data.groupConfig.set(params.guildId, defaultConfig)
+    await data.groupConfig.flush()
+    return success({ success: true })
+  })
+
+  /** 删除群组配置 */
+  ctx.console.addListener('grouphelper/config/delete', async (params: { guildId: string }) => {
+    data.groupConfig.delete(params.guildId)
+    await data.groupConfig.flush()
+    return success({ success: true })
+  })
+
   // ===== 警告记录 API =====
 
   /** 获取所有警告记录 (Enriched) */
@@ -154,6 +184,27 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       }
     }
     return error('Record not found')
+  })
+
+  /** 添加警告 */
+  ctx.console.addListener('grouphelper/warns/add', async (params: { guildId: string, userId: string }) => {
+    const key = `${params.guildId}:${params.userId}`
+    let record = data.warns.get(key)
+    
+    if (!record) {
+      record = { groups: {} }
+    }
+    
+    if (!record.groups[params.guildId]) {
+      record.groups[params.guildId] = { count: 0, timestamp: 0 }
+    }
+    
+    record.groups[params.guildId].count++
+    record.groups[params.guildId].timestamp = Date.now()
+    
+    data.warns.set(key, record)
+    await data.warns.flush()
+    return success({ success: true })
   })
 
   /** 获取用户警告记录 */
@@ -242,6 +293,8 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     endTime?: string | number
     command?: string
     userId?: string
+    username?: string
+    details?: string
     guildId?: string
     page?: number
     pageSize?: number
@@ -257,8 +310,18 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       const time = new Date(log.timestamp).getTime()
       if (params.startTime && time < new Date(params.startTime).getTime()) return false
       if (params.endTime && time > new Date(params.endTime).getTime()) return false
-      if (params.command && !log.command.includes(params.command)) return false
+      if (params.command && !log.command.toLowerCase().includes(params.command.toLowerCase())) return false
       if (params.userId && log.userId !== params.userId) return false
+      if (params.username && (!log.username || !log.username.toLowerCase().includes(params.username.toLowerCase()))) return false
+      if (params.details) {
+        const keyword = params.details.toLowerCase()
+        const matchResult = log.result?.toLowerCase().includes(keyword)
+        const matchError = log.error?.toLowerCase().includes(keyword)
+        const matchArgs = log.args?.some((arg: string) => arg.toLowerCase().includes(keyword))
+        const matchOptions = JSON.stringify(log.options || {}).toLowerCase().includes(keyword)
+        
+        if (!matchResult && !matchError && !matchArgs && !matchOptions) return false
+      }
       if (params.guildId && log.guildId !== params.guildId) return false
       return true
     })

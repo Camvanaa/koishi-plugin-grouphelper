@@ -41,12 +41,15 @@ export const configApi = {
   list: (fetchNames?: boolean) => call<Record<string, GroupConfig>>('grouphelper/config/list', { fetchNames }),
   get: (guildId: string) => call<GroupConfig | undefined>('grouphelper/config/get', { guildId }),
   update: (guildId: string, config: GroupConfig) => call<{ success: boolean }>('grouphelper/config/update', { guildId, config }),
+  create: (guildId: string) => call<{ success: boolean }>('grouphelper/config/create', { guildId }),
+  delete: (guildId: string) => call<{ success: boolean }>('grouphelper/config/delete', { guildId }),
 }
 
 // 警告记录 API
 export const warnsApi = {
   list: (fetchNames?: boolean) => call<any[]>('grouphelper/warns/list', { fetchNames }),
   get: (key: string) => call<WarnRecord | undefined>('grouphelper/warns/get', { key }),
+  add: (guildId: string, userId: string) => call<{ success: boolean }>('grouphelper/warns/add', { guildId, userId }),
   clear: (key: string) => call<{ success: boolean }>('grouphelper/warns/clear', { key }),
   update: (key: string, count: number) => call<{ success: boolean }>('grouphelper/warns/update', { key, count }),
 }
