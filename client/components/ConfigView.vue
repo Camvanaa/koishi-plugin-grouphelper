@@ -58,7 +58,11 @@
             </span>
           </div>
           <div class="config-item">
-            <span class="item-label">关键词数量</span>
+            <span class="item-label">入群关键词</span>
+            <span class="item-value">{{ config.approvalKeywords?.length || 0 }}</span>
+          </div>
+          <div class="config-item">
+            <span class="item-label">禁言关键词</span>
             <span class="item-value">{{ config.keywords?.length || 0 }}</span>
           </div>
         </div>
@@ -67,55 +71,287 @@
 
     <!-- 编辑面板 -->
     <div v-if="showEditDialog" class="edit-overlay" @click.self="showEditDialog = false">
-      <div class="edit-dialog">
+      <div class="edit-dialog large">
         <div class="dialog-header">
           <h3>编辑群组配置 - {{ editingGuildId }}</h3>
           <button class="close-btn" @click="showEditDialog = false">
             <k-icon name="x" />
           </button>
         </div>
-        <div v-if="editingConfig" class="edit-form">
-          <div class="form-group">
-            <label>欢迎消息</label>
-            <label class="toggle-switch">
-              <input type="checkbox" v-model="editingConfig.welcomeEnabled" />
-              <span class="slider"></span>
-            </label>
+        
+        <div v-if="editingConfig" class="edit-layout">
+          <!-- 左侧侧边栏 -->
+          <div class="edit-sidebar">
+            <div
+              class="sidebar-item"
+              :class="{ active: activeTab === 'basic' }"
+              @click="activeTab = 'basic'"
+            >
+              <k-icon name="settings" />
+              <span>基础配置</span>
+            </div>
+            <div
+              class="sidebar-item"
+              :class="{ active: activeTab === 'plugins' }"
+              @click="activeTab = 'plugins'"
+            >
+              <k-icon name="box" />
+              <span>功能插件</span>
+            </div>
           </div>
-          <div class="form-group" v-if="editingConfig.welcomeEnabled">
-            <label>欢迎语</label>
-            <textarea
-              v-model="editingConfig.welcomeMsg"
-              rows="3"
-              placeholder="输入欢迎消息..."
-              class="form-textarea"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>防撤回</label>
-            <label class="toggle-switch">
-              <input type="checkbox" v-model="editingConfig.antiRecall.enabled" />
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="form-group">
-            <label>复读检测</label>
-            <label class="toggle-switch">
-              <input type="checkbox" v-model="editingConfig.antiRepeat.enabled" @change="handleRepeatSwitch" />
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="form-group" v-if="editingConfig.antiRepeat.enabled">
-            <label>复读阈值</label>
-            <input
-              type="number"
-              v-model.number="editingConfig.antiRepeat.threshold"
-              min="3"
-              class="form-input"
-              placeholder="至少3条"
-            />
+
+          <!-- 右侧内容区 -->
+          <div class="edit-content">
+            <!-- 基础配置 -->
+            <div v-show="activeTab === 'basic'" class="config-section">
+              <div class="section-title">入群欢迎</div>
+              <div class="form-group">
+                <label>启用欢迎消息</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.welcomeEnabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group" v-if="editingConfig.welcomeEnabled">
+                <label>欢迎语</label>
+                <textarea
+                  v-model="editingConfig.welcomeMsg"
+                  rows="3"
+                  placeholder="输入欢迎消息... ({at}提新成员)"
+                  class="form-textarea"
+                ></textarea>
+              </div>
+
+              <div class="section-title" style="margin-top: 2rem;">入群验证</div>
+              <div class="form-group">
+                <label>自动拒绝</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="autoReject" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>拒绝回复</label>
+                <el-input v-model="editingConfig.reject" placeholder="拒绝时的提示消息" />
+              </div>
+              <div class="form-group">
+                <label>验证关键词</label>
+                <textarea
+                  v-model="editingApprovalKeywords"
+                  rows="2"
+                  placeholder="多个关键词用逗号分隔"
+                  class="form-textarea"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>等级限制</label>
+                <el-input-number v-model="editingConfig.levelLimit" :min="0" style="width: 100%" />
+              </div>
+               <div class="form-group">
+                <label>退群冷却(天)</label>
+                <el-input-number v-model="editingConfig.leaveCooldown" :min="0" style="width: 100%" />
+              </div>
+
+              <div class="section-title" style="margin-top: 2rem;">违规处理 (关键词/禁言)</div>
+              <div class="form-group">
+                <label>禁言关键词</label>
+                <textarea
+                  v-model="editingForbiddenKeywords"
+                  rows="2"
+                  placeholder="多个关键词用逗号分隔"
+                  class="form-textarea"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>自动撤回</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.forbidden.autoDelete" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>自动禁言</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.forbidden.autoBan" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+               <div class="form-group">
+                <label>自动踢出</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.forbidden.autoKick" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>禁言时长(ms)</label>
+                 <el-input-number v-model="editingConfig.forbidden.muteDuration" :min="0" :step="1000" style="width: 100%" />
+              </div>
+
+            </div>
+
+            <!-- 功能插件 -->
+            <div v-show="activeTab === 'plugins'" class="config-section">
+              
+              <!-- 复读检测 -->
+              <div class="plugin-card">
+                <div class="plugin-header" @click="togglePlugin('repeat')">
+                  <div class="plugin-title">
+                    <k-icon name="repeat" />
+                    <span>复读检测</span>
+                  </div>
+                  <div class="plugin-status">
+                    <label class="toggle-switch" @click.stop>
+                      <input type="checkbox" v-model="editingConfig.antiRepeat.enabled" @change="handleRepeatSwitch" />
+                      <span class="slider"></span>
+                    </label>
+                    <k-icon :name="expandedPlugins['repeat'] ? 'chevron-up' : 'chevron-down'" />
+                  </div>
+                </div>
+                <div class="plugin-body" v-show="expandedPlugins['repeat']">
+                   <div class="form-group">
+                    <label>复读阈值</label>
+                    <el-input-number
+                      v-model="editingConfig.antiRepeat.threshold"
+                      :min="3"
+                      placeholder="至少3条"
+                      style="width: 100%"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- 掷骰子 -->
+              <div class="plugin-card" style="margin-top: 1rem;">
+                <div class="plugin-header" @click="togglePlugin('dice')">
+                  <div class="plugin-title">
+                    <k-icon name="dice" />
+                    <span>掷骰子</span>
+                  </div>
+                  <div class="plugin-status">
+                    <label class="toggle-switch" @click.stop>
+                      <input type="checkbox" v-model="editingConfig.dice.enabled" />
+                      <span class="slider"></span>
+                    </label>
+                    <k-icon :name="expandedPlugins['dice'] ? 'chevron-up' : 'chevron-down'" />
+                  </div>
+                </div>
+                <div class="plugin-body" v-show="expandedPlugins['dice']">
+                   <div class="form-group">
+                    <label>长度限制</label>
+                    <el-input-number v-model="editingConfig.dice.lengthLimit" :min="10" style="width: 100%" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- BanMe -->
+              <div class="plugin-card" style="margin-top: 1rem;">
+                <div class="plugin-header" @click="togglePlugin('banme')">
+                  <div class="plugin-title">
+                    <k-icon name="slash" />
+                    <span>Banme</span>
+                  </div>
+                  <div class="plugin-status">
+                    <label class="toggle-switch" @click.stop>
+                      <input type="checkbox" v-model="editingConfig.banme.enabled" />
+                      <span class="slider"></span>
+                    </label>
+                    <k-icon :name="expandedPlugins['banme'] ? 'chevron-up' : 'chevron-down'" />
+                  </div>
+                </div>
+                <div class="plugin-body" v-show="expandedPlugins['banme']">
+                   <div class="form-group">
+                    <label>自动检测</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" v-model="editingConfig.banme.autoBan" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <div class="form-group">
+                    <label>最小时长(s)</label>
+                    <el-input-number v-model="editingConfig.banme.baseMin" :min="1" style="width: 100%" />
+                  </div>
+                   <div class="form-group">
+                    <label>最大时长(m)</label>
+                    <el-input-number v-model="editingConfig.banme.baseMax" :min="1" style="width: 100%" />
+                  </div>
+                  <div class="form-group">
+                    <label>增长系数</label>
+                    <el-input-number v-model="editingConfig.banme.growthRate" :min="0" style="width: 100%" />
+                  </div>
+                  
+                  <div class="divider-text">金卡系统</div>
+                  
+                  <div class="form-group">
+                    <label>启用金卡</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" v-model="editingConfig.banme.jackpot.enabled" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <div class="form-group">
+                    <label>基础概率</label>
+                    <el-input-number v-model="editingConfig.banme.jackpot.baseProb" :min="0" :max="1" :step="0.001" style="width: 100%" />
+                  </div>
+                  <div class="form-group">
+                    <label>软保底(抽)</label>
+                    <el-input-number v-model="editingConfig.banme.jackpot.softPity" :min="0" style="width: 100%" />
+                  </div>
+                  <div class="form-group">
+                    <label>硬保底(抽)</label>
+                    <el-input-number v-model="editingConfig.banme.jackpot.hardPity" :min="0" style="width: 100%" />
+                  </div>
+                  <div class="form-group">
+                    <label>UP时长</label>
+                    <el-input v-model="editingConfig.banme.jackpot.upDuration" placeholder="如 24h" />
+                  </div>
+                  <div class="form-group">
+                    <label>歪时长</label>
+                    <el-input v-model="editingConfig.banme.jackpot.loseDuration" placeholder="如 12h" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI 对话 -->
+              <div class="plugin-card" style="margin-top: 1rem;">
+                <div class="plugin-header" @click="togglePlugin('ai')">
+                  <div class="plugin-title">
+                    <k-icon name="bot" />
+                    <span>AI 助手</span>
+                  </div>
+                  <div class="plugin-status">
+                    <label class="toggle-switch" @click.stop>
+                      <input type="checkbox" v-model="editingConfig.openai.enabled" />
+                      <span class="slider"></span>
+                    </label>
+                    <k-icon :name="expandedPlugins['ai'] ? 'chevron-up' : 'chevron-down'" />
+                  </div>
+                </div>
+                <div class="plugin-body" v-show="expandedPlugins['ai']">
+                  <div class="form-group">
+                    <label>系统提示词</label>
+                    <textarea
+                      v-model="editingConfig.openai.systemPrompt"
+                      rows="3"
+                      class="form-textarea"
+                    ></textarea>
+                  </div>
+                   <div class="form-group">
+                    <label>翻译提示词</label>
+                    <textarea
+                      v-model="editingConfig.openai.translatePrompt"
+                      rows="3"
+                      class="form-textarea"
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
           </div>
         </div>
+
         <div class="dialog-footer">
           <k-button @click="showEditDialog = false">取消</k-button>
           <k-button type="primary" @click="saveConfig" :loading="saving">保存</k-button>
@@ -126,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { message } from '@koishijs/client'
 import { configApi } from '../api'
 import type { GroupConfig } from '../types'
@@ -137,6 +373,20 @@ const configs = ref<Record<string, GroupConfig>>({})
 const showEditDialog = ref(false)
 const editingGuildId = ref('')
 const editingConfig = ref<GroupConfig | null>(null)
+const editingApprovalKeywords = ref('')
+const editingForbiddenKeywords = ref('')
+const activeTab = ref('basic')
+const expandedPlugins = ref<Record<string, boolean>>({})
+
+// 自动拒绝 (Boolean <-> String 'true'/'false')
+const autoReject = computed({
+  get: () => editingConfig.value?.auto === 'true',
+  set: (val) => { if (editingConfig.value) editingConfig.value.auto = val ? 'true' : 'false' }
+})
+
+const togglePlugin = (key: string) => {
+  expandedPlugins.value[key] = !expandedPlugins.value[key]
+}
 
 const refreshConfigs = async () => {
   loading.value = true
@@ -153,11 +403,20 @@ const editConfig = (guildId: string) => {
   editingGuildId.value = guildId
   const config = { ...configs.value[guildId] }
   
-  // 初始化对象结构
+  // 初始化默认值
   if (!config.antiRecall) config.antiRecall = { enabled: false }
   if (!config.antiRepeat) config.antiRepeat = { enabled: false, threshold: 0 }
-  
+  if (!config.forbidden) config.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
+  if (!config.dice) config.dice = { enabled: true, lengthLimit: 1000 }
+  if (!config.banme) config.banme = {
+    enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
+    jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
+  }
+  if (!config.openai) config.openai = { enabled: true }
+
   editingConfig.value = config
+  editingApprovalKeywords.value = (config.approvalKeywords || []).join(', ')
+  editingForbiddenKeywords.value = (config.keywords || []).join(', ')
   showEditDialog.value = true
 }
 
@@ -186,6 +445,17 @@ const saveConfig = async () => {
     // 关闭时自动置空
     editingConfig.value.welcomeMsg = ''
   }
+
+  // 处理关键词
+  editingConfig.value.approvalKeywords = editingApprovalKeywords.value
+    .split(/[,，\n]/)
+    .map(s => s.trim())
+    .filter(s => s)
+  
+  editingConfig.value.keywords = editingForbiddenKeywords.value
+    .split(/[,，\n]/)
+    .map(s => s.trim())
+    .filter(s => s)
 
   saving.value = true
   try {
@@ -357,6 +627,11 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.edit-dialog.large {
+  max-width: 800px;
+  height: 80vh;
+}
+
 .dialog-header {
   display: flex;
   align-items: center;
@@ -386,24 +661,130 @@ onMounted(() => {
   color: var(--k-color-text);
 }
 
-.edit-form {
+.edit-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.edit-sidebar {
+  width: 160px;
+  border-right: 1px solid var(--k-color-border);
+  padding: 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--k-color-text);
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.sidebar-item:hover {
+  background: var(--k-color-bg-1);
+}
+
+.sidebar-item.active {
+  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  color: var(--k-color-active);
+  font-weight: 500;
+}
+
+.edit-content {
+  flex: 1;
+  overflow-y: auto;
   padding: 1.5rem;
+}
+
+.config-section {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  overflow-y: auto;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--k-color-text);
+  margin-bottom: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 4px solid var(--k-color-active);
+}
+
+.divider {
+  height: 1px;
+  background: var(--k-color-border);
+  margin: 1rem 0;
+  border-style: dashed;
+}
+
+/* 插件卡片样式 */
+.plugin-card {
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--k-card-bg);
+  transition: border-color 0.3s;
+}
+
+.plugin-card:hover {
+  border-color: var(--k-color-active);
+}
+
+.plugin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--k-color-bg-2);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s;
+}
+
+.plugin-header:hover {
+  background: var(--k-color-bg-3);
+}
+
+.plugin-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.plugin-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.plugin-body {
+  padding: 1rem;
+  border-top: 1px solid var(--k-color-border);
 }
 
 .form-group {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
+  padding: 0.5rem 0;
 }
 
 .form-group label:first-child {
+  width: 120px;
+  flex-shrink: 0;
   font-weight: 500;
-  color: var(--k-color-text);
+  color: var(--k-color-text-description);
 }
 
 .form-textarea {
@@ -419,21 +800,6 @@ onMounted(() => {
 }
 
 .form-textarea:focus {
-  outline: none;
-  border-color: var(--k-color-active);
-}
-
-.form-input {
-  width: 100px;
-  padding: 0.5rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 4px;
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
-  text-align: center;
-}
-
-.form-input:focus {
   outline: none;
   border-color: var(--k-color-active);
 }
@@ -481,6 +847,14 @@ onMounted(() => {
 
 .toggle-switch input:checked + .slider:before {
   transform: translateX(20px);
+}
+
+.divider-text {
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
+  margin: 1rem 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px dashed var(--k-color-border);
 }
 
 .dialog-footer {

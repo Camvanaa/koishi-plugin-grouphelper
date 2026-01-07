@@ -120,6 +120,7 @@ const menuItems = [
   color: var(--k-color-text-description);
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
+  margin-bottom: -1px;
 }
 
 .nav-tab:hover {
@@ -142,7 +143,8 @@ const menuItems = [
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  height: calc(100vh - 50px);
+  height: calc(100vh - 50px); /* Adjust based on new nav height if needed, or use flex */
+  flex: 1;
   overflow: auto;
   box-sizing: border-box;
 }

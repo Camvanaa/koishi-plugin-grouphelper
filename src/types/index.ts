@@ -195,6 +195,7 @@ export interface GroupConfig {
     muteDuration: number
   }
   welcomeMsg?: string
+  welcomeEnabled?: boolean
   levelLimit?: number  // 等级限制
   leaveCooldown?: number  // 退群冷却天数
   banme?: BanMeConfig
