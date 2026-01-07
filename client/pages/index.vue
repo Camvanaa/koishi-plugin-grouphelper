@@ -39,6 +39,7 @@ import DashboardView from '../components/DashboardView.vue'
 import ConfigView from '../components/ConfigView.vue'
 import WarnsView from '../components/WarnsView.vue'
 import BlacklistView from '../components/BlacklistView.vue'
+import LogsView from '../components/LogsView.vue'
 
 const currentView = ref('dashboard')
 
@@ -48,15 +49,17 @@ const activeComponent = computed(() => {
     case 'config': return ConfigView
     case 'warns': return WarnsView
     case 'blacklist': return BlacklistView
+    case 'logs': return LogsView
     default: return DashboardView
   }
 })
 
 const menuItems = [
-  { id: 'dashboard', label: '仪表盘', icon: 'activity:default' },
-  { id: 'config', label: '群组配置', icon: 'activity:settings' },
-  { id: 'warns', label: '警告记录', icon: 'activity:shield' },
-  { id: 'blacklist', label: '黑名单', icon: 'activity:user' },
+  { id: 'dashboard', label: '仪表盘', icon: 'grouphelper:dashboard' },
+  { id: 'config', label: '群组配置', icon: 'grouphelper:config' },
+  { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
+  { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
+  { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
 ]
 </script>
 

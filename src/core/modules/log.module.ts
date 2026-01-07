@@ -514,4 +514,8 @@ export class LogModule extends BaseModule {
   async getRecentLogs(limit: number = 100): Promise<CommandLogRecord[]> {
     return this.readCommandLogs().slice(-limit).reverse()
   }
+
+  async getAllLogs(): Promise<CommandLogRecord[]> {
+    return this.readCommandLogs().reverse()
+  }
 }

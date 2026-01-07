@@ -169,7 +169,7 @@ export interface ReportGuildConfig {
 }
 
 export interface CommandLogEntry {
-  timestamp: number
+  timestamp: string | number
   guildId: string
   userId: string
   command: string

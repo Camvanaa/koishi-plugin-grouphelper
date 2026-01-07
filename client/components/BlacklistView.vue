@@ -30,7 +30,6 @@
       <div class="blacklist-table" v-else>
         <div class="table-header">
           <div class="col-user">用户ID</div>
-          <div class="col-reason">原因</div>
           <div class="col-time">添加时间</div>
           <div class="col-actions">操作</div>
         </div>
@@ -41,10 +40,9 @@
         >
           <div class="col-user">
             <k-icon name="user-x" class="user-icon" />
-            <span>{{ userId }}</span>
+            <span>{{ formatUserId(userId as string) }}</span>
           </div>
-          <div class="col-reason">{{ record.reason || '无' }}</div>
-          <div class="col-time">{{ formatTime(record.addedAt) }}</div>
+          <div class="col-time">{{ formatTime(record.timestamp || record.addedAt) }}</div>
           <div class="col-actions">
             <k-button size="small" type="danger" @click="removeUser(userId as string)">
               <k-icon name="trash-2" />
@@ -74,15 +72,6 @@
               class="form-input"
             />
           </div>
-          <div class="form-group">
-            <label>原因（可选）</label>
-            <textarea
-              v-model="newUser.reason"
-              rows="2"
-              placeholder="输入拉黑原因..."
-              class="form-textarea"
-            ></textarea>
-          </div>
         </div>
         <div class="dialog-footer">
           <k-button @click="showAddDialog = false">取消</k-button>
@@ -105,8 +94,7 @@ const showAddDialog = ref(false)
 const blacklist = ref<Record<string, BlacklistRecord>>({})
 
 const newUser = reactive({
-  userId: '',
-  reason: ''
+  userId: ''
 })
 
 const refreshBlacklist = async () => {
@@ -128,13 +116,11 @@ const addUser = async () => {
   adding.value = true
   try {
     await blacklistApi.add(newUser.userId, {
-      reason: newUser.reason || undefined,
       addedAt: Date.now()
     })
     message.success('已添加到黑名单')
     showAddDialog.value = false
     newUser.userId = ''
-    newUser.reason = ''
     await refreshBlacklist()
   } catch (e: any) {
     message.error(e.message || '添加失败')
@@ -157,6 +143,15 @@ const formatTime = (timestamp: number | undefined) => {
   if (!timestamp) return '未知'
   return new Date(timestamp).toLocaleString('zh-CN')
 }
+
+const formatUserId = (id: string) => {
+  if (id.startsWith('<at')) {
+    const match = id.match(/id="(\d+)"/)
+    return match ? match[1] : id
+  }
+  return id
+}
+
 
 onMounted(() => {
   refreshBlacklist()
@@ -236,7 +231,7 @@ onMounted(() => {
 
 .table-header {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 1rem;
   padding: 1rem;
   background: var(--k-color-bg-2);
@@ -247,7 +242,7 @@ onMounted(() => {
 
 .table-row {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 1rem;
   padding: 1rem;
   align-items: center;
@@ -271,10 +266,6 @@ onMounted(() => {
 
 .user-icon {
   color: #f56c6c;
-}
-
-.col-reason {
-  color: var(--k-color-text-description);
 }
 
 .col-time {

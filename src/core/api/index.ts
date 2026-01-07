@@ -40,22 +40,24 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 群组配置 API =====
   
   /** 获取所有群组配置 */
-  ctx.console.addListener('grouphelper/config/list', async () => {
+  ctx.console.addListener('grouphelper/config/list', async (params?: { fetchNames?: boolean }) => {
     const allConfigs = data.groupConfig.getAll()
     const results: Record<string, any> = {}
 
     // 并行获取群组名称
     await Promise.all(Object.entries(allConfigs).map(async ([guildId, config]) => {
       let guildName = ''
-      for (const bot of ctx.bots) {
-        try {
-          const guild = await bot.getGuild(guildId)
-          if (guild?.name) {
-            guildName = guild.name
-            break
+      if (params?.fetchNames) {
+        for (const bot of ctx.bots) {
+          try {
+            const guild = await bot.getGuild(guildId)
+            if (guild?.name) {
+              guildName = guild.name
+              break
+            }
+          } catch {
+            continue
           }
-        } catch {
-          continue
         }
       }
       results[guildId] = { ...config, guildName }
@@ -78,9 +80,80 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 警告记录 API =====
 
-  /** 获取所有警告记录 */
-  ctx.console.addListener('grouphelper/warns/list', async () => {
-    return success(data.warns.getAll())
+  /** 获取所有警告记录 (Enriched) */
+  ctx.console.addListener('grouphelper/warns/list', async (params?: { fetchNames?: boolean }) => {
+    const rawWarns = data.warns.getAll()
+    const result = []
+
+    for (const [key, record] of Object.entries(rawWarns)) {
+      // key format: guildId:userId
+      const parts = key.split(':')
+      const guildId = parts[0]
+      const userId = parts[1] || 'Unknown'
+      const groupData = record.groups?.[guildId]
+
+      if (guildId && groupData) {
+        let guildName = ''
+        let userName = ''
+
+        // Try to fetch names if requested
+        if (params?.fetchNames) {
+          for (const bot of ctx.bots) {
+            try {
+              if (!guildName) {
+                const guild = await bot.getGuild(guildId)
+                if (guild?.name) guildName = guild.name
+              }
+              if (!userName) {
+                const member = await bot.getGuildMember(guildId, userId)
+                if (member?.user?.name || member?.nick) userName = member.nick || member.user.name
+              }
+              if (guildName && userName) break
+            } catch {
+              continue
+            }
+          }
+        }
+
+        result.push({
+          key,
+          guildId,
+          userId,
+          guildName: guildName || 'Unknown',
+          userName: userName || 'Unknown',
+          count: groupData.count,
+          timestamp: groupData.timestamp
+        })
+      }
+    }
+
+    return success(result)
+  })
+
+  /** 更新警告次数 */
+  ctx.console.addListener('grouphelper/warns/update', async (params: { key: string, count: number }) => {
+    const record = data.warns.get(params.key)
+    if (record) {
+      const parts = params.key.split(':')
+      const guildId = parts[0]
+      if (record.groups[guildId]) {
+        if (params.count <= 0) {
+          // Count <= 0 means clear
+          delete record.groups[guildId]
+          if (Object.keys(record.groups).length === 0) {
+            data.warns.delete(params.key)
+          } else {
+            data.warns.set(params.key, record)
+          }
+        } else {
+          record.groups[guildId].count = params.count
+          data.warns.set(params.key, record)
+        }
+        await data.warns.flush()
+        return success({ success: true })
+      }
+    }
+    return error('Record not found')
   })
 
   /** 获取用户警告记录 */
@@ -162,4 +235,40 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     })
   })
 
+  // ===== 日志检索 API =====
+
+  ctx.console.addListener('grouphelper/logs/search', async (params: {
+    startTime?: string | number
+    endTime?: string | number
+    command?: string
+    userId?: string
+    guildId?: string
+    page?: number
+    pageSize?: number
+  }) => {
+    const logModule = service.getAllModules().find(m => m.meta.name === 'log') as any
+    if (!logModule) return error('Log module not found')
+
+    // 获取所有日志进行检索
+    let logs = await logModule.getAllLogs()
+    
+    // 过滤
+    logs = logs.filter((log: any) => {
+      const time = new Date(log.timestamp).getTime()
+      if (params.startTime && time < new Date(params.startTime).getTime()) return false
+      if (params.endTime && time > new Date(params.endTime).getTime()) return false
+      if (params.command && !log.command.includes(params.command)) return false
+      if (params.userId && log.userId !== params.userId) return false
+      if (params.guildId && log.guildId !== params.guildId) return false
+      return true
+    })
+
+    // 分页
+    const page = params.page || 1
+    const pageSize = params.pageSize || 20
+    const total = logs.length
+    const list = logs.slice((page - 1) * pageSize, page * pageSize)
+
+    return success({ list, total, page, pageSize })
+  })
 }

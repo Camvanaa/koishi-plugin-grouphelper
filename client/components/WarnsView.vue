@@ -2,10 +2,16 @@
   <div class="warns-view">
     <div class="view-header">
       <h2 class="view-title">警告记录</h2>
-      <k-button type="primary" @click="refreshWarns">
-        <template #icon><k-icon name="refresh-cw" /></template>
-        刷新
-      </k-button>
+      <div class="header-actions">
+        <div class="toggle-wrapper">
+          <label>解析名称</label>
+          <el-switch v-model="fetchNames" @change="refreshWarns" />
+        </div>
+        <k-button type="primary" @click="refreshWarns">
+          <template #icon><k-icon name="refresh-cw" /></template>
+          刷新
+        </k-button>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -16,44 +22,46 @@
 
     <!-- 警告列表 -->
     <div v-else class="warns-list">
-      <div v-if="Object.keys(warns).length === 0" class="empty-state">
+      <div v-if="Object.keys(groupedWarns).length === 0" class="empty-state">
         <k-icon name="check-circle" class="empty-icon" />
         <p>暂无警告记录</p>
       </div>
 
-      <div
-        v-for="(record, key) in warns"
-        :key="key"
-        class="warn-card"
-      >
-        <div class="card-header">
-          <div class="user-info">
-            <k-icon name="user" class="user-icon" />
-            <span class="user-key">{{ key }}</span>
+      <div v-for="(groupWarns, guildId) in groupedWarns" :key="guildId" class="guild-card">
+        <div class="guild-header" @click="toggleGuild(guildId as string)">
+          <div class="guild-title">
+            <k-icon name="users" />
+            <span>{{ (groupWarns[0]?.guildName && groupWarns[0]?.guildName !== 'Unknown') ? `${groupWarns[0].guildName} (${guildId})` : guildId }}</span>
           </div>
-          <div class="warn-count" :class="getWarnLevel(record.count)">
-            {{ record.count }} 次警告
+          <div class="guild-status">
+            <div class="guild-meta">{{ groupWarns.length }} 名成员有警告记录</div>
+            <k-icon :name="expandedGuilds[guildId] ? 'chevron-up' : 'chevron-down'" />
           </div>
         </div>
-        <div class="card-body">
-          <div class="warn-item">
-            <span class="item-label">群组ID</span>
-            <span class="item-value">{{ record.guildId || '未知' }}</span>
+        
+        <div class="user-list" v-show="expandedGuilds[guildId]">
+          <div
+            v-for="item in groupWarns"
+            :key="item.key"
+            class="user-row"
+          >
+            <div class="user-info">
+              <k-icon name="user" class="user-icon" />
+              <div class="user-details">
+                <div class="user-name">{{ item.userName !== 'Unknown' ? item.userName : '' }}</div>
+                <div class="user-id">{{ item.userId }}</div>
+              </div>
+            </div>
+            <div class="warn-control">
+              <el-input-number 
+                v-model="item.count" 
+                :min="0" 
+                size="small"
+                @change="(val) => updateWarn(item, val)"
+              />
+              <span class="warn-time">{{ formatTime(item.timestamp) }}</span>
+            </div>
           </div>
-          <div class="warn-item">
-            <span class="item-label">用户ID</span>
-            <span class="item-value">{{ record.userId || '未知' }}</span>
-          </div>
-          <div class="warn-item">
-            <span class="item-label">最后警告时间</span>
-            <span class="item-value">{{ formatTime(record.lastWarnTime) }}</span>
-          </div>
-        </div>
-        <div class="card-actions">
-          <k-button size="small" type="danger" @click="clearWarn(key as string)">
-            <k-icon name="trash-2" />
-            清除警告
-          </k-button>
         </div>
       </div>
     </div>
@@ -67,12 +75,39 @@ import { warnsApi } from '../api'
 import type { WarnRecord } from '../types'
 
 const loading = ref(false)
-const warns = ref<Record<string, WarnRecord>>({})
+const fetchNames = ref(false)
+
+interface ProcessedWarn {
+  key: string
+  userId: string
+  userName: string
+  guildId: string
+  guildName: string
+  count: number
+  timestamp: number
+}
+
+const groupedWarns = ref<Record<string, ProcessedWarn[]>>({})
+const expandedGuilds = ref<Record<string, boolean>>({})
+
+const toggleGuild = (guildId: string) => {
+  expandedGuilds.value[guildId] = !expandedGuilds.value[guildId]
+}
 
 const refreshWarns = async () => {
   loading.value = true
   try {
-    warns.value = await warnsApi.list()
+    // API 现在返回 Enriched List
+    const data = await warnsApi.list(fetchNames.value)
+    const groups: Record<string, ProcessedWarn[]> = {}
+    
+    // @ts-ignore
+    data.forEach(item => {
+      if (!groups[item.guildId]) groups[item.guildId] = []
+      groups[item.guildId].push(item)
+    })
+    
+    groupedWarns.value = groups
   } catch (e: any) {
     message.error(e.message || '加载警告记录失败')
   } finally {
@@ -80,13 +115,17 @@ const refreshWarns = async () => {
   }
 }
 
-const clearWarn = async (key: string) => {
+const updateWarn = async (item: ProcessedWarn, count: number | undefined) => {
+  if (count === undefined) return
   try {
-    await warnsApi.clear(key)
-    message.success('已清除警告')
-    await refreshWarns()
+    await warnsApi.update(item.key, count)
+    if (count <= 0) {
+      message.success('警告已清除')
+      await refreshWarns()
+    }
   } catch (e: any) {
-    message.error(e.message || '清除警告失败')
+    message.error(e.message || '更新警告失败')
+    await refreshWarns() 
   }
 }
 
@@ -120,6 +159,20 @@ onMounted(() => {
   margin-bottom: 1.5rem;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+}
+
 .view-title {
   font-size: 1.5rem;
   font-weight: 600;
@@ -149,59 +202,118 @@ onMounted(() => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+.guild-card {
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.guild-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--k-color-bg-2);
+  border-bottom: 1px solid var(--k-color-border);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.guild-header:hover {
+  background: var(--k-color-bg-1);
+}
+
+.guild-status {
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
-.empty-state {
+.guild-title {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 3rem;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--k-color-text);
+}
+
+.guild-meta {
+  font-size: 0.8rem;
   color: var(--k-color-text-description);
 }
 
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-  color: #67c23a;
+.user-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.warn-card {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
-}
-
-.card-header {
+.user-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--k-color-border);
+  transition: background-color 0.2s;
+}
+
+.user-row:last-child {
+  border-bottom: none;
+}
+
+.user-row:hover {
+  background-color: var(--k-color-bg-1);
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.75rem;
+  width: 200px;
 }
 
 .user-icon {
   color: var(--k-color-active);
 }
 
-.user-key {
-  font-weight: 600;
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 500;
+  font-size: 0.9rem;
   color: var(--k-color-text);
+}
+
+.user-id {
   font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--k-color-text-description);
+}
+
+.warn-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.warn-time {
+  color: var(--k-color-text-description);
+  font-size: 0.85rem;
+  margin-left: auto;
 }
 
 .warn-count {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.875rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
@@ -220,35 +332,43 @@ onMounted(() => {
   color: #f56c6c;
 }
 
-.card-body {
-  padding: 1rem;
-}
-
-.warn-item {
+.empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-}
-
-.warn-item:not(:last-child) {
-  border-bottom: 1px dashed var(--k-color-border);
-}
-
-.item-label {
+  justify-content: center;
+  padding: 3rem;
   color: var(--k-color-text-description);
-  font-size: 0.875rem;
 }
 
-.item-value {
-  font-weight: 500;
-  color: var(--k-color-text);
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+  color: #67c23a;
 }
 
-.card-actions {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--k-color-border);
-  display: flex;
-  justify-content: flex-end;
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-color-text-description);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 </style>

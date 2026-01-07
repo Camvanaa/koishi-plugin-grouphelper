@@ -15,13 +15,14 @@ interface ApiResponse<T = any> {
 declare module '@koishijs/plugin-console' {
   interface Events {
     // 群组配置 API
-    'grouphelper/config/list'(): Promise<ApiResponse<Record<string, GroupConfig>>>
+    'grouphelper/config/list'(params?: { fetchNames?: boolean }): Promise<ApiResponse<Record<string, GroupConfig>>>
     'grouphelper/config/get'(params: { guildId: string }): Promise<ApiResponse<GroupConfig | undefined>>
     'grouphelper/config/update'(params: { guildId: string, config: GroupConfig }): Promise<ApiResponse<{ success: boolean }>>
 
     // 警告记录 API
-    'grouphelper/warns/list'(): Promise<ApiResponse<Record<string, WarnRecord>>>
+    'grouphelper/warns/list'(params?: { fetchNames?: boolean }): Promise<ApiResponse<any[]>>
     'grouphelper/warns/get'(params: { key: string }): Promise<ApiResponse<WarnRecord | undefined>>
+    'grouphelper/warns/update'(params: { key: string, count: number }): Promise<ApiResponse<{ success: boolean }>>
     'grouphelper/warns/clear'(params: { key: string }): Promise<ApiResponse<{ success: boolean }>>
 
     // 黑名单 API
@@ -41,6 +42,22 @@ declare module '@koishijs/plugin-console' {
       totalBlacklisted: number
       totalSubscriptions: number
       timestamp: number
+    }>>
+
+    // 日志 API
+    'grouphelper/logs/search'(params: {
+      startTime?: string | number
+      endTime?: string | number
+      command?: string
+      userId?: string
+      guildId?: string
+      page?: number
+      pageSize?: number
+    }): Promise<ApiResponse<{
+      list: any[]
+      total: number
+      page: number
+      pageSize: number
     }>>
   }
 }

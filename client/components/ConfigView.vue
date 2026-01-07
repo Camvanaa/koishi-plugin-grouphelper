@@ -2,10 +2,16 @@
   <div class="config-view">
     <div class="view-header">
       <h2 class="view-title">群组配置</h2>
-      <k-button type="primary" @click="refreshConfigs">
-        <template #icon><k-icon name="refresh-cw" /></template>
-        刷新
-      </k-button>
+      <div class="header-actions">
+        <div class="toggle-wrapper">
+          <label>解析群名</label>
+          <el-switch v-model="fetchNames" @change="refreshConfigs" />
+        </div>
+        <k-button type="primary" @click="refreshConfigs">
+          <template #icon><k-icon name="refresh-cw" /></template>
+          刷新
+        </k-button>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -369,6 +375,7 @@ import type { GroupConfig } from '../types'
 
 const loading = ref(false)
 const saving = ref(false)
+const fetchNames = ref(false)
 const configs = ref<Record<string, GroupConfig>>({})
 const showEditDialog = ref(false)
 const editingGuildId = ref('')
@@ -391,7 +398,7 @@ const togglePlugin = (key: string) => {
 const refreshConfigs = async () => {
   loading.value = true
   try {
-    configs.value = await configApi.list()
+    configs.value = await configApi.list(fetchNames.value)
   } catch (e: any) {
     message.error(e.message || '加载配置失败')
   } finally {
@@ -487,6 +494,20 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--k-color-text);
 }
 
 .view-title {
@@ -863,5 +884,29 @@ onMounted(() => {
   gap: 8px;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--k-color-border);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-color-text-description);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 </style>

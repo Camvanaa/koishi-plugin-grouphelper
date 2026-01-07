@@ -38,16 +38,17 @@ async function call<T>(event: keyof any, params?: any): Promise<T> {
 
 // 群组配置 API
 export const configApi = {
-  list: () => call<Record<string, GroupConfig>>('grouphelper/config/list'),
+  list: (fetchNames?: boolean) => call<Record<string, GroupConfig>>('grouphelper/config/list', { fetchNames }),
   get: (guildId: string) => call<GroupConfig | undefined>('grouphelper/config/get', { guildId }),
   update: (guildId: string, config: GroupConfig) => call<{ success: boolean }>('grouphelper/config/update', { guildId, config }),
 }
 
 // 警告记录 API
 export const warnsApi = {
-  list: () => call<Record<string, WarnRecord>>('grouphelper/warns/list'),
+  list: (fetchNames?: boolean) => call<any[]>('grouphelper/warns/list', { fetchNames }),
   get: (key: string) => call<WarnRecord | undefined>('grouphelper/warns/get', { key }),
   clear: (key: string) => call<{ success: boolean }>('grouphelper/warns/clear', { key }),
+  update: (key: string, count: number) => call<{ success: boolean }>('grouphelper/warns/update', { key, count }),
 }
 
 // 黑名单 API
@@ -67,4 +68,10 @@ export const subscriptionApi = {
 // 统计 API
 export const statsApi = {
   dashboard: () => call<DashboardStats>('grouphelper/stats/dashboard'),
+}
+
+// 日志 API
+import type { LogSearchParams, LogResponse } from './types'
+export const logsApi = {
+  search: (params: LogSearchParams) => call<LogResponse>('grouphelper/logs/search', params),
 }

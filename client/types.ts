@@ -85,6 +85,47 @@ export interface DashboardStats {
   timestamp: number
 }
 
+// 日志搜索参数
+export interface LogSearchParams {
+  startTime?: string | number
+  endTime?: string | number
+  command?: string
+  userId?: string
+  guildId?: string
+  page?: number
+  pageSize?: number
+}
+
+// 日志记录
+export interface LogRecord {
+  id: string
+  timestamp: string
+  userId: string
+  username?: string
+  userAuthority?: number
+  guildId?: string
+  guildName?: string
+  channelId?: string
+  platform: string
+  command: string
+  args: string[]
+  options: Record<string, any>
+  success: boolean
+  error?: string
+  executionTime: number
+  result?: string
+  messageId?: string
+  isPrivate: boolean
+}
+
+// 日志响应
+export interface LogResponse {
+  list: LogRecord[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 // 扩展 @koishijs/client 的 Events 接口
 declare module '@koishijs/client' {
   interface Events {
@@ -110,5 +151,8 @@ declare module '@koishijs/client' {
 
     // 统计 API
     'grouphelper/stats/dashboard'(): Promise<DashboardStats>
+
+    // 日志 API
+    'grouphelper/logs/search'(params: LogSearchParams): Promise<LogResponse>
   }
 }
