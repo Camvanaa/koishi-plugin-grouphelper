@@ -1,0 +1,149 @@
+<template>
+  <k-layout class="grouphelper-app">
+    <!-- 顶部导航 -->
+    <div class="top-nav">
+      <div class="nav-container">
+        <!-- Logo 区域 -->
+        <div class="logo-area">
+          <span class="logo-text">GROUP HELPER</span>
+          <span class="version-text">v1.0.0</span>
+        </div>
+        <!-- 导航标签 -->
+        <div class="nav-tabs">
+          <div
+            v-for="item in menuItems"
+            :key="item.id"
+            class="nav-tab"
+            :class="{ active: currentView === item.id }"
+            @click="currentView = item.id"
+          >
+            <k-icon :name="item.icon" class="tab-icon" />
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <keep-alive>
+        <component :is="activeComponent" />
+      </keep-alive>
+    </div>
+  </k-layout>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import DashboardView from '../components/DashboardView.vue'
+import ConfigView from '../components/ConfigView.vue'
+import WarnsView from '../components/WarnsView.vue'
+import BlacklistView from '../components/BlacklistView.vue'
+
+const currentView = ref('dashboard')
+
+const activeComponent = computed(() => {
+  switch (currentView.value) {
+    case 'dashboard': return DashboardView
+    case 'config': return ConfigView
+    case 'warns': return WarnsView
+    case 'blacklist': return BlacklistView
+    default: return DashboardView
+  }
+})
+
+const menuItems = [
+  { id: 'dashboard', label: '仪表盘', icon: 'activity:default' },
+  { id: 'config', label: '群组配置', icon: 'activity:settings' },
+  { id: 'warns', label: '警告记录', icon: 'activity:shield' },
+  { id: 'blacklist', label: '黑名单', icon: 'activity:user' },
+]
+</script>
+
+<style scoped>
+.grouphelper-app {
+  background: var(--k-color-bg-1);
+  height: 100vh;
+  min-height: 0;
+}
+
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--k-color-bg-2);
+  border-bottom: 1px solid var(--k-color-border);
+  height: 50px;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-area {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.logo-text {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--k-color-text);
+}
+
+.version-text {
+  font-size: 11px;
+  color: var(--k-color-text-description);
+  opacity: 0.7;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--k-color-text-description);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: var(--k-color-text);
+}
+
+.nav-tab.active {
+  color: var(--k-color-active);
+  border-bottom-color: var(--k-color-active);
+  font-weight: 600;
+}
+
+.tab-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  height: calc(100vh - 50px);
+  overflow: auto;
+  box-sizing: border-box;
+}
+</style>

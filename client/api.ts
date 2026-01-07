@@ -1,0 +1,70 @@
+/**
+ * WebUI API 客户端封装
+ * 提供类型安全的 API 调用方法
+ */
+
+import { send } from '@koishijs/client'
+import type { GroupConfig, WarnRecord, BlacklistRecord, Subscription } from './types'
+
+// 重新导出类型
+export type { GroupConfig, WarnRecord, BlacklistRecord, Subscription }
+
+// 仪表盘统计数据类型
+export interface DashboardStats {
+  totalGroups: number
+  totalWarns: number
+  totalBlacklisted: number
+  totalSubscriptions: number
+  timestamp: number
+}
+
+// API 响应类型
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+// 通用调用封装
+async function call<T>(event: keyof any, params?: any): Promise<T> {
+  // @ts-ignore
+  const result = await send(event, params) as ApiResponse<T>
+  if (!result.success) {
+    throw new Error(result.error || '请求失败')
+  }
+  // @ts-ignore
+  return result.data
+}
+
+// 群组配置 API
+export const configApi = {
+  list: () => call<Record<string, GroupConfig>>('grouphelper/config/list'),
+  get: (guildId: string) => call<GroupConfig | undefined>('grouphelper/config/get', { guildId }),
+  update: (guildId: string, config: GroupConfig) => call<{ success: boolean }>('grouphelper/config/update', { guildId, config }),
+}
+
+// 警告记录 API
+export const warnsApi = {
+  list: () => call<Record<string, WarnRecord>>('grouphelper/warns/list'),
+  get: (key: string) => call<WarnRecord | undefined>('grouphelper/warns/get', { key }),
+  clear: (key: string) => call<{ success: boolean }>('grouphelper/warns/clear', { key }),
+}
+
+// 黑名单 API
+export const blacklistApi = {
+  list: () => call<Record<string, BlacklistRecord>>('grouphelper/blacklist/list'),
+  add: (userId: string, record: BlacklistRecord) => call<{ success: boolean }>('grouphelper/blacklist/add', { userId, record }),
+  remove: (userId: string) => call<{ success: boolean }>('grouphelper/blacklist/remove', { userId }),
+}
+
+// 订阅 API
+export const subscriptionApi = {
+  list: () => call<Subscription[]>('grouphelper/subscriptions/list'),
+  add: (subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/add', { subscription }),
+  remove: (index: number) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { index }),
+}
+
+// 统计 API
+export const statsApi = {
+  dashboard: () => call<DashboardStats>('grouphelper/stats/dashboard'),
+}

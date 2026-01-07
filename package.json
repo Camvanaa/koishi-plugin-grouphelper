@@ -1,25 +1,35 @@
 {
   "name": "koishi-plugin-grouphelper",
   "description": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "contributors": [
     "camvan <3499880997@qq.com>",
     "TianLuen <1318339790@qq.com>"
   ],
-  "repository": "https://github.com/camvanaa/koishi-plugin-grouphelper.git",
-  "typings": "lib/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/camvanaa/koishi-plugin-grouphelper.git"
+  },
   "files": [
     "lib",
-    "dist"
+    "dist",
+    "client"
   ],
-  "koishi": {
-    "description": {
-      "en": "Group management plugin, providing kick, ban, warn, and keyword functions",
-      "zh": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)"
-    }
-  },
   "license": "MIT",
+  "scripts": {
+    "build:server": "tsc",
+    "build:client": "koishi-console build",
+    "build": "yarn build:server && yarn build:client"
+  },
   "keywords": [
     "chatbot",
     "koishi",
@@ -28,7 +38,36 @@
     "management",
     "moderation"
   ],
+  "devDependencies": {
+    "@koishijs/client": "^5.30.0",
+    "@koishijs/plugin-console": "^5.30.0",
+    "koishi": "^4.18.7",
+    "typescript": "^5.3.3"
+  },
   "peerDependencies": {
+    "@koishijs/plugin-console": "^5.0.0",
     "koishi": "^4.18.3"
+  },
+  "koishi": {
+    "description": {
+      "en": "Group management plugin, providing kick, ban, warn, and keyword functions",
+      "zh": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)"
+    },
+    "service": {
+      "required": [
+        "database"
+      ],
+      "optional": [
+        "console"
+      ],
+      "implements": [
+        "groupHelper"
+      ]
+    },
+    "locales": [
+      "zh-CN"
+    ],
+    "browser": true,
+    "icon": "mdi:account-group"
   }
 }

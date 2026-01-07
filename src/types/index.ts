@@ -23,6 +23,7 @@ declare module 'koishi' {
       baseMin: number
       baseMax: number
       growthRate: number
+      autoBan?: boolean
       jackpot: {
         enabled: boolean
         baseProb: number
@@ -96,6 +97,7 @@ export interface Config {
     baseMin: number
     baseMax: number
     growthRate: number
+    autoBan?: boolean
     jackpot: {
       enabled: boolean
       baseProb: number
@@ -144,20 +146,60 @@ export interface Config {
     maxRecordsPerUser: number
     showOriginalTime: boolean
   }
+  report?: ReportConfig
+}
+
+export interface ReportConfig {
+  enabled: boolean
+  authority: number
+  autoProcess: boolean
+  maxReportCooldown: number
+  minAuthorityNoLimit: number
+  maxReportTime: number
+  defaultPrompt?: string
+  contextPrompt?: string
+  guildConfigs?: Record<string, ReportGuildConfig>
+}
+
+export interface ReportGuildConfig {
+  enabled: boolean
+  autoProcess?: boolean
+  includeContext?: boolean
+  contextSize?: number
+}
+
+export interface CommandLogEntry {
+  timestamp: number
+  guildId: string
+  userId: string
+  command: string
+  target: string
+  details: string
+}
+
+export interface CommandLogData {
+  logs: CommandLogEntry[]
+  [key: string]: unknown
 }
 
 
 export interface GroupConfig {
-  keywords: string[]
+  keywords?: string[]
   approvalKeywords?: string[]
-  forbidden: {
+  auto?: string  // 自动拒绝状态：'true' | 'false'
+  reject?: string  // 拒绝词消息
+  forbidden?: {
     autoDelete: boolean
     autoBan: boolean
     autoKick: boolean
     muteDuration: number
   }
   welcomeMsg?: string
+  levelLimit?: number  // 等级限制
+  leaveCooldown?: number  // 退群冷却天数
   banme?: BanMeConfig
+  dice?: DiceConfig
+  antiRepeat?: AntiRepeatConfig
   openai?: {
     enabled: boolean
     systemPrompt?: string
@@ -166,6 +208,11 @@ export interface GroupConfig {
   antiRecall?: {
     enabled: boolean
   }
+}
+
+export interface DiceConfig {
+  enabled?: boolean
+  lengthLimit?: number
 }
 
 
@@ -249,6 +296,7 @@ export interface BanMeConfig {
   baseMin: number
   baseMax: number
   growthRate: number
+  autoBan?: boolean
   jackpot: {
     enabled: boolean
     baseProb: number
@@ -329,4 +377,9 @@ export interface RecallRecord {
   [guildId: string]: {
     [userId: string]: RecalledMessage[]
   }
+}
+
+// 退群冷却记录
+export interface LeaveRecord {
+  expireTime: number
 }

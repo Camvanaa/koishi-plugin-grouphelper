@@ -1,86 +1,97 @@
-import { Context } from 'koishi'
-
+import { Context, Logger } from 'koishi'
+import type {} from '@koishijs/plugin-console'
+import { resolve } from 'path'
 
 import * as config from './config'
+import { Config as PluginConfig } from './types'
+import { GroupHelperService, registerWebSocketAPI } from './core'
+import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, EventModule } from './core/modules'
 
-
-import { DataService } from './services'
-import { AIService } from './services/ai.service'
-import { CommandLogService } from './services/command-log.service'
-import { AntiRecallService } from './services/anti-recall.service'
-import { registerEventListeners, setupScheduledTasks } from './services/event.service'
-
-
-import {
-  registerBasicCommands,
-  registerWelcomeCommands,
-  registerWarnCommands,
-  registerHelpCommands,
-  registerRepeatMiddleware,
-  registerKeywordMiddleware,
-  registerKeywordCommands,
-  setupRepeatCleanupTask,
-  registerConfigCommands,
-  registerBanmeCommands,
-  registerLogCommands,
-  registerSubscriptionCommands,
-  registerAICommands,
-  registerReportCommands,
-  registerCommandLogCommands,
-  registerAntiRecallCommands,
-  registerDiceCommands,
-  registerGetAuthCommand
-} from './commands'
-
-
+// 插件元信息
 export const name = config.name
 export const usage = config.usage
 export const Config = config.ConfigSchema
 
-export const inject = ['database']
+// 声明依赖注入
+export const inject = {
+  required: ['database'],
+  optional: ['console']
+}
 
+// 导出类型
 export { Config as ConfigInterface } from './types'
 
+// 声明服务类型扩展（注意：这里不能使用，需要在 service 文件中声明）
+// declare module 'koishi' { ... } 已在 grouphelper.service.ts 中定义
 
-export function apply(ctx: Context) {
+const logger = new Logger(config.name)
 
-  const dataService = new DataService(ctx)
+/**
+ * 插件入口函数
+ */
+export function apply(ctx: Context, pluginConfig: PluginConfig) {
+  // ===== 注册核心服务 =====
+  ctx.plugin(GroupHelperService, pluginConfig)
+  logger.info('GroupHelperService registered')
 
-  const commandLogService = new CommandLogService(ctx, dataService)
-
-  const antiRecallService = new AntiRecallService(ctx, dataService)
-
-  const aiService = new AIService(ctx, dataService.dataPath)
-
-
-  registerBasicCommands(ctx, dataService)
-  registerWelcomeCommands(ctx, dataService)
-  registerWarnCommands(ctx, dataService)
-  registerHelpCommands(ctx, dataService)
-  registerKeywordMiddleware(ctx, dataService)
-  registerKeywordCommands(ctx, dataService)
-  registerRepeatMiddleware(ctx, dataService)
-  registerConfigCommands(ctx, dataService)
-  registerBanmeCommands(ctx, dataService)
-  registerLogCommands(ctx, dataService)
-  registerSubscriptionCommands(ctx, dataService)
-  registerAICommands(ctx, dataService, aiService)
-  registerReportCommands(ctx, dataService, aiService)
-  registerCommandLogCommands(ctx, commandLogService)
-  registerAntiRecallCommands(ctx, antiRecallService, dataService)
-  registerDiceCommands(ctx, dataService)
-  registerGetAuthCommand(ctx, dataService)
-
-
-  registerEventListeners(ctx, dataService)
-  setupScheduledTasks(ctx, dataService)
-  setupRepeatCleanupTask()
-
-
-  ctx.on('dispose', () => {
-    dataService.dispose()
-    aiService.dispose()
-    commandLogService.dispose()
-    antiRecallService.dispose()
+  // ===== 注册控制台页面（使用官方推荐的 inject 模式） =====
+  ctx.inject(['console'], (ctx) => {
+    ctx.console.addEntry({
+      dev: resolve(__dirname, '../client/index.ts'),
+      prod: resolve(__dirname, '../dist')
+    })
+    logger.info('Console entry registered')
   })
+
+  // ===== 注册模块和 API（确保 groupHelper 服务已注册后） =====
+  ctx.inject(['groupHelper'], (ctx) => {
+    // 注册 WebSocket API（如果控制台可用）
+    ctx.inject(['console'], (ctx) => {
+      registerWebSocketAPI(ctx, ctx.groupHelper)
+      logger.info('WebSocket API registered')
+    })
+
+    // 在 ready 事件中初始化模块
+    ctx.on('ready', async () => {
+      // 注册并初始化新架构模块
+      const warnModule = new WarnModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const keywordModule = new KeywordModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const basicModule = new BasicModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const welcomeModule = new WelcomeModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const repeatModule = new RepeatModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const diceModule = new DiceModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const banmeModule = new BanmeModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const antiRecallModule = new AntiRecallModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const aiModule = new AIModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const configModule = new ConfigModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const logModule = new LogModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const subscriptionModule = new SubscriptionModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const helpModule = new HelpModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const reportModule = new ReportModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const getAuthModule = new GetAuthModule(ctx, ctx.groupHelper.data, pluginConfig)
+      const eventModule = new EventModule(ctx, ctx.groupHelper.data, pluginConfig)
+      ctx.groupHelper.registerModule(warnModule)
+      ctx.groupHelper.registerModule(keywordModule)
+      ctx.groupHelper.registerModule(basicModule)
+      ctx.groupHelper.registerModule(welcomeModule)
+      ctx.groupHelper.registerModule(repeatModule)
+      ctx.groupHelper.registerModule(diceModule)
+      ctx.groupHelper.registerModule(banmeModule)
+      ctx.groupHelper.registerModule(antiRecallModule)
+      ctx.groupHelper.registerModule(aiModule)
+      ctx.groupHelper.registerModule(configModule)
+      ctx.groupHelper.registerModule(logModule)
+      ctx.groupHelper.registerModule(subscriptionModule)
+      ctx.groupHelper.registerModule(helpModule)
+      ctx.groupHelper.registerModule(reportModule)
+      ctx.groupHelper.registerModule(getAuthModule)
+      ctx.groupHelper.registerModule(eventModule)
+
+      // 初始化所有模块
+      await ctx.groupHelper.initModules()
+      logger.info('All modules initialized')
+    })
+  })
+
+  logger.info('GroupHelper plugin loaded')
 }

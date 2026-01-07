@@ -1,0 +1,21 @@
+/**
+ * 模块层导出
+ */
+export { BaseModule } from './base.module'
+export type { ModuleMeta, ModuleState } from './base.module'
+export { WarnModule } from './warn.module'
+export { KeywordModule } from './keyword.module'
+export { BasicModule } from './basic.module'
+export { WelcomeModule } from './welcome.module'
+export { RepeatModule } from './repeat.module'
+export { DiceModule } from './dice.module'
+export { BanmeModule } from './banme.module'
+export { AntiRecallModule } from './antirecall.module'
+export { AIModule } from './ai.module'
+export { ConfigModule } from './config.module'
+export { LogModule } from './log.module'
+export { SubscriptionModule } from './subscription.module'
+export { HelpModule } from './help.module'
+export { ReportModule } from './report.module'
+export { GetAuthModule } from './getauth.module'
+export { EventModule } from './event.module'
