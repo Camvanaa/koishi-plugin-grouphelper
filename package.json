@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-grouphelper",
-  "description": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)",
-  "version": "0.2.17",
+  "description": "带有webui的功能全面的群管插件",
+  "version": "0.3.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "exports": {
@@ -50,8 +50,8 @@
   },
   "koishi": {
     "description": {
-      "en": "Group management plugin, providing kick, ban, warn, and keyword functions",
-      "zh": "群管理插件，提供踢人、禁言、警告、关键词等功能(好像是最全面的群管插件.....吗)"
+      "en": "A feature-rich group management plugin with web UI",
+      "zh": "带有webui的功能全面的群管插件"
     },
     "service": {
       "required": [
