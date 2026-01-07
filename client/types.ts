@@ -137,6 +137,24 @@ export interface LogResponse {
   pageSize: number
 }
 
+// 聊天消息
+export interface ChatMessage {
+  id: string
+  timestamp: number
+  userId: string
+  username: string
+  avatar?: string
+  content: string
+  elements?: any[] // h elements
+  platform: string
+  guildId?: string
+  guildName?: string
+  guildAvatar?: string
+  channelId: string
+  channelName?: string
+  selfId: string
+}
+
 // 扩展 @koishijs/client 的 Events 接口
 declare module '@koishijs/client' {
   interface Events {
@@ -165,5 +183,8 @@ declare module '@koishijs/client' {
 
     // 日志 API
     'grouphelper/logs/search'(params: LogSearchParams): Promise<LogResponse>
+
+    // 聊天 API
+    'grouphelper/chat/send'(params: { channelId: string, content: string, platform?: string, guildId?: string }): Promise<{ success: boolean }>
   }
 }

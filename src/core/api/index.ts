@@ -3,10 +3,11 @@
  * 提供 WebUI 前端所需的实时数据接口
  */
 
-import { Context } from 'koishi'
+import { Context, h } from 'koishi'
 import type {} from '@koishijs/plugin-console'
 import { GroupHelperService } from '../services/grouphelper.service'
 import type { Subscription } from '../../types'
+import * as crypto from 'crypto'
 
 /** API 响应格式 */
 interface ApiResponse<T = any> {
@@ -415,5 +416,313 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       ctx.logger('grouphelper').error('重置设置失败:', e)
       return error(e instanceof Error ? e.message : '重置设置失败')
     }
+  })
+
+  // ===== 聊天功能 API =====
+
+  /** 获取群信息 */
+  ctx.console.addListener('grouphelper/chat/guild-info' as any, async (params: { guildId: string }) => {
+    try {
+      const { guildId } = params
+      if (!guildId) return error('缺少 guildId 参数')
+
+      for (const bot of ctx.bots) {
+        try {
+          const guild = await bot.getGuild(guildId)
+          if (guild) {
+            let avatar = guild.avatar
+            // OneBot/QQ 群头像回退
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://p.qlogo.cn/gh/${guildId}/${guildId}/640/`
+            }
+            return success({ name: guild.name, avatar })
+          }
+        } catch {}
+      }
+      return error('无法获取群信息')
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '获取群信息失败')
+    }
+  })
+
+  /** 发送消息 */
+  ctx.console.addListener('grouphelper/chat/send' as any, async (params: { channelId: string, content: string, platform?: string, guildId?: string }) => {
+    try {
+      const { channelId, content, platform, guildId } = params
+      if (!channelId || !content) return error('缺少必要参数')
+
+      // 寻找合适的 bot
+      const bot = ctx.bots.find(b => !platform || b.platform === platform)
+      if (!bot) return error('未找到可用的 Bot')
+
+      await bot.sendMessage(channelId, content, guildId)
+      return success({ success: true })
+    } catch (e) {
+      ctx.logger('grouphelper').error('发送消息失败:', e)
+      return error(e instanceof Error ? e.message : '发送失败')
+    }
+  })
+
+  /** 图片代理 - 使用 get_image API 获取图片 */
+  ctx.console.addListener('grouphelper/image/fetch' as any, async (params: { url: string, file?: string }) => {
+    try {
+      const { url, file } = params
+      if (!url) return error('缺少 URL 参数')
+
+      // 尝试从 URL 中提取文件名（如果没有提供 file 参数）
+      let fileToUse = file
+      
+      if (!fileToUse) {
+        try {
+          const urlObj = new URL(url)
+          const urlPath = urlObj.pathname
+          const pathParts = urlPath.split('/')
+          const lastPart = pathParts[pathParts.length - 1]
+          if (lastPart && (lastPart.includes('.') || /^[A-F0-9]{32}$/i.test(lastPart))) {
+            fileToUse = lastPart
+          }
+        } catch {}
+      }
+
+      // 使用 OneBot get_image API 获取图片
+      for (const bot of ctx.bots) {
+        if (bot.platform === 'onebot' && (bot as any).internal?.getImage) {
+          try {
+            const fileParam = fileToUse || url
+            const result = await (bot as any).internal.getImage(fileParam)
+            
+            // 优先使用返回的 base64
+            if (result?.base64) {
+              let mimeType = 'image/png'
+              const fileName = result.file_name || result.file || ''
+              if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) mimeType = 'image/jpeg'
+              else if (fileName.endsWith('.gif')) mimeType = 'image/gif'
+              else if (fileName.endsWith('.webp')) mimeType = 'image/webp'
+              
+              const dataUrl = `data:${mimeType};base64,${result.base64}`
+              const hash = crypto.createHash('md5').update(url).digest('hex')
+              return success({ dataUrl, hash, mimeType, source: 'local-base64' })
+            }
+            
+            // 其次使用返回的新 url
+            if (result?.url && result.url !== url) {
+              const newResponse = await fetch(result.url, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  'Referer': ''
+                }
+              })
+              if (newResponse.ok) {
+                const buffer = await newResponse.arrayBuffer()
+                const base64 = Buffer.from(buffer).toString('base64')
+                const contentType = newResponse.headers.get('content-type') || 'image/jpeg'
+                const dataUrl = `data:${contentType};base64,${base64}`
+                const hash = crypto.createHash('md5').update(url).digest('hex')
+                return success({ dataUrl, hash, mimeType: contentType, source: 'local-url' })
+              }
+            }
+            
+            // 最后尝试读取本地文件
+            if (result?.file) {
+              try {
+                const fs = await import('fs/promises')
+                const localBuffer = await fs.readFile(result.file)
+                const base64 = localBuffer.toString('base64')
+                
+                let mimeType = 'image/png'
+                if (result.file.endsWith('.jpg') || result.file.endsWith('.jpeg')) mimeType = 'image/jpeg'
+                else if (result.file.endsWith('.gif')) mimeType = 'image/gif'
+                else if (result.file.endsWith('.webp')) mimeType = 'image/webp'
+                
+                const dataUrl = `data:${mimeType};base64,${base64}`
+                const hash = crypto.createHash('md5').update(url).digest('hex')
+                return success({ dataUrl, hash, mimeType, source: 'local-file' })
+              } catch {}
+            }
+          } catch {}
+        }
+      }
+      
+      return error('无法获取图片')
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '获取图片失败')
+    }
+  })
+
+  // 缓存 bot 登录信息，避免重复请求
+  const botLoginInfoCache = new Map<string, { userId: string; nickname: string }>()
+
+  // 获取 bot 登录信息（使用 get_login_info API）
+  const getBotLoginInfo = async (bot: any): Promise<{ userId: string; nickname: string } | null> => {
+    const cacheKey = `${bot.platform}:${bot.selfId}`
+    if (botLoginInfoCache.has(cacheKey)) {
+      return botLoginInfoCache.get(cacheKey)!
+    }
+    
+    // 尝试使用 OneBot get_login_info API
+    if (bot.platform === 'onebot' && bot.internal?.getLoginInfo) {
+      try {
+        const info = await bot.internal.getLoginInfo()
+        if (info?.user_id && info?.nickname) {
+          const result = { userId: String(info.user_id), nickname: info.nickname }
+          botLoginInfoCache.set(cacheKey, result)
+          return result
+        }
+      } catch {}
+    }
+    
+    // 回退到 bot.user
+    if (bot.user?.name || bot.user?.id) {
+      const result = { userId: bot.selfId, nickname: bot.user.name || bot.selfId }
+      botLoginInfoCache.set(cacheKey, result)
+      return result
+    }
+    
+    return null
+  }
+
+  // 监听并广播消息
+  const broadcastMessage = async (session: any, isSelf = false) => {
+    // 获取消息内容
+    let content = session.content
+    let elements = session.elements
+    
+    // 如果是自己发送的消息，通过 get_msg API 获取内容
+    if (isSelf && session.messageId) {
+      const bot = session.bot || ctx.bots.find(b => b.selfId === session.selfId)
+      
+      if (bot?.platform === 'onebot' && (bot as any).internal?.getMsg) {
+        try {
+          const msgInfo = await (bot as any).internal.getMsg(session.messageId)
+          if (msgInfo) {
+            // 优先使用 raw_message (CQ 码格式)
+            if (msgInfo.raw_message) {
+              content = msgInfo.raw_message
+              elements = h.parse(content)
+            } else if (Array.isArray(msgInfo.message)) {
+              // 数组格式消息段
+              elements = msgInfo.message.map((seg: any) => ({
+                type: seg.type,
+                attrs: seg.data || {}
+              }))
+              content = elements.map((el: any) => {
+                if (el.type === 'text') return el.attrs?.text || el.attrs?.content || ''
+                return `[${el.type}]`
+              }).join('')
+            }
+          }
+        } catch {}
+      }
+    }
+    
+    
+    // 尝试获取更多信息
+    let guildAvatar = session.event?.guild?.avatar
+    
+    // 如果没有群头像但有群ID，尝试获取
+    if (!guildAvatar && session.guildId) {
+      const bot = session.bot || ctx.bots.find(b => b.platform === session.platform)
+      if (bot) {
+        try {
+          const guild = await bot.getGuild(session.guildId)
+          if (guild?.avatar) guildAvatar = guild.avatar
+        } catch {}
+      }
+    }
+
+    // OneBot/QQ 协议特有头像处理
+    if (session.platform === 'onebot' || session.platform === 'red' || session.platform === 'qq') {
+      if (!guildAvatar && session.guildId) {
+        guildAvatar = `https://p.qlogo.cn/gh/${session.guildId}/${session.guildId}/640/`
+      }
+    }
+
+    // 使用已获取的 elements 或解析 content
+    const finalElements = elements || session.elements || (content ? h.parse(content) : [])
+
+    // 如果是自己发送的消息，补充作者信息
+    let username = session.author?.name || session.author?.nick || session.userId
+    let avatar = session.author?.avatar
+
+    if (isSelf) {
+      // 尝试从 bot 登录信息获取准确的昵称
+      const bot = session.bot || ctx.bots.find(b => b.selfId === session.selfId)
+      if (bot) {
+        const loginInfo = await getBotLoginInfo(bot)
+        if (loginInfo) {
+          username = loginInfo.nickname
+        } else {
+          username = bot.user?.name || username || '我'
+        }
+        avatar = bot.user?.avatar || avatar
+      }
+    }
+
+    // OneBot/QQ 个人头像回退
+    if (!avatar && (session.platform === 'onebot' || session.platform === 'red' || session.platform === 'qq')) {
+      const targetId = isSelf ? session.selfId : session.userId
+      if (targetId) {
+        avatar = `https://q1.qlogo.cn/g?b=qq&nk=${targetId}&s=640`
+      }
+    }
+
+    // 尝试获取群名称 (如果缺失)
+    let guildName = (session as any).guildName || (session.event?.guild?.name)
+    if (!guildName && session.guildId) {
+       const bot = session.bot || ctx.bots.find(b => b.platform === session.platform)
+       if (bot) {
+         try {
+           const guild = await bot.getGuild(session.guildId)
+           if (guild?.name) guildName = guild.name
+         } catch {}
+       }
+    }
+
+    // 尝试解析 elements 中的 at 标签，补充名称
+    const enrichedElements = await Promise.all(finalElements.map(async (el: any) => {
+      if (el.type === 'at' && el.attrs?.id) {
+         if (!el.attrs.name) {
+             // 尝试获取被 at 用户的昵称
+             const bot = session.bot || ctx.bots.find(b => b.platform === session.platform)
+             if (bot && session.guildId) {
+               try {
+                 const member = await bot.getGuildMember(session.guildId, el.attrs.id)
+                 if (member?.nick || member?.user?.name) {
+                   el.attrs.name = member.nick || member.user.name
+                 }
+               } catch {}
+             }
+         }
+      }
+      return el
+    }))
+
+    ctx.console.broadcast('grouphelper/chat/message', {
+      id: session.messageId || session.id || Date.now().toString(),
+      timestamp: session.timestamp || Date.now(),
+      userId: session.userId || session.selfId,
+      username,
+      avatar,
+      content: content || session.content,
+      elements: enrichedElements, // 传递处理后的元素
+      platform: session.platform,
+      guildId: session.guildId,
+      guildName,
+      guildAvatar, // 传递群头像
+      channelId: session.channelId,
+      channelName: (session as any).channelName || (session.event?.channel?.name),
+      selfId: session.selfId,
+    })
+  }
+
+  // 监听收到消息
+  ctx.on('message', (session) => {
+    broadcastMessage(session)
+  })
+
+  // 监听发送消息
+  // @ts-ignore - send 事件类型定义可能不完整
+  ctx.on('send', (session) => {
+    broadcastMessage(session, true)
   })
 }

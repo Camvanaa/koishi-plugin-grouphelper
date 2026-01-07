@@ -42,6 +42,7 @@ import BlacklistView from '../components/BlacklistView.vue'
 import LogsView from '../components/LogsView.vue'
 import SubscriptionView from '../components/SubscriptionView.vue'
 import SettingsView from '../components/SettingsView.vue'
+import ChatView from '../components/ChatView.vue'
 
 const currentView = ref('dashboard')
 
@@ -52,6 +53,7 @@ const activeComponent = computed(() => {
     case 'warns': return WarnsView
     case 'blacklist': return BlacklistView
     case 'logs': return LogsView
+    case 'chat': return ChatView
     case 'subscriptions': return SubscriptionView
     case 'settings': return SettingsView
     default: return DashboardView
@@ -64,6 +66,7 @@ const menuItems = [
   { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
   { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
   { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
+  { id: 'chat', label: '实时聊天', icon: 'grouphelper:chat' },
   { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:subscription' },
   { id: 'settings', label: '设置', icon: 'grouphelper:settings' },
 ]
@@ -155,5 +158,29 @@ const menuItems = [
   height: 90vh;
   overflow: auto;
   box-sizing: border-box;
+}
+
+/* 滚动条样式 */
+.main-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-color-text-description);
+}
+
+.main-content::-webkit-scrollbar-corner {
+  background: transparent;
 }
 </style>

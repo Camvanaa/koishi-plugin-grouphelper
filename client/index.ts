@@ -13,6 +13,7 @@ icons.register('grouphelper:blacklist', customIcons.blacklist)
 icons.register('grouphelper:log', customIcons.log)
 icons.register('grouphelper:subscription', customIcons.subscription)
 icons.register('grouphelper:settings', customIcons.settings)
+icons.register('grouphelper:chat', customIcons.chat)
 
 export default (ctx: Context) => {
   ctx.page({

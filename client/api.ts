@@ -86,3 +86,40 @@ export const settingsApi = {
   update: (settings: any) => call<{ success: boolean }>('grouphelper/settings/update', { settings }),
   reset: () => call<{ success: boolean }>('grouphelper/settings/reset'),
 }
+
+// 聊天 API
+export const chatApi = {
+  send: (channelId: string, content: string, platform?: string, guildId?: string) =>
+    call<{ success: boolean }>('grouphelper/chat/send', { channelId, content, platform, guildId }),
+  /** 获取群信息 */
+  getGuildInfo: (guildId: string) =>
+    call<{ name?: string; avatar?: string }>('grouphelper/chat/guild-info', { guildId }),
+}
+
+// 图片代理 API
+export interface ImageProxyResult {
+  success: boolean
+  data?: {
+    dataUrl?: string
+    direct?: boolean
+    source?: 'local' | 'proxy'
+  }
+  error?: string
+}
+
+export const imageApi = {
+  /**
+   * 获取图片（通过代理或本地缓存）
+   * @param url 图片 URL
+   * @param file 可选的文件标识（用于 OneBot get_image API）
+   */
+  fetch: async (url: string, file?: string): Promise<ImageProxyResult> => {
+    try {
+      // @ts-ignore - send 接受两个参数
+      const result = await send('grouphelper/image/fetch', { url, file }) as ImageProxyResult
+      return result
+    } catch (e: any) {
+      return { success: false, error: e.message || '图片加载失败' }
+    }
+  },
+}

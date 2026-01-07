@@ -31,7 +31,10 @@ export const iconPaths = {
   settings: 'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z',
 
   // 订阅: 铃铛
-  subscription: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 0 1-3.46 0'
+  subscription: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 0 1-3.46 0',
+
+  // 聊天: 消息气泡
+  chat: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'
 }
 
 export const icons = {
@@ -41,5 +44,6 @@ export const icons = {
   blacklist: createIcon(iconPaths.blacklist),
   log: createIcon(iconPaths.log),
   subscription: createIcon(iconPaths.subscription),
-  settings: createIcon(iconPaths.settings)
+  settings: createIcon(iconPaths.settings),
+  chat: createIcon(iconPaths.chat)
 }
