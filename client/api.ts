@@ -43,6 +43,8 @@ export const configApi = {
   update: (guildId: string, config: GroupConfig) => call<{ success: boolean }>('grouphelper/config/update', { guildId, config }),
   create: (guildId: string) => call<{ success: boolean }>('grouphelper/config/create', { guildId }),
   delete: (guildId: string) => call<{ success: boolean }>('grouphelper/config/delete', { guildId }),
+  /** 重新从文件加载配置 */
+  reload: () => call<{ success: boolean; count: number }>('grouphelper/config/reload'),
 }
 
 // 警告记录 API
@@ -52,6 +54,8 @@ export const warnsApi = {
   add: (guildId: string, userId: string) => call<{ success: boolean }>('grouphelper/warns/add', { guildId, userId }),
   clear: (key: string) => call<{ success: boolean }>('grouphelper/warns/clear', { key }),
   update: (key: string, count: number) => call<{ success: boolean }>('grouphelper/warns/update', { key, count }),
+  /** 重新从文件加载警告数据 */
+  reload: () => call<{ success: boolean }>('grouphelper/warns/reload'),
 }
 
 // 黑名单 API

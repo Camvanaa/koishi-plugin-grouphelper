@@ -110,6 +110,7 @@ export class BasicModule extends BaseModule {
             blacklist[userId] = { userId, timestamp: Date.now() }
             this.data.blacklist.setAll(blacklist)
             this.logCommand(session, 'kick', userId, `成功：移出群聊并加入黑名单：${targetGroup}`)
+            await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${userId} 被踢出群 ${targetGroup} 并加入黑名单`, 'blacklist')
             return `已把坏人 ${userId} 踢出去并加入黑名单啦喵！`
           }
 

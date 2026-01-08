@@ -70,27 +70,31 @@ export class ConfigModule extends BaseModule {
    * 显示所有配置
    */
   private async showAllConfig(session: any): Promise<string> {
-    const warns = this.data.warns.getAll()
+    const guildWarns = this.data.warns.get(session.guildId) || {}
     const blacklist = this.data.blacklist.getAll()
     const groupConfigs = this.data.groupConfig.getAll()
     const mutes = this.data.mutes.getAll()
     const banMeRecords = this.data.banmeRecords.getAll()
 
     // 清理无效警告记录
-    for (const userId in warns) {
-      if (warns[userId]?.groups?.[session.guildId]?.count <= 0) {
-        delete warns[userId]
+    let hasChanges = false
+    for (const userId in guildWarns) {
+      if (guildWarns[userId].count <= 0) {
+        delete guildWarns[userId]
+        hasChanges = true
       }
     }
-    this.data.warns.setAll(warns)
+    if (hasChanges) {
+      // @ts-ignore
+      this.data.warns.set(session.guildId, guildWarns)
+      this.data.warns.flush()
+    }
 
     // 格式化警告记录
-    const formatWarns = Object.entries(warns)
-      .filter(([, data]: [string, WarnRecord]) => data?.groups?.[session.guildId]?.count > 0)
-      .map(([userId, data]: [string, WarnRecord]) => {
-        const groupData = data?.groups?.[session.guildId]
-        if (!groupData) return null
-        return `用户 ${userId}：${groupData.count} 次 (${new Date(groupData.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })})`
+    const formatWarns = Object.entries(guildWarns)
+      .filter(([, data]) => data.count > 0)
+      .map(([userId, data]) => {
+        return `用户 ${userId}：${data.count} 次 (${new Date(data.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })})`
       })
       .filter(Boolean)
       .join('\n')
@@ -220,7 +224,8 @@ ${formatMutes || '无记录'}`
     if (options.a) {
       blacklist[options.a] = { userId: options.a, timestamp: Date.now() }
       this.data.blacklist.setAll(blacklist)
-      this.log(session, 'config -b -a', options.a, '添加成功')
+      await this.log(session, 'config -b -a', options.a, '添加成功')
+      await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${options.a} 被加入黑名单`, 'blacklist')
       return `已将 ${options.a} 加入黑名单喵~`
     }
 
@@ -228,7 +233,8 @@ ${formatMutes || '无记录'}`
     if (options.r) {
       delete blacklist[options.r]
       this.data.blacklist.setAll(blacklist)
-      this.log(session, 'config -b -r', options.r, '移除成功')
+      await this.log(session, 'config -b -r', options.r, '移除成功')
+      await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${options.r} 被移出黑名单`, 'blacklist')
       return `已将 ${options.r} 从黑名单移除啦！`
     }
 
@@ -243,50 +249,58 @@ ${formatMutes || '无记录'}`
    * 处理警告管理
    */
   private async handleWarns(session: any, options: any, content: string): Promise<string> {
-    const warns = this.data.warns.getAll()
+    const guildWarns = this.data.warns.get(session.guildId) || {}
 
     // 添加警告
     if (options.a) {
-      warns[options.a] = warns[options.a] || { groups: {} }
-      warns[options.a].groups[session.guildId] = warns[options.a].groups[session.guildId] || {
-        count: 0,
-        timestamp: 0
+      if (!guildWarns[options.a]) {
+        guildWarns[options.a] = { count: 0, timestamp: 0 }
       }
-      warns[options.a].groups[session.guildId].count += parseInt(content) || 1
-      warns[options.a].groups[session.guildId].timestamp = Date.now()
-      this.data.warns.setAll(warns)
-      this.log(session, 'config -w -a', options.a, `增加到 ${warns[options.a].groups[session.guildId].count} 次`)
-      return `已增加 ${options.a} 的警告次数，当前为：${warns[options.a].groups[session.guildId].count}`
+      guildWarns[options.a].count += parseInt(content) || 1
+      guildWarns[options.a].timestamp = Date.now()
+      
+      // @ts-ignore
+      this.data.warns.set(session.guildId, guildWarns)
+      this.data.warns.flush()
+      
+      this.log(session, 'config -w -a', options.a, `增加到 ${guildWarns[options.a].count} 次`)
+      return `已增加 ${options.a} 的警告次数，当前为：${guildWarns[options.a].count}`
     }
 
     // 减少/移除警告
     if (options.r) {
-      if (warns[options.r]?.groups[session.guildId]) {
-        warns[options.r].groups[session.guildId].count -= parseInt(content) || 1
-        if (warns[options.r].groups[session.guildId].count <= 0) {
-          delete warns[options.r].groups[session.guildId]
-          if (Object.keys(warns[options.r].groups).length === 0) {
-            delete warns[options.r]
-          }
-          this.data.warns.setAll(warns)
+      if (guildWarns[options.r]) {
+        guildWarns[options.r].count -= parseInt(content) || 1
+        
+        let resultMsg = ''
+        if (guildWarns[options.r].count <= 0) {
+          delete guildWarns[options.r]
+          resultMsg = `已移除 ${options.r} 的警告记录`
           this.log(session, 'config -w -r', options.r, '记录已移除')
-          return `已移除 ${options.r} 的警告记录`
+        } else {
+          guildWarns[options.r].timestamp = Date.now()
+          resultMsg = `已减少 ${options.r} 的警告次数，当前为：${guildWarns[options.r].count}`
+          this.log(session, 'config -w -r', options.r, `减少到 ${guildWarns[options.r].count} 次`)
         }
-        warns[options.r].groups[session.guildId].timestamp = Date.now()
-        this.data.warns.setAll(warns)
-        this.log(session, 'config -w -r', options.r, `减少到 ${warns[options.r].groups[session.guildId].count} 次`)
-        return `已减少 ${options.r} 的警告次数，当前为：${warns[options.r].groups[session.guildId].count}`
+        
+        if (Object.keys(guildWarns).length === 0) {
+          this.data.warns.delete(session.guildId)
+        } else {
+          // @ts-ignore
+          this.data.warns.set(session.guildId, guildWarns)
+        }
+        this.data.warns.flush()
+        
+        return resultMsg
       }
       return '未找到该用户的警告记录'
     }
 
     // 显示警告列表
-    const formatWarns = Object.entries(warns)
-      .filter(([, data]: [string, WarnRecord]) => data?.groups?.[session.guildId]?.count > 0)
-      .map(([userId, data]: [string, WarnRecord]) => {
-        const groupData = data?.groups?.[session.guildId]
-        if (!groupData) return null
-        return `用户 ${userId}：${groupData.count} 次 (${new Date(groupData.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })})`
+    const formatWarns = Object.entries(guildWarns)
+      .filter(([, data]) => data.count > 0)
+      .map(([userId, data]) => {
+        return `用户 ${userId}：${data.count} 次 (${new Date(data.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })})`
       })
       .filter(Boolean)
       .join('\n')

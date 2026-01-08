@@ -649,14 +649,14 @@ export class ReportModule extends BaseModule {
         const reportBanTime = banAction.time * 1000
 
         try {
-          const warns = this.data.warns.getAll()
-          // WarnRecord 结构: { [userId]: { groups: { [guildId]: { count, timestamp } } } }
-          const userWarn = warns[userId] || { groups: {} }
-          warns[userId] = userWarn
-          if (!userWarn.groups[session.guildId]) {
-            userWarn.groups[session.guildId] = { count: 0, timestamp: Date.now() }
+          // WarnRecord 新结构: { [guildId]: { [userId]: { count, timestamp } } }
+          const guildWarns = this.data.warns.get(session.guildId) || {}
+          
+          if (!guildWarns[userId]) {
+            guildWarns[userId] = { count: 0, timestamp: Date.now() }
           }
-          const currentWarns = userWarn.groups[session.guildId].count
+          
+          const currentWarns = guildWarns[userId].count
           const newWarnCount = currentWarns + warnAction.count
 
           if (newWarnCount >= this.config.warnLimit) {
@@ -676,9 +676,11 @@ export class ReportModule extends BaseModule {
               await this.banUserBySeconds(session, userId, banAction.time)
               actionResults.push(`禁言${banAction.time}秒`)
 
-              userWarn.groups[session.guildId].count = newWarnCount
-              userWarn.groups[session.guildId].timestamp = Date.now()
-              this.data.warns.set(userId, userWarn)
+              guildWarns[userId].count = newWarnCount
+              guildWarns[userId].timestamp = Date.now()
+              // @ts-ignore
+              this.data.warns.set(session.guildId, guildWarns)
+              this.data.warns.flush()
               actionResults.push(`警告${warnAction.count}次(已记录，未触发自动禁言)`)
 
               for (const action of actions) {
@@ -733,7 +735,7 @@ export class ReportModule extends BaseModule {
         await this.logCommand(session, 'report-handle', userId, logResult)
 
         const message = `[举报] 群${guildId} 用户 ${userId} - ${this.getViolationLevelText(violation.level)}违规\n内容: ${shortContent}\n处理: ${actionText}`
-        await this.pushMessage(bot, message, 'warning')
+        await this.ctx.groupHelper.pushMessage(bot, message, 'warning')
       } catch (e) {
         logger.error('记录举报处理日志失败:', e)
       }
@@ -747,7 +749,7 @@ export class ReportModule extends BaseModule {
         await this.logCommand(session, 'report-error', userId, errorResult)
 
         const errorMessage = `[举报失败] 用户 ${userId} - ${this.getViolationLevelText(violation.level)}违规\n错误: ${e.message.substring(0, 50)}`
-        await this.pushMessage(bot, errorMessage, 'warning')
+        await this.ctx.groupHelper.pushMessage(bot, errorMessage, 'warning')
       } catch (err) {
         logger.error('记录举报错误日志失败:', err)
       }
@@ -938,31 +940,6 @@ export class ReportModule extends BaseModule {
       this.data.commandLogs.set('logs', commandLogs.logs)
     } catch (e) {
       logger.error('记录命令日志失败:', e)
-    }
-  }
-
-  /**
-   * 推送消息
-   */
-  private async pushMessage(bot: any, message: string, type: string): Promise<void> {
-    try {
-      const subscriptions = this.data.subscriptions.getAll()
-      const list = subscriptions.list || []
-
-      for (const sub of list) {
-        // Subscription 使用 features 对象来标记订阅的功能类型
-        const featureKey = type as keyof typeof sub.features
-        if (sub.features[featureKey]) {
-          // 根据订阅类型发送消息
-          if (sub.type === 'group') {
-            await bot.sendMessage(sub.id, message)
-          } else {
-            await bot.sendPrivateMessage(sub.id, message)
-          }
-        }
-      }
-    } catch (e) {
-      logger.error('推送消息失败:', e)
     }
   }
 

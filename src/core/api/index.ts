@@ -40,6 +40,21 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 群组配置 API =====
   
+  /** 重新加载所有数据 */
+  ctx.console.addListener('grouphelper/config/reload' as any, async () => {
+    try {
+      data.groupConfig.reload()
+      ctx.logger('grouphelper').info('群组配置已重新加载，共 %d 条', Object.keys(data.groupConfig.getAll()).length)
+      return success({
+        success: true,
+        count: Object.keys(data.groupConfig.getAll()).length
+      })
+    } catch (e) {
+      ctx.logger('grouphelper').error('重新加载配置失败:', e)
+      return error(e instanceof Error ? e.message : '重新加载失败')
+    }
+  })
+
   /** 获取所有群组配置 */
   ctx.console.addListener('grouphelper/config/list', async (params?: { fetchNames?: boolean }) => {
     const allConfigs = data.groupConfig.getAll()
@@ -111,49 +126,66 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 警告记录 API =====
 
-  /** 获取所有警告记录 (Enriched) */
+  /** 重新加载警告数据 */
+  ctx.console.addListener('grouphelper/warns/reload' as any, async () => {
+    try {
+      data.warns.reload()
+      ctx.logger('grouphelper').info('警告数据已重新加载')
+      return success({ success: true })
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '重新加载失败')
+    }
+  })
+
+  /** 获取所有警告记录 (Enriched) - 支持新格式 */
   ctx.console.addListener('grouphelper/warns/list', async (params?: { fetchNames?: boolean }) => {
-    const rawWarns = data.warns.getAll()
-    const result = []
+    const allWarns = data.warns.getAll()
+    const result: any[] = []
 
-    for (const [key, record] of Object.entries(rawWarns)) {
-      // key format: guildId:userId
-      const parts = key.split(':')
-      const guildId = parts[0]
-      const userId = parts[1] || 'Unknown'
-      const groupData = record.groups?.[guildId]
+    // 遍历外层 (guildId)
+    for (const [guildId, guildWarns] of Object.entries(allWarns)) {
+      if (!guildWarns || typeof guildWarns !== 'object') continue
 
-      if (guildId && groupData) {
-        let guildName = ''
+      let guildName = ''
+      if (params?.fetchNames) {
+        for (const bot of ctx.bots) {
+          try {
+            const guild = await bot.getGuild(guildId)
+            if (guild?.name) {
+              guildName = guild.name
+              break
+            }
+          } catch {}
+        }
+      }
+
+      // 遍历内层 (userId -> {count, timestamp})
+      // @ts-ignore
+      for (const [userId, warnInfo] of Object.entries(guildWarns)) {
+        if (!warnInfo || typeof warnInfo !== 'object' || !('count' in warnInfo)) continue
+        const info = warnInfo as { count: number, timestamp: number }
+        
         let userName = ''
-
-        // Try to fetch names if requested
-        if (params?.fetchNames) {
+        if (params?.fetchNames && /^\d+$/.test(userId)) {
           for (const bot of ctx.bots) {
             try {
-              if (!guildName) {
-                const guild = await bot.getGuild(guildId)
-                if (guild?.name) guildName = guild.name
+              const member = await bot.getGuildMember(guildId, userId)
+              if (member?.user?.name || member?.nick) {
+                userName = member.nick || member.user.name
+                break
               }
-              if (!userName) {
-                const member = await bot.getGuildMember(guildId, userId)
-                if (member?.user?.name || member?.nick) userName = member.nick || member.user.name
-              }
-              if (guildName && userName) break
-            } catch {
-              continue
-            }
+            } catch {}
           }
         }
 
         result.push({
-          key,
+          key: `${guildId}:${userId}`,
           guildId,
           userId,
-          guildName: guildName || 'Unknown',
-          userName: userName || 'Unknown',
-          count: groupData.count,
-          timestamp: groupData.timestamp
+          guildName: guildName || '',
+          userName: userName || userId,
+          count: info.count,
+          timestamp: info.timestamp
         })
       }
     }
@@ -163,60 +195,84 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   /** 更新警告次数 */
   ctx.console.addListener('grouphelper/warns/update', async (params: { key: string, count: number }) => {
-    const record = data.warns.get(params.key)
-    if (record) {
-      const parts = params.key.split(':')
-      const guildId = parts[0]
-      if (record.groups[guildId]) {
+    const parts = params.key.split(':')
+    if (parts.length < 2) return error('Invalid key format')
+    
+    const guildId = parts[0]
+    const userId = parts[1]
+    
+    const guildWarns = data.warns.get(guildId)
+    if (guildWarns && guildWarns[userId]) {
         if (params.count <= 0) {
           // Count <= 0 means clear
-          delete record.groups[guildId]
-          if (Object.keys(record.groups).length === 0) {
-            data.warns.delete(params.key)
+          delete guildWarns[userId]
+          if (Object.keys(guildWarns).length === 0) {
+            data.warns.delete(guildId)
           } else {
-            data.warns.set(params.key, record)
+            // @ts-ignore
+            data.warns.set(guildId, guildWarns)
           }
         } else {
-          record.groups[guildId].count = params.count
-          data.warns.set(params.key, record)
+          guildWarns[userId].count = params.count
+          guildWarns[userId].timestamp = Date.now() // 更新时间戳
+          // @ts-ignore
+          data.warns.set(guildId, guildWarns)
         }
         await data.warns.flush()
         return success({ success: true })
-      }
     }
     return error('Record not found')
   })
 
   /** 添加警告 */
   ctx.console.addListener('grouphelper/warns/add', async (params: { guildId: string, userId: string }) => {
-    const key = `${params.guildId}:${params.userId}`
-    let record = data.warns.get(key)
+    const guildWarns = data.warns.get(params.guildId) || {}
     
-    if (!record) {
-      record = { groups: {} }
+    if (!guildWarns[params.userId]) {
+      guildWarns[params.userId] = { count: 0, timestamp: 0 }
     }
     
-    if (!record.groups[params.guildId]) {
-      record.groups[params.guildId] = { count: 0, timestamp: 0 }
-    }
+    guildWarns[params.userId].count++
+    guildWarns[params.userId].timestamp = Date.now()
     
-    record.groups[params.guildId].count++
-    record.groups[params.guildId].timestamp = Date.now()
-    
-    data.warns.set(key, record)
+    // @ts-ignore
+    data.warns.set(params.guildId, guildWarns)
     await data.warns.flush()
     return success({ success: true })
   })
 
   /** 获取用户警告记录 */
   ctx.console.addListener('grouphelper/warns/get', async (params: { key: string }) => {
-    return success(data.warns.get(params.key))
+    const parts = params.key.split(':')
+    if (parts.length < 2) return error('Invalid key format')
+    const guildId = parts[0]
+    const userId = parts[1]
+    
+    const guildWarns = data.warns.get(guildId)
+    if (guildWarns && guildWarns[userId]) {
+        return success(guildWarns[userId])
+    }
+    return success(null)
   })
 
   /** 清除用户警告 */
   ctx.console.addListener('grouphelper/warns/clear', async (params: { key: string }) => {
-    data.warns.delete(params.key)
-    await data.warns.flush()
+    const parts = params.key.split(':')
+    if (parts.length < 2) return error('Invalid key format')
+    const guildId = parts[0]
+    const userId = parts[1]
+
+    const guildWarns = data.warns.get(guildId)
+    if (guildWarns && guildWarns[userId]) {
+        delete guildWarns[userId]
+        if (Object.keys(guildWarns).length === 0) {
+            data.warns.delete(guildId)
+        } else {
+            // @ts-ignore
+            data.warns.set(guildId, guildWarns)
+        }
+        await data.warns.flush()
+    }
     return success({ success: true })
   })
 

@@ -20,7 +20,98 @@ export class WarnModule extends BaseModule {
   }
 
   protected async onInit(): Promise<void> {
+    this.migrateData()
     this.registerCommands()
+  }
+
+  /**
+   * 迁移旧数据格式到新格式
+   * 旧格式1: key="guildId:userId", value={ groups: { guildId: { count, timestamp } } }
+   * 旧格式2: key="guildId", value={ userId: count }
+   * 新格式: key="guildId", value={ userId: { count, timestamp } }
+   */
+  private migrateData() {
+    const allWarns = this.data.warns.getAll()
+    const migratedData: Record<string, Record<string, { count: number, timestamp: number }>> = {}
+    let hasMigration = false
+
+    for (const [key, record] of Object.entries(allWarns)) {
+      // 检查是否是旧格式1 (key 包含冒号)
+      if (key.includes(':')) {
+        const [guildId, userId] = key.split(':')
+        // @ts-ignore
+        if (record && record.groups && record.groups[guildId]) {
+          if (!migratedData[guildId]) migratedData[guildId] = {}
+          // @ts-ignore
+          const oldRecord = record.groups[guildId]
+          migratedData[guildId][userId] = {
+            count: oldRecord.count,
+            timestamp: oldRecord.timestamp || Date.now()
+          }
+          hasMigration = true
+        }
+      }
+      // 检查是否是旧格式2 (value 是简单的 userId: count 映射)
+      // 或者已经是新格式 (value 是 userId: { count, timestamp })
+      else {
+        // 假设 key 是 guildId
+        const guildId = key
+        // @ts-ignore
+        for (const [userId, val] of Object.entries(record)) {
+          if (typeof val === 'number') {
+            // 旧格式2: val 是 count
+            if (!migratedData[guildId]) migratedData[guildId] = {}
+            if (!migratedData[guildId][userId]) {
+                migratedData[guildId][userId] = {
+                    count: val,
+                    timestamp: Date.now()
+                }
+            }
+            hasMigration = true
+          } else if (typeof val === 'object' && val && 'count' in val) {
+             // 已经是新格式，或者是部分新格式，保留
+             if (!migratedData[guildId]) migratedData[guildId] = {}
+             // @ts-ignore
+             migratedData[guildId][userId] = val
+          }
+        }
+      }
+    }
+
+    if (hasMigration) {
+      // 清空旧数据并写入新数据
+      // 注意：这里我们直接覆盖，因为 migratedData 包含了所有我们需要保留的数据
+      // 但为了安全，我们应该先清除旧的，再设置新的
+      
+      // 1. 找出所有旧格式的 key 并删除
+      for (const key of Object.keys(allWarns)) {
+          if (key.includes(':')) {
+              this.data.warns.delete(key)
+          } else {
+             // 检查 value 是否包含数字类型的属性 (旧格式2)
+             const val = allWarns[key]
+             let isOld = false
+             for(const v of Object.values(val as any)) {
+                 if(typeof v === 'number') {
+                     isOld = true;
+                     break;
+                 }
+             }
+             if(isOld) {
+                 this.data.warns.delete(key)
+             }
+          }
+      }
+
+      // 2. 写入新数据
+      for (const [guildId, records] of Object.entries(migratedData)) {
+        // @ts-ignore
+        this.data.warns.set(guildId, records)
+      }
+      
+      this.data.warns.flush()
+      this.ctx.logger('grouphelper').info('警告数据已迁移到新格式')
+    }
   }
 
   /**
@@ -78,25 +169,23 @@ export class WarnModule extends BaseModule {
    * 添加警告记录
    */
   private addWarn(guildId: string, userId: string, count: number): number {
-    const key = `${guildId}:${userId}`
-    const record = this.data.warns.get(key) || {
-      groups: {}
-    }
-
-    if (!record.groups[guildId]) {
-      record.groups[guildId] = {
+    const guildWarns = this.data.warns.get(guildId) || {}
+    
+    if (!guildWarns[userId]) {
+      guildWarns[userId] = {
         count: 0,
         timestamp: Date.now()
       }
     }
 
-    record.groups[guildId].count += count
-    record.groups[guildId].timestamp = Date.now()
+    guildWarns[userId].count += count
+    guildWarns[userId].timestamp = Date.now()
 
-    this.data.warns.set(key, record)
+    // @ts-ignore
+    this.data.warns.set(guildId, guildWarns)
     this.data.warns.flush()
 
-    return record.groups[guildId].count
+    return guildWarns[userId].count
   }
 
   /**
@@ -164,21 +253,20 @@ export class WarnModule extends BaseModule {
     }
 
     const userId = String(user).split(':')[1]
-    const key = `${session.guildId}:${userId}`
-    const record = this.data.warns.get(key)
+    const guildWarns = this.data.warns.get(session.guildId)
 
-    if (!record || !record.groups[session.guildId]) {
+    if (!guildWarns || !guildWarns[userId]) {
       return `用户 ${userId} 在本群没有警告记录`
     }
 
-    const oldCount = record.groups[session.guildId].count
-    delete record.groups[session.guildId]
+    const oldCount = guildWarns[userId].count
+    delete guildWarns[userId]
 
-    // 如果所有群的警告都被清除，删除整条记录
-    if (Object.keys(record.groups).length === 0) {
-      this.data.warns.delete(key)
+    if (Object.keys(guildWarns).length === 0) {
+      this.data.warns.delete(session.guildId)
     } else {
-      this.data.warns.set(key, record)
+      // @ts-ignore
+      this.data.warns.set(session.guildId, guildWarns)
     }
     this.data.warns.flush()
 
@@ -194,49 +282,35 @@ export class WarnModule extends BaseModule {
       return '喵呜...这个命令只能在群里用喵...'
     }
 
-    const allWarns = this.data.warns.getAll()
+    const guildWarns = this.data.warns.get(session.guildId)
 
     if (user) {
       // 查看指定用户的警告
       const userId = String(user).split(':')[1]
-      const key = `${session.guildId}:${userId}`
-      const record = allWarns[key]
-
-      if (!record || !record.groups[session.guildId]) {
+      
+      if (!guildWarns || !guildWarns[userId]) {
         return `用户 ${userId} 在本群没有警告记录`
       }
 
-      const count = record.groups[session.guildId].count
-      const timestamp = record.groups[session.guildId].timestamp
+      const { count, timestamp } = guildWarns[userId]
       const date = new Date(timestamp).toLocaleString('zh-CN')
 
       return `用户 ${userId} 警告记录：\n本群警告：${count} 次\n最后警告时间：${date}`
     } else {
       // 查看本群所有用户的警告
-      const guildWarns: Array<{ userId: string; count: number; timestamp: number }> = []
-
-      for (const [key, record] of Object.entries(allWarns)) {
-        if (key.startsWith(`${session.guildId}:`)) {
-          const userId = key.split(':')[1]
-          const guildRecord = record.groups[session.guildId]
-          if (guildRecord) {
-            guildWarns.push({
-              userId,
-              count: guildRecord.count,
-              timestamp: guildRecord.timestamp
-            })
-          }
-        }
-      }
-
-      if (guildWarns.length === 0) {
+      if (!guildWarns || Object.keys(guildWarns).length === 0) {
         return '本群暂无警告记录'
       }
 
-      // 按警告次数排序
-      guildWarns.sort((a, b) => b.count - a.count)
+      const list: Array<{ userId: string; count: number }> = []
+      for (const [userId, record] of Object.entries(guildWarns)) {
+        list.push({ userId, count: record.count })
+      }
 
-      const lines = guildWarns.slice(0, 10).map((w, i) => {
+      // 按警告次数排序
+      list.sort((a, b) => b.count - a.count)
+
+      const lines = list.slice(0, 10).map((w, i) => {
         return `${i + 1}. ${w.userId} - ${w.count} 次`
       })
 
@@ -248,9 +322,8 @@ export class WarnModule extends BaseModule {
    * 获取用户警告数
    */
   getWarnCount(guildId: string, userId: string): number {
-    const key = `${guildId}:${userId}`
-    const record = this.data.warns.get(key)
-    return record?.groups[guildId]?.count || 0
+    const guildWarns = this.data.warns.get(guildId)
+    return guildWarns?.[userId]?.count || 0
   }
 
   /**
@@ -258,19 +331,15 @@ export class WarnModule extends BaseModule {
    */
   getGuildWarns(guildId: string): Array<{ userId: string; count: number; timestamp: number }> {
     const result: Array<{ userId: string; count: number; timestamp: number }> = []
-    const allWarns = this.data.warns.getAll()
-
-    for (const [key, record] of Object.entries(allWarns)) {
-      if (key.startsWith(`${guildId}:`)) {
-        const userId = key.split(':')[1]
-        const guildRecord = record.groups[guildId]
-        if (guildRecord) {
-          result.push({
-            userId,
-            count: guildRecord.count,
-            timestamp: guildRecord.timestamp
-          })
-        }
+    const guildWarns = this.data.warns.get(guildId)
+    
+    if (guildWarns) {
+      for (const [userId, record] of Object.entries(guildWarns)) {
+        result.push({
+          userId,
+          count: record.count,
+          timestamp: record.timestamp
+        })
       }
     }
 

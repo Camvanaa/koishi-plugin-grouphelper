@@ -258,11 +258,9 @@ export interface DiceConfig {
 
 
 export interface WarnRecord {
-  groups: {
-    [guildId: string]: {
-      count: number
-      timestamp: number
-    }
+  [userId: string]: {
+    count: number
+    timestamp: number
   }
 }
 

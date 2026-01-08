@@ -202,27 +202,9 @@ export class EventModule extends BaseModule {
         }
       }
 
-      // 发送欢迎消息
-      const groupConfigs = this.data.groupConfig.getAll()
-      const groupConfig = groupConfigs[guildId] || {}
-
-      if (groupConfig.welcomeMsg) {
-        const msg = groupConfig.welcomeMsg
-          .replace(/{at}/g, `<at id="${userId}"/>`)
-          .replace(/{user}/g, userId)
-          .replace(/{group}/g, guildId)
-        await session.send(msg)
-      } else if (this.config.defaultWelcome) {
-        const msg = this.config.defaultWelcome
-          .replace(/{at}/g, `<at id="${userId}"/>`)
-          .replace(/{user}/g, userId)
-          .replace(/{group}/g, guildId)
-        await session.send(msg)
-      }
-
-      // 推送消息
+      // 推送成员加入通知
       const message = `[成员加入] 用户 ${userId} 加入了群 ${guildId}`
-      await this.pushMessage(session.bot, message, 'memberChange')
+      await this.ctx.groupHelper.pushMessage(session.bot, message, 'memberChange')
     })
 
     // 成员退出处理
@@ -261,7 +243,7 @@ export class EventModule extends BaseModule {
 
       // 推送消息
       const message = `[成员退出] 用户 ${userId} 退出了群 ${guildId}`
-      await this.pushMessage(session.bot, message, 'memberChange')
+      await this.ctx.groupHelper.pushMessage(session.bot, message, 'memberChange')
     })
   }
 
@@ -299,7 +281,7 @@ export class EventModule extends BaseModule {
       // 推送禁言到期消息
       for (const { guildId, userId } of expiredMutes) {
         const message = `[禁言到期] 群 ${guildId} 用户 ${userId} 的禁言已到期`
-        await this.pushMessage(bot, message, 'muteExpire')
+        await this.ctx.groupHelper.pushMessage(bot, message, 'muteExpire')
         
         // 删除记录
         delete mutes[guildId][userId]
@@ -310,26 +292,4 @@ export class EventModule extends BaseModule {
     }
   }
 
-  /**
-   * 推送消息
-   */
-  private async pushMessage(bot: any, message: string, type: string): Promise<void> {
-    try {
-      const subscriptions = this.data.subscriptions.getAll()
-      const list = subscriptions.list || []
-
-      for (const sub of list) {
-        const featureKey = type as keyof typeof sub.features
-        if (sub.features[featureKey]) {
-          if (sub.type === 'group') {
-            await bot.sendMessage(sub.id, message)
-          } else {
-            await bot.sendPrivateMessage(sub.id, message)
-          }
-        }
-      }
-    } catch (e) {
-      logger.error('推送消息失败:', e)
-    }
-  }
 }

@@ -6,7 +6,7 @@
         <!-- Logo 区域 -->
         <div class="logo-area">
           <span class="logo-text">GROUP HELPER</span>
-          <span class="version-text">v0.3.0</span>
+          <span class="version-text">v0.3.2</span>
         </div>
         <!-- 导航标签 -->
         <div class="nav-tabs">

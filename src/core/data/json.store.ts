@@ -46,7 +46,27 @@ export class JsonDataStore<T extends Record<string, unknown> = Record<string, un
 
       if (fs.existsSync(this.filePath)) {
         const content = fs.readFileSync(this.filePath, 'utf-8')
-        return JSON.parse(content) as T
+        try {
+          return JSON.parse(content) as T
+        } catch (parseError) {
+          // 详细的 JSON 解析错误信息
+          const err = parseError as SyntaxError
+          console.error(`[JsonDataStore] JSON 解析失败: ${this.filePath}`)
+          console.error(`  错误信息: ${err.message}`)
+          // 尝试找到错误位置
+          const match = err.message.match(/position (\d+)/)
+          if (match) {
+            const pos = parseInt(match[1])
+            const before = content.substring(Math.max(0, pos - 50), pos)
+            const after = content.substring(pos, pos + 50)
+            console.error(`  错误位置附近: ...${before}【错误在此】${after}...`)
+          }
+          // 提示可能的常见错误
+          if (content.includes(',]') || content.includes(',}')) {
+            console.error(`  提示: 可能存在尾随逗号 (trailing comma)，JSON 不允许在数组/对象最后一个元素后加逗号`)
+          }
+          throw parseError
+        }
       }
     } catch (error) {
       console.error(`[JsonDataStore] 加载数据失败: ${this.filePath}`, error)
@@ -61,6 +81,14 @@ export class JsonDataStore<T extends Record<string, unknown> = Record<string, un
    */
   getAll(): T {
     return this.data
+  }
+
+  /**
+   * 重新从文件加载数据
+   */
+  reload(): void {
+    this.data = this.load()
+    console.log(`[JsonDataStore] 重新加载: ${this.filePath}, 数据条目: ${Object.keys(this.data).length}`)
   }
 
   /**

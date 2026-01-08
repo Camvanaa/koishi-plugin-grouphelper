@@ -229,18 +229,8 @@ export class AntiRecallModule extends BaseModule {
       }
       notification += `内容: ${recalledMessage.content}`
 
-      // 推送消息到订阅频道
-      const subscriptionsData = this.data.subscriptions.getAll()
-      const antiRecallSubs = subscriptionsData.list?.filter(
-        sub => sub.features?.antiRecall === true
-      ) || []
-
-      for (const sub of antiRecallSubs) {
-        // sub.id 是订阅的频道ID
-        if (sub.id) {
-          await session.bot.sendMessage(sub.id, notification)
-        }
-      }
+      // 使用统一的推送服务
+      await this.ctx.groupHelper.pushMessage(session.bot, notification, 'antiRecall')
     } catch (e) {
       this.data.writeLog(`[antirecall] 发送撤回通知失败: ${e}`)
     }

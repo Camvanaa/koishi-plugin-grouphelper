@@ -16,8 +16,24 @@ export class SubscriptionModule extends BaseModule {
   private checkInterval: NodeJS.Timeout | null = null
 
   protected async onInit(): Promise<void> {
+    this.migrateData()
     this.registerCommands()
     this.setupMuteExpireCheck()
+  }
+
+  /**
+   * 迁移旧数据格式
+   * 修复 subscriptions.json 可能是数组格式的问题
+   */
+  private migrateData(): void {
+    const data = this.data.subscriptions.getAll()
+    if (Array.isArray(data)) {
+      this.ctx.logger('grouphelper').info('检测到旧格式的订阅数据 (Array)，正在迁移...')
+      // @ts-ignore
+      this.data.subscriptions.setAll({ list: data })
+      this.data.subscriptions.flush()
+      this.ctx.logger('grouphelper').info('订阅数据已迁移到新格式')
+    }
   }
 
   private registerCommands(): void {

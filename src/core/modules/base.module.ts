@@ -94,11 +94,9 @@ export abstract class BaseModule {
   }
 
   /**
-   * 记录日志
+   * 记录日志并推送订阅
    */
-  protected log(session: Session, command: string, target: string, result: string): void {
-    const user = session.userId || session.username
-    const group = session.guildId || 'private'
-    this.data.writeLog(`[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
+  protected async log(session: Session, command: string, target: string, result: string): Promise<void> {
+    await this.ctx.groupHelper.logCommand(session, command, target, result)
   }
 }

@@ -11,6 +11,10 @@
           <template #icon><k-icon name="plus" /></template>
           新建配置
         </k-button>
+        <k-button @click="reloadConfigs" :loading="reloading" title="从文件重新加载配置数据">
+          <template #icon><k-icon name="database" /></template>
+          重载
+        </k-button>
         <k-button type="primary" @click="refreshConfigs">
           <template #icon><k-icon name="refresh-cw" /></template>
           刷新
@@ -503,6 +507,7 @@ const loading = ref(false)
 const saving = ref(false)
 const creating = ref(false)
 const deleting = ref(false)
+const reloading = ref(false)
 const fetchNames = ref(false)
 const configs = ref<Record<string, GroupConfig>>({})
 const showEditDialog = ref(false)
@@ -535,6 +540,19 @@ const refreshConfigs = async () => {
     message.error(e.message || '加载配置失败')
   } finally {
     loading.value = false
+  }
+}
+
+const reloadConfigs = async () => {
+  reloading.value = true
+  try {
+    const result = await configApi.reload()
+    message.success(`已重新加载 ${result.count} 条配置`)
+    await refreshConfigs()
+  } catch (e: any) {
+    message.error(e.message || '重新加载失败')
+  } finally {
+    reloading.value = false
   }
 }
 
