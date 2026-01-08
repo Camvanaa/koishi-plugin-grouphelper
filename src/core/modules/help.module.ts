@@ -8,6 +8,7 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config } from '../../types'
 import { parseTimeString, formatDuration } from '../../utils'
+const pkg = require('../../../package.json')
 
 export class HelpModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -33,9 +34,13 @@ export class HelpModule extends BaseModule {
       skipAuth: true  // 帮助是公开的
     })
       .option('a', '-a 显示所有可用命令')
+      .option('v', '-v 显示当前版本信息')
       .action(async ({ session, options }) => {
         if (options.a) {
           return this.getFullHelpText()
+        }
+        if (options.v) {
+          return `当前版本：${pkg.version}`
         }
         return '强大的群管理插件，提供一系列实用的群管理功能\n使用参数 -a 查看所有可用命令'
       })
