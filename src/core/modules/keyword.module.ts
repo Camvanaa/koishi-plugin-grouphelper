@@ -292,7 +292,7 @@ export class KeywordModule extends BaseModule {
       }
     }
 
-    // 设置是否回显
+    // 设置是否有触发回显
     if (options.echo !== undefined) {
       const state = this.parseBooleanOption(options.echo)
       console.log('echo state', state)
@@ -305,7 +305,7 @@ export class KeywordModule extends BaseModule {
       return `回显状态更新为${state}`
     }
 
-    return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
+    return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n--echo <true/false> 设置是否启用触发回显\n多个关键词用英文逗号分隔'
   }
 
   /**
