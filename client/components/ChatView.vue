@@ -66,6 +66,7 @@
             :key="msg.id"
             class="message-row"
             :class="{ self: isSelf(msg) }"
+            @contextmenu.prevent="showContextMenu($event, msg)"
           >
             <div class="message-avatar">
               <img v-if="msg.avatar" :src="msg.avatar" @error="handleAvatarError" />
@@ -82,16 +83,31 @@
         </div>
 
         <div class="chat-input-area">
-          <textarea
-            v-model="inputText"
-            class="chat-input"
-            placeholder="发送消息... (Enter 发送, Shift+Enter 换行)"
-            @keydown.enter.exact.prevent="sendMessage"
-          ></textarea>
-          <button class="send-btn" @click="sendMessage" :disabled="!inputText.trim() || sending">
-            <k-icon name="send" v-if="!sending" />
-            <k-icon name="loader" class="spin" v-else />
-          </button>
+          <!-- 待发送图片预览 -->
+          <div class="pending-images" v-if="pendingImages.length > 0">
+            <div
+              v-for="(img, index) in pendingImages"
+              :key="index"
+              class="pending-image-item"
+            >
+              <img :src="img.dataUrl" />
+              <button class="remove-image-btn" @click="removePendingImage(index)">×</button>
+            </div>
+          </div>
+          <div class="input-row">
+            <textarea
+              ref="inputRef"
+              v-model="inputText"
+              class="chat-input"
+              placeholder="发送消息... (Enter 发送, Shift+Enter 换行, 可粘贴图片)"
+              @keydown.enter.exact.prevent="sendMessage"
+              @paste="handlePaste"
+            ></textarea>
+            <button class="send-btn" @click="sendMessage" :disabled="(!inputText.trim() && pendingImages.length === 0) || sending">
+              <k-icon name="send" v-if="!sending" />
+              <k-icon name="loader" class="spin" v-else />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -103,6 +119,141 @@
         </div>
       </div>
     </div>
+
+    <!-- 右侧：群成员列表（仅群聊显示） -->
+    <div class="members-sidebar" v-if="currentSession?.type === 'group'" :class="{ collapsed: membersSidebarCollapsed }">
+      <div class="members-header">
+        <div class="members-title">
+          <h3>群成员</h3>
+          <span class="member-count" v-if="!loadingMembers">{{ members.length }}</span>
+        </div>
+        <button class="collapse-btn" @click="membersSidebarCollapsed = !membersSidebarCollapsed">
+          {{ membersSidebarCollapsed ? '◀' : '▶' }}
+        </button>
+      </div>
+      
+      <template v-if="!membersSidebarCollapsed">
+        <!-- 搜索框 -->
+        <div class="members-search">
+          <input
+            type="text"
+            v-model="memberSearch"
+            placeholder="搜索成员..."
+            class="search-input"
+          />
+        </div>
+
+        <!-- 成员列表 -->
+        <div class="members-list" v-if="!loadingMembers">
+          <!-- 群主分组 -->
+          <template v-if="filteredOwners.length > 0">
+            <div class="member-group-header">
+              <span class="crown-icon">👑</span> 群主 — {{ filteredOwners.length }}
+            </div>
+            <div
+              v-for="member in filteredOwners"
+              :key="member.id"
+              class="member-item owner"
+              @click="onMemberClick(member)"
+            >
+              <div class="member-avatar">
+                <img :src="member.avatar" @error="handleMemberAvatarError" />
+              </div>
+              <div class="member-info">
+                <div class="member-name">{{ member.name }}</div>
+                <div class="member-title" v-if="member.title">{{ member.title }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 管理员分组 -->
+          <template v-if="filteredAdmins.length > 0">
+            <div class="member-group-header">
+              <span class="admin-icon">⚙️</span> 管理员 — {{ filteredAdmins.length }}
+            </div>
+            <div
+              v-for="member in filteredAdmins"
+              :key="member.id"
+              class="member-item admin"
+              @click="onMemberClick(member)"
+            >
+              <div class="member-avatar">
+                <img :src="member.avatar" @error="handleMemberAvatarError" />
+              </div>
+              <div class="member-info">
+                <div class="member-name">{{ member.name }}</div>
+                <div class="member-title" v-if="member.title">{{ member.title }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 普通成员分组 -->
+          <template v-if="filteredNormalMembers.length > 0">
+            <div class="member-group-header">
+              <span class="member-icon">👤</span> 成员 — {{ filteredNormalMembers.length }}
+            </div>
+            <div
+              v-for="member in filteredNormalMembers"
+              :key="member.id"
+              class="member-item"
+              @click="onMemberClick(member)"
+            >
+              <div class="member-avatar">
+                <img :src="member.avatar" @error="handleMemberAvatarError" />
+              </div>
+              <div class="member-info">
+                <div class="member-name">{{ member.name }}</div>
+                <div class="member-title" v-if="member.title">{{ member.title }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 无搜索结果 -->
+          <div v-if="memberSearch && filteredMembers.length === 0" class="no-members">
+            未找到匹配的成员
+          </div>
+        </div>
+
+        <!-- 加载中 -->
+        <div class="members-loading" v-else>
+          <k-icon name="loader" class="spin" />
+          <span>加载中...</span>
+        </div>
+      </template>
+    </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenu.visible"
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click.stop
+      >
+        <div class="context-menu-item" @click="handleReply">
+          <span class="menu-icon">↩️</span>
+          <span>回复</span>
+        </div>
+        <div class="context-menu-item" @click="handleAt">
+          <span class="menu-icon">@</span>
+          <span>@TA</span>
+        </div>
+        <div class="context-menu-item" @click="handleCopy">
+          <span class="menu-icon">📋</span>
+          <span>复制</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" @click="handleForward">
+          <span class="menu-icon">📤</span>
+          <span>转发</span>
+        </div>
+        <div class="context-menu-item danger" @click="handleRecall" v-if="canRecall">
+          <span class="menu-icon">🗑️</span>
+          <span>撤回</span>
+        </div>
+      </div>
+      <div v-if="contextMenu.visible" class="context-menu-overlay" @click="hideContextMenu"></div>
+    </Teleport>
 
     <!-- 连接群聊对话框 -->
     <div class="connect-dialog-overlay" v-if="showConnectDialog" @click.self="showConnectDialog = false">
@@ -163,9 +314,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { receive, message } from '@koishijs/client'
-import { chatApi, imageApi } from '../api'
+import { chatApi, imageApi, GuildMember } from '../api'
 import type { ChatMessage } from '../types'
 
 // 图片缓存 - URL -> dataUrl
@@ -270,13 +421,210 @@ const currentSessionId = ref<string>('')
 const inputText = ref('')
 const sending = ref(false)
 const messageListRef = ref<HTMLElement | null>(null)
+const inputRef = ref<HTMLTextAreaElement | null>(null)
 const showConnectDialog = ref(false)
+
+// 待发送的图片列表
+interface PendingImage {
+  dataUrl: string
+  file: File
+}
+const pendingImages = ref<PendingImage[]>([])
 const connectForm = reactive({
   type: 'group' as 'group' | 'private',
   targetId: '',
   name: '',
   platform: 'onebot'
 })
+
+// 群成员相关
+const members = ref<GuildMember[]>([])
+const loadingMembers = ref(false)
+const membersSidebarCollapsed = ref(false)
+const memberSearch = ref('')
+
+// 过滤后的成员列表
+const filteredMembers = computed(() => {
+  if (!memberSearch.value) return members.value
+  const search = memberSearch.value.toLowerCase()
+  return members.value.filter(m =>
+    m.name?.toLowerCase().includes(search) ||
+    m.id?.toLowerCase().includes(search) ||
+    m.title?.toLowerCase().includes(search)
+  )
+})
+
+// 分组成员
+const filteredOwners = computed(() => filteredMembers.value.filter(m => m.isOwner))
+const filteredAdmins = computed(() => filteredMembers.value.filter(m => m.isAdmin && !m.isOwner))
+const filteredNormalMembers = computed(() => filteredMembers.value.filter(m => !m.isAdmin && !m.isOwner))
+
+// 加载群成员
+const loadGuildMembers = async (guildId: string) => {
+  loadingMembers.value = true
+  members.value = []
+  
+  try {
+    const result = await chatApi.getGuildMembers(guildId)
+    members.value = result.members || []
+  } catch (e) {
+    console.warn('Failed to load guild members:', e)
+  } finally {
+    loadingMembers.value = false
+  }
+}
+
+// 处理成员头像加载错误
+const handleMemberAvatarError = (e: Event) => {
+  const img = e.target as HTMLImageElement
+  img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/%3E%3C/svg%3E'
+}
+
+// 点击成员
+const onMemberClick = (member: GuildMember) => {
+  // 使用 Koishi/OneBot 标准格式：<at id="用户ID" />
+  const atElement = `<at id="${member.id}" />`
+  if (inputText.value) {
+    inputText.value += ` ${atElement} `
+  } else {
+    inputText.value = `${atElement} `
+  }
+}
+
+// 右键菜单相关
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  targetMsg: null as ChatMessage | null
+})
+
+// 计算是否可以撤回（只有自己发的消息可以撤回）
+const canRecall = computed(() => {
+  if (!contextMenu.targetMsg) return false
+  return contextMenu.targetMsg.userId === contextMenu.targetMsg.selfId
+})
+
+const showContextMenu = (e: MouseEvent, msg: ChatMessage) => {
+  contextMenu.visible = true
+  contextMenu.x = e.clientX
+  contextMenu.y = e.clientY
+  contextMenu.targetMsg = msg
+}
+
+const hideContextMenu = () => {
+  contextMenu.visible = false
+  contextMenu.targetMsg = null
+}
+
+// 回复消息
+const handleReply = () => {
+  if (!contextMenu.targetMsg) return
+  const msg = contextMenu.targetMsg
+  // 使用 Koishi/OneBot 标准格式：<quote id="消息ID" />
+  const quoteElement = `<quote id="${msg.id}" />`
+  inputText.value = quoteElement + inputText.value
+  hideContextMenu()
+}
+
+// @某人
+const handleAt = () => {
+  if (!contextMenu.targetMsg) return
+  const msg = contextMenu.targetMsg
+  // 使用 Koishi/OneBot 标准格式：<at id="用户ID" />
+  const atElement = `<at id="${msg.userId}" />`
+  if (inputText.value) {
+    inputText.value += ` ${atElement} `
+  } else {
+    inputText.value = `${atElement} `
+  }
+  hideContextMenu()
+}
+
+// 复制消息内容
+const handleCopy = async () => {
+  if (!contextMenu.targetMsg) return
+  const msg = contextMenu.targetMsg
+  const text = msg.content || ''
+  
+  // 移除 HTML 标签，获取纯文本
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = text
+  const plainText = tempDiv.textContent || tempDiv.innerText || ''
+  
+  try {
+    await navigator.clipboard.writeText(plainText)
+    message.success('已复制到剪贴板')
+  } catch {
+    // 回退方案
+    const textarea = document.createElement('textarea')
+    textarea.value = plainText
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    message.success('已复制到剪贴板')
+  }
+  hideContextMenu()
+}
+
+// 转发消息（暂时只是复制到输入框）
+const handleForward = () => {
+  if (!contextMenu.targetMsg) return
+  const msg = contextMenu.targetMsg
+  inputText.value = msg.content || ''
+  hideContextMenu()
+  message.info('消息已复制到输入框，选择其他会话发送即可转发')
+}
+
+// 处理粘贴事件
+const handlePaste = (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items
+  if (!items) return
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const file = item.getAsFile()
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string
+          if (dataUrl) {
+            pendingImages.value.push({ dataUrl, file })
+          }
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+  }
+}
+
+// 移除待发送图片
+const removePendingImage = (index: number) => {
+  pendingImages.value.splice(index, 1)
+}
+
+// 撤回消息
+const handleRecall = async () => {
+  if (!contextMenu.targetMsg || !currentSession.value) return
+  const msg = contextMenu.targetMsg
+  const session = currentSession.value
+  
+  try {
+    await chatApi.recall(session.id, msg.id, session.platform)
+    // 从本地消息列表中移除
+    const index = session.messages.findIndex(m => m.id === msg.id)
+    if (index !== -1) {
+      session.messages.splice(index, 1)
+    }
+    message.success('消息已撤回')
+  } catch (e: any) {
+    message.error(e.message || '撤回失败')
+  }
+  hideContextMenu()
+}
 
 // 辅助函数：判断是否是自己发送的消息
 const isSelf = (msg: ChatMessage) => {
@@ -343,8 +691,16 @@ watch(currentSessionId, (newId) => {
     session.unread = 0
     currentSession.value = session
     nextTick(() => scrollToBottom())
+    
+    // 如果是群聊，加载群成员
+    if (session.type === 'group' && session.guildId) {
+      loadGuildMembers(session.guildId)
+    } else {
+      members.value = []
+    }
   } else {
     currentSession.value = undefined
+    members.value = []
   }
 })
 
@@ -423,29 +779,35 @@ const scrollToBottom = () => {
 
 const sendMessage = async () => {
   const text = inputText.value.trim()
-  if (!text || !currentSession.value) return
+  const hasImages = pendingImages.value.length > 0
+  
+  if (!text && !hasImages) return
+  if (!currentSession.value) return
 
   sending.value = true
   try {
     const session = currentSession.value
-    await chatApi.send(session.id, text, session.platform, session.guildId)
     
-    // 模拟将自己发送的消息加入列表（虽然一般后端也会推送回来，但为了即时反馈）
-    // 注意：这里可能跟后端推送重复，通常 bot.sendMessage 后 bot 适配器会收到 message 事件吗？
-    // 如果是 sendGroupMessage，有些适配器会产生 echo message，有些不会。
-    // 这里我们暂时等待后端推送，或者手动添加一个临时消息。
-    // 为了稳妥，我们清空输入框即可。如果后端有 echo 机制最好。
-    // 如果没有 echo，用户体验会觉得没发出去。
-    // 我们假设后端会推送 message 事件 (OneBot 会)
-    // 针对 OneBot，send_msg 确实会有 echo，但 Koishi 统一处理可能会有延迟
-    // 我们这里先清空，依赖后端广播的 send 事件
+    // 构建消息内容
+    let content = text
+    
+    // 添加图片（使用 base64 格式）
+    for (const img of pendingImages.value) {
+      // 使用 Koishi 的 img 元素格式，src 为 base64 dataUrl
+      content += `<img src="${img.dataUrl}" />`
+    }
+    
+    await chatApi.send(session.id, content, session.platform, session.guildId)
+    
+    // 清空输入框和待发送图片
     inputText.value = ''
+    pendingImages.value = []
   } catch (e: any) {
     message.error(e.message || '发送失败')
   } finally {
     sending.value = false
     // 聚焦回输入框
-    // (需获取 textarea ref，略)
+    inputRef.value?.focus()
   }
 }
 
@@ -550,12 +912,92 @@ const renderMessage = (msg: ChatMessage) => {
     return `<span class="msg-face">[表情:${idMatch ? idMatch[1] : '?'}]</span>`
   })
 
+  // 4.5 替换引用 <quote id="..." user="..." content="..." /> 或 <quote>...</quote>
+  html = html.replace(/<quote\s+([^>]*)(?:\/>|>([\s\S]*?)<\/quote>)/g, (match, attrs, innerContent) => {
+    const idMatch = attrs.match(/id="([^"]+)"/)
+    const userMatch = attrs.match(/user="([^"]+)"/)
+    const contentMatch = attrs.match(/content="([^"]*)"/)
+    const msgId = idMatch ? idMatch[1] : ''
+    
+    // 优先使用属性中的 user 和 content
+    let quotedUser = userMatch ? userMatch[1] : ''
+    let quotedContent = contentMatch ? contentMatch[1].replace(/&quot;/g, '"') : (innerContent || '')
+    
+    // 如果属性中没有，尝试从当前会话中找到被引用的消息
+    if (msgId && currentSession.value && (!quotedUser || !quotedContent)) {
+      const quotedMsg = currentSession.value.messages.find(m => m.id === msgId)
+      if (quotedMsg) {
+        if (!quotedUser) quotedUser = quotedMsg.username || ''
+        // 获取纯文本预览
+        if (!quotedContent) {
+          const preview = quotedMsg.content?.replace(/<[^>]+>/g, '').substring(0, 50) || ''
+          quotedContent = preview + (quotedMsg.content && quotedMsg.content.length > 50 ? '...' : '')
+        }
+      }
+    }
+    
+    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
+  })
+
   // 5. 简单的 CQ 码兼容 (以防万一)
-  html = html.replace(/\[CQ:image,[^\]]*url=([^,\]]+)[^\]]*\]/g, (match, url) => {
-    return createImgTag(url)
+  // [CQ:image,file=xxx,url=xxx] 格式 - 优先使用 url
+  html = html.replace(/\[CQ:image,[^\]]*\]/g, (match) => {
+    // 提取 url 参数
+    const urlMatch = match.match(/url=([^,\]]+)/)
+    // 提取 file 参数 (可能是本地文件名或 base64)
+    const fileMatch = match.match(/file=([^,\]]+)/)
+    
+    let src = ''
+    let file = ''
+    
+    if (urlMatch) {
+      src = urlMatch[1]
+    }
+    if (fileMatch) {
+      file = fileMatch[1]
+      // 如果 file 是 base64 格式
+      if (file.startsWith('base64://')) {
+        src = `data:image/png;base64,${file.substring(9)}`
+      } else if (!src) {
+        // 如果没有 url，尝试用 file 作为 url（可能是远程地址）
+        src = file
+      }
+    }
+    
+    if (!src) return match // 无法解析，保留原始
+    return createImgTag(src, file)
   })
   html = html.replace(/\[CQ:at,[^\]]*qq=([^,\]]+)[^\]]*\]/g, (match, id) => {
-    return `<span class="msg-at">@${id}</span>`
+    // 尝试从成员列表中获取名称
+    let displayName = id
+    const member = members.value.find(m => m.id === id)
+    if (member && member.name) {
+      displayName = member.name
+    }
+    return `<span class="msg-at">@${displayName}</span>`
+  })
+  
+  // 5.5 CQ 码 reply 兼容: [CQ:reply,id=消息ID]
+  html = html.replace(/\[CQ:reply,id=([^\],]+)[^\]]*\]/g, (match, msgId) => {
+    // 尝试从当前会话中找到被引用的消息
+    let quotedContent = ''
+    let quotedUser = ''
+    
+    if (msgId && currentSession.value) {
+      const quotedMsg = currentSession.value.messages.find(m => m.id === msgId)
+      if (quotedMsg) {
+        quotedUser = quotedMsg.username || ''
+        // 获取纯文本预览（移除 CQ 码和 HTML 标签）
+        const preview = quotedMsg.content
+          ?.replace(/\[CQ:[^\]]+\]/g, '')
+          ?.replace(/<[^>]+>/g, '')
+          ?.trim()
+          ?.substring(0, 50) || ''
+        quotedContent = preview + (quotedMsg.content && quotedMsg.content.length > 50 ? '...' : '')
+      }
+    }
+    
+    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
   })
 
   // 6. 处理 OneBot/Red 协议的特殊图片格式 (如果直接是 URL)
@@ -889,6 +1331,8 @@ const renderMessage = (msg: ChatMessage) => {
   white-space: pre-wrap;
   word-break: break-all;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  width: fit-content;
+  max-width: 100%;
 }
 
 /* Deep selector required for v-html content in scoped css */
@@ -949,6 +1393,45 @@ const renderMessage = (msg: ChatMessage) => {
   color: var(--k-color-text-description);
 }
 
+.message-bubble :deep(.msg-quote) {
+  background: var(--k-color-bg-2);
+  border-left: 3px solid var(--k-color-active);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.message-bubble :deep(.msg-quote .quote-user) {
+  font-weight: 600;
+  color: var(--k-color-active);
+  font-size: 0.8rem;
+}
+
+.message-bubble :deep(.msg-quote .quote-content) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.message-row.self .message-bubble :deep(.msg-quote) {
+  background: rgba(255, 255, 255, 0.15);
+  border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+.message-row.self .message-bubble :deep(.msg-quote .quote-user) {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-row.self .message-bubble :deep(.msg-quote .quote-content) {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .message-row.self .message-bubble {
   background: var(--k-color-active);
   color: white;
@@ -960,6 +1443,56 @@ const renderMessage = (msg: ChatMessage) => {
   padding: 1rem;
   background: var(--k-color-bg-2);
   border-top: 1px solid var(--k-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pending-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--k-color-border);
+}
+
+.pending-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+.remove-image-btn:hover {
+  background: #f56c6c;
+}
+
+.input-row {
   display: flex;
   gap: 1rem;
   align-items: flex-end;
@@ -1217,5 +1750,277 @@ const renderMessage = (msg: ChatMessage) => {
 .confirm-btn:disabled {
   background: var(--k-color-disabled);
   cursor: not-allowed;
+}
+
+/* 群成员侧边栏 */
+.members-sidebar {
+  width: 220px;
+  border-left: 1px solid var(--k-color-border);
+  display: flex;
+  flex-direction: column;
+  background: var(--k-color-bg-2);
+  transition: width 0.3s ease;
+}
+
+.members-sidebar.collapsed {
+  width: 40px;
+}
+
+.members-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--k-color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.members-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.members-sidebar.collapsed .members-title {
+  display: none;
+}
+
+.members-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+  font-weight: 600;
+}
+
+.member-count {
+  font-size: 0.75rem;
+  background: var(--k-color-active);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.collapse-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--k-color-text-description);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.collapse-btn:hover {
+  background: var(--k-color-bg-3);
+}
+
+.members-search {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--k-color-border);
+}
+
+.members-search .search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background: var(--k-color-bg-1);
+  color: var(--k-color-text);
+  font-size: 0.8rem;
+}
+
+.members-search .search-input:focus {
+  outline: none;
+  border-color: var(--k-color-active);
+}
+
+.members-search .search-input::placeholder {
+  color: var(--k-color-text-description);
+}
+
+.members-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.member-group-header {
+  padding: 8px 12px 4px;
+  font-size: 0.7rem;
+  color: var(--k-color-text-description);
+  font-weight: 600;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.crown-icon {
+  font-size: 10px;
+}
+
+.admin-icon {
+  font-size: 10px;
+}
+
+.member-icon {
+  font-size: 10px;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.member-item:hover {
+  background: var(--k-color-bg-1);
+}
+
+.member-item.owner .member-name {
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.member-item.admin .member-name {
+  color: #67c23a;
+  font-weight: 500;
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--k-color-bg-3);
+}
+
+.member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.member-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.member-name {
+  font-size: 0.85rem;
+  color: var(--k-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-title {
+  font-size: 0.7rem;
+  color: var(--k-color-text-description);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.members-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 0.5rem;
+  color: var(--k-color-text-description);
+  font-size: 0.85rem;
+}
+
+.no-members {
+  padding: 2rem;
+  text-align: center;
+  color: var(--k-color-text-description);
+  font-size: 0.85rem;
+}
+
+/* 响应式：小屏幕隐藏成员侧边栏 */
+@media (max-width: 900px) {
+  .members-sidebar {
+    display: none;
+  }
+}
+
+/* 右键菜单样式 */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 140px;
+  padding: 6px 0;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--k-color-text);
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.context-menu-item:hover {
+  background: var(--k-color-bg-1);
+}
+
+.context-menu-item.danger {
+  color: #f56c6c;
+}
+
+.context-menu-item.danger:hover {
+  background: rgba(245, 108, 108, 0.1);
+}
+
+.menu-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--k-color-border);
+  margin: 6px 0;
 }
 </style>

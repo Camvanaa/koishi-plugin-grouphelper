@@ -626,6 +626,70 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 聊天功能 API =====
 
+  /** 获取群成员列表 */
+  ctx.console.addListener('grouphelper/chat/guild-members' as any, async (params: { guildId: string }) => {
+    try {
+      const { guildId } = params
+      if (!guildId) return error('缺少 guildId 参数')
+
+      for (const bot of ctx.bots) {
+        try {
+          // 使用 getGuildMemberList 获取成员列表
+          const members: any[] = []
+          let next: string | undefined
+
+          do {
+            const result = await bot.getGuildMemberList(guildId, next)
+            if (result.data) {
+              members.push(...result.data)
+            }
+            next = result.next
+          } while (next)
+
+          // 格式化成员数据
+          const formattedMembers = members.map(member => {
+            const userId = member.user?.id || member.userId
+            let avatar = member.user?.avatar || member.avatar
+            
+            // OneBot/QQ 头像回退
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+            }
+
+            return {
+              id: userId,
+              name: member.nick || member.user?.nick || member.user?.name || userId,
+              avatar,
+              isAdmin: member.roles?.includes('admin') || false,
+              isOwner: member.roles?.includes('owner') || false,
+              title: member.title || '',
+              joinedAt: member.joinedAt
+            }
+          })
+
+          // 排序：群主 > 管理员 > 普通成员，同级别按名称排序
+          formattedMembers.sort((a, b) => {
+            if (a.isOwner && !b.isOwner) return -1
+            if (!a.isOwner && b.isOwner) return 1
+            if (a.isAdmin && !b.isAdmin) return -1
+            if (!a.isAdmin && b.isAdmin) return 1
+            return (a.name || '').localeCompare(b.name || '')
+          })
+
+          return success({
+            members: formattedMembers,
+            total: formattedMembers.length
+          })
+        } catch (e) {
+          ctx.logger('grouphelper').warn('获取群成员列表失败:', e)
+        }
+      }
+      return error('无法获取群成员列表')
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '获取群成员列表失败')
+    }
+  })
+
   /** 获取群信息 */
   ctx.console.addListener('grouphelper/chat/guild-info' as any, async (params: { guildId: string }) => {
     try {
@@ -691,6 +755,23 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     } catch (e) {
       ctx.logger('grouphelper').error('发送消息失败:', e)
       return error(e instanceof Error ? e.message : '发送失败')
+    }
+  })
+
+  /** 撤回消息 */
+  ctx.console.addListener('grouphelper/chat/recall' as any, async (params: { channelId: string, messageId: string, platform?: string }) => {
+    try {
+      const { channelId, messageId, platform } = params
+      if (!channelId || !messageId) return error('缺少必要参数')
+
+      const bot = ctx.bots.find(b => !platform || b.platform === platform)
+      if (!bot) return error('未找到可用的 Bot')
+
+      await bot.deleteMessage(channelId, messageId)
+      return success({ success: true })
+    } catch (e) {
+      ctx.logger('grouphelper').error('撤回消息失败:', e)
+      return error(e instanceof Error ? e.message : '撤回失败')
     }
   })
 
@@ -812,6 +893,67 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     return null
   }
 
+  // 将 Koishi elements 序列化为字符串（保留 quote、at、image 等）
+  const serializeElements = (elements: any[]): string => {
+    if (!elements || !Array.isArray(elements)) return ''
+    
+    return elements.map(el => {
+      if (!el) return ''
+      
+      // 文本节点
+      if (el.type === 'text') {
+        return el.attrs?.content || ''
+      }
+      
+      // 引用消息
+      if (el.type === 'quote') {
+        const id = el.attrs?.id || ''
+        // 如果有子元素，也序列化
+        if (el.children && el.children.length > 0) {
+          const childContent = serializeElements(el.children)
+          return `<quote id="${id}">${childContent}</quote>`
+        }
+        return `<quote id="${id}" />`
+      }
+      
+      // @某人
+      if (el.type === 'at') {
+        const id = el.attrs?.id || ''
+        const name = el.attrs?.name || ''
+        if (name) {
+          return `<at id="${id}" name="${name}" />`
+        }
+        return `<at id="${id}" />`
+      }
+      
+      // 图片
+      if (el.type === 'img' || el.type === 'image') {
+        const src = el.attrs?.src || el.attrs?.url || ''
+        const file = el.attrs?.file || ''
+        if (file) {
+          return `<img src="${src}" file="${file}" />`
+        }
+        return `<img src="${src}" />`
+      }
+      
+      // 表情
+      if (el.type === 'face') {
+        const id = el.attrs?.id || ''
+        return `<face id="${id}" />`
+      }
+      
+      // 其他元素，尝试保留原始格式
+      if (el.type) {
+        const attrs = Object.entries(el.attrs || {})
+          .map(([k, v]) => `${k}="${v}"`)
+          .join(' ')
+        return attrs ? `<${el.type} ${attrs} />` : `<${el.type} />`
+      }
+      
+      return ''
+    }).join('')
+  }
+
   // 监听并广播消息
   const broadcastMessage = async (session: any, isSelf = false) => {
     // 获取消息内容
@@ -843,6 +985,41 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
             }
           }
         } catch {}
+      }
+    }
+    
+    // 处理引用消息：session.quote 存储了被引用的消息信息
+    // 需要将其添加到 content 开头
+    if (session.quote && session.quote.messageId) {
+      const quoteId = session.quote.messageId
+      const quoteUser = session.quote.user?.name || session.quote.user?.id || ''
+      const quoteContent = session.quote.content || session.quote.elements?.map((el: any) =>
+        el.type === 'text' ? (el.attrs?.content || '') : `[${el.type}]`
+      ).join('') || ''
+      
+      // 构造引用元素字符串
+      const quoteTag = `<quote id="${quoteId}" user="${quoteUser}" content="${quoteContent.replace(/"/g, '&quot;').substring(0, 100)}" />`
+      content = quoteTag + content
+    }
+    
+    // 如果不是 isSelf，也需要将 elements 序列化为包含完整信息的字符串
+    // 因为 session.content 可能不包含 quote、at 等元素的完整信息
+    if (!isSelf && elements && Array.isArray(elements) && elements.length > 0) {
+      // 检查是否有需要序列化的特殊元素（排除 quote，因为已经处理过了）
+      const hasSpecialElements = elements.some(el =>
+        el.type === 'at' || el.type === 'img' || el.type === 'image' || el.type === 'face'
+      )
+      if (hasSpecialElements) {
+        const serializedContent = serializeElements(elements)
+        // 如果有 quote，保留 quote 前缀
+        if (session.quote && session.quote.messageId) {
+          const quoteMatch = content.match(/^<quote[^>]*\/>/)
+          if (quoteMatch) {
+            content = quoteMatch[0] + serializedContent
+          }
+        } else {
+          content = serializedContent
+        }
       }
     }
     

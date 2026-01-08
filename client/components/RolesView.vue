@@ -121,49 +121,78 @@
 
         <!-- 权限设置 -->
         <div v-if="activeTab === 'permissions'" class="permissions-settings">
-          <div class="search-bar">
-            <input type="text" v-model="permSearch" placeholder="搜索权限..." class="form-input search-input">
-            <button class="secondary-btn" @click="clearPermissions">清除所有</button>
-          </div>
+          <div class="permissions-layout">
+            <!-- 左侧主内容 -->
+            <div class="permissions-main" ref="permissionsMainRef">
+              <div class="search-bar">
+                <input type="text" v-model="permSearch" placeholder="搜索权限..." class="form-input search-input">
+                <button class="secondary-btn" @click="clearPermissions">清除所有</button>
+              </div>
 
-          <!-- 当前选中权限列表 -->
-          <div class="current-perms" v-if="editingRole.permissions && editingRole.permissions.length > 0">
-            <span class="perms-label">已选权限:</span>
-            <span class="perm-tag" v-for="p in editingRole.permissions" :key="p">{{ p }}</span>
-          </div>
+              <!-- 当前选中权限列表 -->
+              <div class="current-perms" v-if="editingRole.permissions && editingRole.permissions.length > 0">
+                <span class="perms-label">已选权限:</span>
+                <span class="perm-tag" v-for="p in editingRole.permissions" :key="p">{{ p }}</span>
+              </div>
 
-          <!-- 权限为空的提示 -->
-          <div v-if="permissions.length === 0" class="empty-tip">
-            权限列表加载中或为空...
-          </div>
+              <!-- 权限为空的提示 -->
+              <div v-if="permissions.length === 0" class="empty-tip">
+                权限列表加载中或为空...
+              </div>
 
-          <div v-else class="permission-groups">
-            <div v-for="(group, name) in groupedPermissions" :key="name" class="perm-group">
-              <div class="group-header">{{ name }}</div>
-              <div class="group-items">
-                <div v-for="node in group" :key="node.id" class="permission-item" :class="{ 'covered': isCoveredByWildcard(node.id) }">
-                  <div class="perm-info">
-                    <div class="perm-name">{{ node.name }}</div>
-                    <div class="perm-desc">{{ node.description }}</div>
-                    <div class="perm-id">
-                      {{ node.id }}
-                      <span v-if="isCoveredByWildcard(node.id)" class="covered-hint">
-                        (由 {{ isCoveredByWildcard(node.id) }} 覆盖)
-                      </span>
+              <div v-else class="permission-groups">
+                <div
+                  v-for="(group, name) in groupedPermissions"
+                  :key="name"
+                  class="perm-group"
+                  :id="`perm-group-${name}`"
+                  :ref="el => setGroupRef(name as string, el)"
+                >
+                  <div class="group-header">{{ name }}</div>
+                  <div class="group-items">
+                    <div v-for="node in group" :key="node.id" class="permission-item" :class="{ 'covered': isCoveredByWildcard(node.id) }">
+                      <div class="perm-info">
+                        <div class="perm-name">{{ node.name }}</div>
+                        <div class="perm-desc">{{ node.description }}</div>
+                        <div class="perm-id">
+                          {{ node.id }}
+                          <span v-if="isCoveredByWildcard(node.id)" class="covered-hint">
+                            (由 {{ isCoveredByWildcard(node.id) }} 覆盖)
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        class="toggle-switch"
+                        :class="{ active: hasPermission(node.id), locked: isCoveredByWildcard(node.id) }"
+                        @click.stop="!isCoveredByWildcard(node.id) && togglePermission(node.id)"
+                        :title="isCoveredByWildcard(node.id) ? `已被 ${isCoveredByWildcard(node.id)} 通配符覆盖` : ''"
+                      >
+                        <span class="slider"></span>
+                        <span v-if="isCoveredByWildcard(node.id)" class="lock-icon">🔒</span>
+                      </div>
                     </div>
-                  </div>
-                  <div
-                    class="toggle-switch"
-                    :class="{ active: hasPermission(node.id), locked: isCoveredByWildcard(node.id) }"
-                    @click.stop="!isCoveredByWildcard(node.id) && togglePermission(node.id)"
-                    :title="isCoveredByWildcard(node.id) ? `已被 ${isCoveredByWildcard(node.id)} 通配符覆盖` : ''"
-                  >
-                    <span class="slider"></span>
-                    <span v-if="isCoveredByWildcard(node.id)" class="lock-icon">🔒</span>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- 右侧快速导航 -->
+            <nav class="permissions-nav" v-if="Object.keys(groupedPermissions).length > 0">
+              <div class="nav-title">快速导航</div>
+              <div class="nav-list">
+                <div
+                  v-for="(group, name) in groupedPermissions"
+                  :key="name"
+                  class="nav-item"
+                  :class="{ active: activeGroup === name }"
+                  @click="scrollToGroup(name as string)"
+                >
+                  <span class="nav-dot"></span>
+                  <span class="nav-name">{{ name }}</span>
+                  <span class="nav-count">{{ group.length }}</span>
+                </div>
+              </div>
+            </nav>
           </div>
         </div>
         
@@ -275,6 +304,46 @@ const newMemberId = ref('')
 const currentRoleMembers = ref<RoleMember[]>([])
 const loading = ref(false)
 
+// 快速导航相关
+const permissionsMainRef = ref<HTMLElement | null>(null)
+const groupRefs = ref<Record<string, HTMLElement | null>>({})
+const activeGroup = ref<string>('')
+
+const setGroupRef = (name: string, el: unknown) => {
+  groupRefs.value[name] = el as HTMLElement | null
+}
+
+const scrollToGroup = (name: string) => {
+  const el = groupRefs.value[name]
+  if (el && permissionsMainRef.value) {
+    // 使用平滑滚动到目标分组
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    activeGroup.value = name
+  }
+}
+
+// 监听滚动以更新当前激活的分组
+const handlePermissionsScroll = () => {
+  if (!permissionsMainRef.value) return
+  
+  const container = permissionsMainRef.value
+  const scrollTop = container.scrollTop
+  
+  let currentActive = ''
+  for (const [name, el] of Object.entries(groupRefs.value)) {
+    if (el) {
+      const offsetTop = el.offsetTop - container.offsetTop
+      if (scrollTop >= offsetTop - 50) {
+        currentActive = name
+      }
+    }
+  }
+  
+  if (currentActive) {
+    activeGroup.value = currentActive
+  }
+}
+
 // 群组范围模式 - 使用独立的 ref 避免空数组时状态回弹
 const scopeMode = ref<'global' | 'guilds'>('global')
 
@@ -349,7 +418,16 @@ const fetchData = async () => {
   }
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  fetchData()
+  
+  // 延迟添加滚动监听器（等待 DOM 渲染）
+  setTimeout(() => {
+    if (permissionsMainRef.value) {
+      permissionsMainRef.value.addEventListener('scroll', handlePermissionsScroll)
+    }
+  }, 100)
+})
 
 // 计算属性
 const hasChanges = computed(() => {
@@ -1152,6 +1230,130 @@ const copyRoleId = async () => {
 
 .search-input {
   flex: 1;
+}
+
+.permissions-layout {
+  display: flex;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.permissions-main {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 1rem;
+}
+
+/* permissions-main 滚动条 */
+.permissions-main::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.permissions-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.permissions-main::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+.permissions-main::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-color-text-description);
+}
+
+/* 快速导航 */
+.permissions-nav {
+  width: 180px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.nav-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--k-color-text-description);
+  margin-bottom: 0.75rem;
+  padding-left: 12px;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--k-color-text-description);
+  font-size: 0.85rem;
+}
+
+.nav-item:hover {
+  background: var(--k-color-bg-1);
+  color: var(--k-color-text);
+}
+
+.nav-item.active {
+  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  color: var(--k-color-active);
+}
+
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k-color-border);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.nav-item.active .nav-dot {
+  background: var(--k-color-active);
+}
+
+.nav-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-count {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: var(--k-color-bg-2);
+  border-radius: 10px;
+  color: var(--k-color-text-description);
+}
+
+.nav-item.active .nav-count {
+  background: var(--k-color-active);
+  color: white;
+}
+
+/* 响应式：小屏幕隐藏导航 */
+@media (max-width: 900px) {
+  .permissions-nav {
+    display: none;
+  }
+  
+  .permissions-main {
+    padding-right: 0;
+  }
 }
 
 .permission-groups {

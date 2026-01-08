@@ -91,6 +91,17 @@ export const settingsApi = {
   reset: () => call<{ success: boolean }>('grouphelper/settings/reset'),
 }
 
+// 群成员类型
+export interface GuildMember {
+  id: string
+  name: string
+  avatar?: string
+  isAdmin?: boolean
+  isOwner?: boolean
+  title?: string
+  joinedAt?: number
+}
+
 // 聊天 API
 export const chatApi = {
   send: (channelId: string, content: string, platform?: string, guildId?: string) =>
@@ -101,6 +112,12 @@ export const chatApi = {
   /** 获取用户信息 */
   getUserInfo: (userId: string) =>
     call<{ name?: string; avatar?: string }>('grouphelper/chat/user-info', { userId }),
+  /** 获取群成员列表 */
+  getGuildMembers: (guildId: string) =>
+    call<{ members: GuildMember[]; total: number }>('grouphelper/chat/guild-members', { guildId }),
+  /** 撤回消息 */
+  recall: (channelId: string, messageId: string, platform?: string) =>
+    call<{ success: boolean }>('grouphelper/chat/recall', { channelId, messageId, platform }),
 }
 
 // 图片代理 API
