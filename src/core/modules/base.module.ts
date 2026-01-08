@@ -2,7 +2,7 @@
  * 模块基类
  * 所有功能模块都应继承此类
  */
-import { Context, Session } from 'koishi'
+import { Argv, Command, Context, Session } from 'koishi'
 import type { DataManager } from '../data'
 import type { Config } from '../../types'
 
@@ -16,6 +16,22 @@ export interface ModuleMeta {
   version?: string
   /** 模块作者 */
   author?: string
+}
+
+/** 命令定义选项 */
+export interface CommandDef {
+  /** 命令名称（不包含模块前缀） */
+  name: string
+  /** 命令描述 */
+  desc: string
+  /** 参数定义（如 '<user:user> [count:number]'）*/
+  args?: string
+  /** 权限节点名称（默认使用命令名） */
+  permNode?: string
+  /** 权限节点描述（默认使用命令描述） */
+  permDesc?: string
+  /** 跳过权限检查（默认 false） */
+  skipAuth?: boolean
 }
 
 /** 模块状态 */
@@ -98,5 +114,66 @@ export abstract class BaseModule {
    */
   protected async log(session: Session, command: string, target: string, result: string): Promise<void> {
     await this.ctx.groupHelper.logCommand(session, command, target, result)
+  }
+
+  /**
+   * 注册命令并自动绑定权限节点
+   * @param def 命令定义
+   * @returns Koishi Command 对象，可继续链式调用
+   *
+   * 权限节点命名规则：{模块名}.{命令名}
+   * 例如：warn 模块的 add 命令 → warn.add
+   */
+  protected registerCommand(def: CommandDef): Command {
+    const moduleName = this.meta.name
+    const cmdName = def.name
+    const cmdDef = def.args ? `${cmdName} ${def.args}` : cmdName
+    
+    // 生成权限节点ID
+    const permNode = def.permNode || cmdName.replace(/\./g, '-')
+    const permId = `${moduleName}.${permNode}`
+    const permName = def.desc
+    const permDesc = def.permDesc || def.desc
+    
+    // 在 AuthService 中注册权限节点
+    if (!def.skipAuth) {
+      this.ctx.groupHelper.auth.registerPermission(
+        permId,
+        permName,
+        permDesc,
+        this.meta.description // 使用模块描述作为分组
+      )
+    }
+    
+    // 创建 Koishi 命令
+    const command = this.ctx.command(cmdDef, def.desc)
+    
+    // 添加权限检查中间件（除非跳过）
+    if (!def.skipAuth) {
+      command.before(async ({ session }) => {
+        if (!session) return
+        
+        // 使用 AuthService 检查权限
+        if (!this.ctx.groupHelper.auth.check(session, permId)) {
+          return '你没有权限执行此操作喵...'
+        }
+      })
+    }
+    
+    return command
+  }
+
+  /**
+   * 注册权限节点（不绑定命令）
+   * 用于注册非命令类权限，如 WebUI 操作权限
+   */
+  protected registerPermission(id: string, name: string, description: string): void {
+    const permId = `${this.meta.name}.${id}`
+    this.ctx.groupHelper.auth.registerPermission(
+      permId,
+      name,
+      description,
+      this.meta.description
+    )
   }
 }

@@ -171,14 +171,17 @@ export interface Role {
   color?: string
   priority: number
   permissions: string[]
-  hoist?: boolean
-  mentionable?: boolean
+  /** 角色生效的群组 ID 列表（空数组或 undefined 表示全局生效） */
+  guildIds?: string[]
+  /** 是否为内置角色（内置角色不可删除） */
+  builtin?: boolean
 }
 
 export interface PermissionNode {
   id: string
   name: string
   description: string
+  group?: string // 用于前端分组显示
 }
 
 // 扩展 @koishijs/client 的 Events 接口

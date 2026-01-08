@@ -178,8 +178,19 @@ export class LogModule extends BaseModule {
 
   // ===== 操作日志命令 =====
   private registerOperationLogCommands(): void {
+    // 手动注册 log 相关权限节点
+    this.ctx.groupHelper.auth.registerPermission('log.view', '查看日志', '查看操作日志和命令日志', 'log')
+    this.ctx.groupHelper.auth.registerPermission('log.clear', '清理日志', '清理操作日志和命令日志', 'log')
+
     // 显示操作日志
-    this.ctx.command('listlog [lines:number]', '显示最近的操作记录', { authority: 3 })
+    this.registerCommand({
+      name: 'listlog',
+      desc: '显示最近的操作记录',
+      args: '[lines:number]',
+      permNode: 'listlog',
+      permDesc: '查看操作日志',
+      skipAuth: true  // 使用内部权限检查
+    })
       .action(async ({ session }, lines = 100) => {
         if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限查看日志喵...'
         if (!fs.existsSync(this.logPath)) {
@@ -203,10 +214,17 @@ export class LogModule extends BaseModule {
       })
 
     // 清理操作日志
-    this.ctx.command('clearlog', '清理日志文件', { authority: 4 })
+    this.registerCommand({
+      name: 'clearlog',
+      desc: '清理日志文件',
+      permNode: 'clearlog',
+      permDesc: '清理操作日志',
+      skipAuth: true  // 使用内部权限检查
+    })
       .option('d', '-d <days:number> 保留最近几天的日志')
       .option('a', '-a 清理所有日志')
       .action(async ({ session, options }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.clear')) return '你没有权限清理日志喵...'
         if (!fs.existsSync(this.logPath)) {
           return '还没有任何日志记录喵~'
         }
@@ -245,7 +263,13 @@ export class LogModule extends BaseModule {
   // ===== 命令日志命令 =====
   private registerCommandLogCommands(): void {
     // 查看命令日志
-    this.ctx.command('cmdlogs.check', '查看命令执行日志')
+    this.registerCommand({
+      name: 'cmdlogs.check',
+      desc: '查看命令执行日志',
+      permNode: 'cmdlogs.check',
+      permDesc: '查看命令执行日志',
+      skipAuth: true  // 使用内部权限检查
+    })
       .alias('命令日志')
       .option('limit', '-l <number> 显示条数', { fallback: 10 })
       .option('user', '-u <userId> 筛选特定用户')
@@ -280,7 +304,13 @@ export class LogModule extends BaseModule {
       })
 
     // 命令统计
-    this.ctx.command('cmdlogs.stats', '查看命令使用统计')
+    this.registerCommand({
+      name: 'cmdlogs.stats',
+      desc: '查看命令使用统计',
+      permNode: 'cmdlogs.stats',
+      permDesc: '查看命令统计',
+      skipAuth: true  // 使用内部权限检查
+    })
       .alias('命令统计')
       .option('limit', '-l <number> 显示前N个命令', { fallback: 10 })
       .option('command', '-c <command> 筛选特定命令')
@@ -309,12 +339,18 @@ export class LogModule extends BaseModule {
       })
 
     // 清理命令日志
-    this.ctx.command('cmdlogs.clear', '清除命令日志')
+    this.registerCommand({
+      name: 'cmdlogs.clear',
+      desc: '清除命令日志',
+      permNode: 'cmdlogs.clear',
+      permDesc: '清除命令日志',
+      skipAuth: true  // 使用内部权限检查
+    })
       .alias('清理日志')
       .option('days', '-d <number> 清除N天前的日志', { fallback: 0 })
       .option('all', '--all 清除所有日志')
       .action(async ({ session, options }) => {
-        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限清理日志喵...'
+        if (!this.ctx.groupHelper.auth.check(session, 'log.clear')) return '你没有权限清理日志喵...'
         try {
           if (options.all) {
             this.saveCommandLogs([])
@@ -334,11 +370,18 @@ export class LogModule extends BaseModule {
       })
 
     // 导出命令日志
-    this.ctx.command('cmdlogs.export', '导出命令日志')
+    this.registerCommand({
+      name: 'cmdlogs.export',
+      desc: '导出命令日志',
+      permNode: 'cmdlogs.export',
+      permDesc: '导出命令日志',
+      skipAuth: true  // 使用内部权限检查
+    })
       .alias('导出日志')
       .option('days', '-d <number> 导出最近N天的日志', { fallback: 7 })
       .option('format', '-f <format> 导出格式 (json|csv)', { fallback: 'json' })
-      .action(async ({ options }) => {
+      .action(async ({ options, session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限导出日志喵...'
         try {
           const logs = this.readCommandLogs()
           const cutoffTime = Date.now() - (options.days * 24 * 60 * 60 * 1000)

@@ -25,7 +25,13 @@ export class HelpModule extends BaseModule {
 
   private registerCommands(): void {
     // 主帮助命令
-    this.ctx.command('grouphelper', '群管理帮助', { authority: 3 })
+    this.registerCommand({
+      name: 'grouphelper',
+      desc: '群管理帮助',
+      permNode: 'grouphelper',
+      permDesc: '查看帮助信息',
+      skipAuth: true  // 帮助是公开的
+    })
       .option('a', '-a 显示所有可用命令')
       .action(async ({ session, options }) => {
         if (options.a) {
@@ -35,7 +41,14 @@ export class HelpModule extends BaseModule {
       })
 
     // 时间解析测试命令
-    this.ctx.command('parse-time <expression:text>', '测试时间解析', { authority: 1 })
+    this.registerCommand({
+      name: 'parse-time',
+      desc: '测试时间解析',
+      args: '<expression:text>',
+      permNode: 'parse-time',
+      permDesc: '测试时间解析',
+      skipAuth: true  // 工具命令，公开
+    })
       .example('parse-time 10m')
       .example('parse-time 1h30m')
       .example('parse-time 2days')
@@ -68,6 +81,13 @@ nickname <@用户> [昵称] 设置用户昵称，昵称留空则为清除
 === 管理员设置 ===
 admin <@用户>  设置管理员（默认权限4级）
 unadmin <@用户>  取消管理员（默认权限4级）
+
+=== 角色权限管理 ===
+gauth.list  列出所有可用角色
+gauth.info <@用户>  查看用户的角色
+gauth.add <@用户> <角色>  给用户添加角色（支持ID或名称）
+gauth.remove <@用户> <角色>  从用户移除角色
+getauth <@用户>  查询用户状态和权限（简写：ga）
 
 === 警告系统 ===
 warn <@用户> [次数]  警告用户，默认1次

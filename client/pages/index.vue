@@ -158,32 +158,15 @@ const menuItems = [
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  height: 90vh;
-  overflow: auto;
+  height: calc(100vh - 50px - 40px); /* 减去顶部导航和padding */
+  overflow: hidden; /* 默认不滚动，让子组件自己管理滚动 */
   box-sizing: border-box;
 }
 
-/* 滚动条样式 */
-.main-content::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 某些视图需要外层滚动 */
+.main-content:has(.needs-scroll) {
+  overflow: auto;
 }
 
-.main-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.main-content::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-  border-radius: 3px;
-  transition: background-color 0.3s;
-}
-
-.main-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
-}
-
-.main-content::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* 默认隐藏外层滚动条，由子组件自行管理 */
 </style>

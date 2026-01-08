@@ -29,7 +29,18 @@ export class ConfigModule extends BaseModule {
    * 注册命令
    */
   private registerCommands(): void {
-    this.ctx.command('config', '配置管理', { authority: 3 })
+    // 手动注册额外的权限节点
+    this.ctx.groupHelper.auth.registerPermission('config.view', '查看配置', '查看所有配置和记录', 'config')
+    this.ctx.groupHelper.auth.registerPermission('config.blacklist', '黑名单管理', '管理黑名单（添加/移除）', 'config')
+    this.ctx.groupHelper.auth.registerPermission('config.warn', '警告管理', '管理警告记录（添加/移除）', 'config')
+
+    this.registerCommand({
+      name: 'config',
+      desc: '配置管理',
+      permNode: 'config',
+      permDesc: '配置管理主命令',
+      skipAuth: true  // 主命令跳过权限检查，子功能各自检查
+    })
       .option('t', '-t 显示所有记录')
       .option('b', '-b 黑名单管理')
       .option('w', '-w 警告管理')
@@ -50,7 +61,7 @@ export class ConfigModule extends BaseModule {
 
         // 黑名单管理
         if (options.b) {
-          if (!this.ctx.groupHelper.auth.check(session, 'blacklist.manage')) {
+          if (!this.ctx.groupHelper.auth.check(session, 'config.blacklist')) {
             return '你没有权限管理黑名单喵...'
           }
           return await this.handleBlacklist(session, options, content)
@@ -58,7 +69,7 @@ export class ConfigModule extends BaseModule {
 
         // 警告管理
         if (options.w) {
-          if (!this.ctx.groupHelper.auth.check(session, 'warn.manage')) {
+          if (!this.ctx.groupHelper.auth.check(session, 'config.warn')) {
             return '你没有权限管理警告喵...'
           }
           return await this.handleWarns(session, options, content)

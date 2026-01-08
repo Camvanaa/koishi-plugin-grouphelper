@@ -54,7 +54,13 @@ export class BasicModule extends BaseModule {
    * kick 命令 - 踢出用户
    */
   private registerKickCommand(): void {
-    this.ctx.command('kick <input:text>', '踢出用户', { authority: 3 })
+    this.registerCommand({
+      name: 'kick',
+      desc: '踢出用户',
+      args: '<input:text>',
+      permNode: 'kick',
+      permDesc: '踢出群成员'
+    })
       .example('kick @用户')
       .example('kick 123456789')
       .example('kick @用户 群号')
@@ -127,7 +133,13 @@ export class BasicModule extends BaseModule {
    * ban 命令 - 禁言用户
    */
   private registerBanCommand(): void {
-    this.ctx.command('ban <input:text>', '禁言用户', { authority: 3 })
+    this.registerCommand({
+      name: 'ban',
+      desc: '禁言用户',
+      args: '<input:text>',
+      permNode: 'ban',
+      permDesc: '禁言群成员'
+    })
       .example('ban @用户 1h')
       .example('ban 123456789 1h')
       .example('ban @用户 1h 群号')
@@ -198,7 +210,13 @@ export class BasicModule extends BaseModule {
    * stop 命令 - 短期禁言（固定10分钟）
    */
   private registerStopCommand(): void {
-    this.ctx.command('stop <user:user>', '短期禁言', { authority: 2 })
+    this.registerCommand({
+      name: 'stop',
+      desc: '短期禁言',
+      args: '<user:user>',
+      permNode: 'stop',
+      permDesc: '短期禁言（10分钟）'
+    })
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
         const userId = String(user).split(':')[1]
@@ -228,7 +246,13 @@ export class BasicModule extends BaseModule {
    * unban 命令 - 解除禁言
    */
   private registerUnbanCommand(): void {
-    this.ctx.command('unban <input:text>', '解除用户禁言', { authority: 3 })
+    this.registerCommand({
+      name: 'unban',
+      desc: '解除用户禁言',
+      args: '<input:text>',
+      permNode: 'unban',
+      permDesc: '解除禁言'
+    })
       .example('unban @用户')
       .example('unban 123456789')
       .example('unban @用户 群号')
@@ -286,7 +310,12 @@ export class BasicModule extends BaseModule {
    * ban-all 命令 - 全体禁言
    */
   private registerBanAllCommand(): void {
-    this.ctx.command('ban-all', '全体禁言', { authority: 3 })
+    this.registerCommand({
+      name: 'ban-all',
+      desc: '全体禁言',
+      permNode: 'ban-all',
+      permDesc: '开启全体禁言'
+    })
       .action(async ({ session }) => {
         try {
           await session.bot.internal.setGroupWholeBan(session.guildId, true)
@@ -303,7 +332,12 @@ export class BasicModule extends BaseModule {
    * unban-all 命令 - 解除全体禁言
    */
   private registerUnbanAllCommand(): void {
-    this.ctx.command('unban-all', '解除全体禁言', { authority: 3 })
+    this.registerCommand({
+      name: 'unban-all',
+      desc: '解除全体禁言',
+      permNode: 'unban-all',
+      permDesc: '解除全体禁言'
+    })
       .action(async ({ session }) => {
         try {
           await session.bot.internal.setGroupWholeBan(session.guildId, false)
@@ -347,7 +381,12 @@ export class BasicModule extends BaseModule {
    * delmsg 命令 - 撤回消息
    */
   private registerDelMsgCommand(): void {
-    this.ctx.command('delmsg', '撤回消息', { authority: 3 })
+    this.registerCommand({
+      name: 'delmsg',
+      desc: '撤回消息',
+      permNode: 'delmsg',
+      permDesc: '撤回群消息'
+    })
       .action(async ({ session }) => {
         if (!session.quote) return '喵喵！请回复要撤回的消息呀~'
 
@@ -364,7 +403,13 @@ export class BasicModule extends BaseModule {
    * admin/unadmin 命令 - 管理员设置
    */
   private registerAdminCommands(): void {
-    this.ctx.command('admin <user:user>', '设置管理员', { authority: 4 })
+    this.registerCommand({
+      name: 'admin',
+      desc: '设置管理员',
+      args: '<user:user>',
+      permNode: 'admin',
+      permDesc: '设置群管理员'
+    })
       .example('admin @用户')
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
@@ -380,7 +425,13 @@ export class BasicModule extends BaseModule {
         }
       })
 
-    this.ctx.command('unadmin <user:user>', '取消管理员', { authority: 4 })
+    this.registerCommand({
+      name: 'unadmin',
+      desc: '取消管理员',
+      args: '<user:user>',
+      permNode: 'unadmin',
+      permDesc: '取消群管理员'
+    })
       .example('unadmin @用户')
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
@@ -401,7 +452,12 @@ export class BasicModule extends BaseModule {
    * ban-list 命令 - 查询禁言名单
    */
   private registerBanListCommand(): void {
-    this.ctx.command('ban-list', '查询当前禁言名单', { authority: 3 })
+    this.registerCommand({
+      name: 'ban-list',
+      desc: '查询当前禁言名单',
+      permNode: 'ban-list',
+      permDesc: '查询禁言名单'
+    })
       .action(async ({ session }) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
         
@@ -432,7 +488,13 @@ export class BasicModule extends BaseModule {
    * unban-random 命令 - 随机解禁
    */
   private registerUnbanRandomCommand(): void {
-    this.ctx.command('unban-random <count:number>', '随机解除若干人禁言', { authority: 3 })
+    this.registerCommand({
+      name: 'unban-random',
+      desc: '随机解除若干人禁言',
+      args: '<count:number>',
+      permNode: 'unban-random',
+      permDesc: '随机解除禁言'
+    })
       .action(async ({ session }, count) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
         count = count || 1
@@ -472,7 +534,12 @@ export class BasicModule extends BaseModule {
    * unban-allppl 命令 - 解除所有人禁言
    */
   private registerUnbanAllPplCommand(): void {
-    this.ctx.command('unban-allppl', '解除所有人禁言', { authority: 3 })
+    this.registerCommand({
+      name: 'unban-allppl',
+      desc: '解除所有人禁言',
+      permNode: 'unban-allppl',
+      permDesc: '批量解除所有禁言'
+    })
       .action(async ({ session }) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
 
@@ -521,7 +588,12 @@ export class BasicModule extends BaseModule {
   private registerTitleCommand(): void {
     const titleConfig = this.config.setTitle || { enabled: false, authority: 3, maxLength: 18 }
     
-    this.ctx.command('title', '群头衔管理', { authority: titleConfig.authority || 3 })
+    this.registerCommand({
+      name: 'title',
+      desc: '群头衔管理',
+      permNode: 'title',
+      permDesc: '设置群头衔'
+    })
       .option('s', '-s <text> 设置头衔')
       .option('r', '-r 移除头衔')
       .option('u', '-u <user:user> 指定用户')
@@ -562,7 +634,12 @@ export class BasicModule extends BaseModule {
   private registerEssenceCommand(): void {
     const essenceConfig = this.config.setEssenceMsg || { enabled: false, authority: 3 }
     
-    this.ctx.command('essence', '精华消息管理', { authority: essenceConfig.authority || 3 })
+    this.registerCommand({
+      name: 'essence',
+      desc: '精华消息管理',
+      permNode: 'essence',
+      permDesc: '管理精华消息'
+    })
       .option('s', '-s 设置精华消息')
       .option('r', '-r 取消精华消息')
       .action(async ({ session, options }) => {
@@ -592,7 +669,13 @@ export class BasicModule extends BaseModule {
    * antirepeat 命令 - 复读管理
    */
   private registerAntiRepeatCommand(): void {
-    this.ctx.command('antirepeat [threshold:number]', '复读管理', { authority: 3 })
+    this.registerCommand({
+      name: 'antirepeat',
+      desc: '复读管理',
+      args: '[threshold:number]',
+      permNode: 'antirepeat',
+      permDesc: '管理复读检测'
+    })
       .action(async ({ session }, threshold) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
@@ -637,7 +720,13 @@ antirepeat 0 - 关闭复读检测`
    * quit-group 命令 - 退出群聊
    */
   private registerQuitGroupCommand(): void {
-    this.ctx.command('quit-group <groupId:string>', '退出指定群聊', { authority: 4 })
+    this.registerCommand({
+      name: 'quit-group',
+      desc: '退出指定群聊',
+      args: '<groupId:string>',
+      permNode: 'quit-group',
+      permDesc: '退出群聊（高危）'
+    })
       .example('quit-group 123456789')
       .action(async ({ session }, groupId) => {
         if (!groupId) return '喵呜...请指定要退出的群聊ID喵~'
@@ -656,7 +745,13 @@ antirepeat 0 - 关闭复读检测`
    * nickname 命令 - 设置用户昵称
    */
   private registerNicknameCommand(): void {
-    this.ctx.command('nickname <user:user> <nickname:string> <group:string>', '设置用户昵称', { authority: 3 })
+    this.registerCommand({
+      name: 'nickname',
+      desc: '设置用户昵称',
+      args: '<user:user> <nickname:string> <group:string>',
+      permNode: 'nickname',
+      permDesc: '设置群成员昵称'
+    })
       .example('nickname 123456789 小猫咪')
       .action(async ({ session }, user, nickname, group) => {
         if (!user) return '喵呜...请指定用户喵~'
@@ -683,7 +778,13 @@ antirepeat 0 - 关闭复读检测`
    * send 命令 - 向指定群发送消息
    */
   private registerSendCommand(): void {
-    this.ctx.command('send <groupId:string>', '向指定群发送消息', { authority: 3 })
+    this.registerCommand({
+      name: 'send',
+      desc: '向指定群发送消息',
+      args: '<groupId:string>',
+      permNode: 'send',
+      permDesc: '远程发送群消息'
+    })
       .example('send 123456789')
       .option('s', '-s 静默发送，不显示发送者信息')
       .action(async ({ session, options }, groupId) => {

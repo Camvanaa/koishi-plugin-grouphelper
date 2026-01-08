@@ -20,28 +20,39 @@ export class GetAuthModule extends BaseModule {
   }
 
   /**
+   * 解析用户 ID（支持 @at 和纯数字）
+   */
+  private parseUserId(target: string): string | null {
+    if (!target) return null
+    try {
+      if (target.startsWith('<at')) {
+        const match = target.match(/id="(\d+)"/)
+        if (match) return match[1]
+      }
+      return target.replace(/^@/, '').trim() || null
+    } catch (e) {
+      return target.replace(/^@/, '').trim() || null
+    }
+  }
+
+  /**
    * 注册命令
    */
   private registerCommands(): void {
-    this.ctx.command('getauth <target:text>', '获取指定成员状态喵', { authority: 2 })
+    this.registerCommand({
+      name: 'getauth',
+      desc: '获取指定成员状态喵',
+      args: '<target:text>',
+      permNode: 'getauth',
+      permDesc: '查询用户权限状态'
+    })
       .alias('ga')
       .example('getauth @可爱猫娘')
       .example('getauth 2038794363')
       .action(async ({ session }, target) => {
         if (!target) return '请指定要查询的成员喵'
 
-        let userId: string | null = null
-        try {
-          if (target.startsWith('<at')) {
-            const match = target.match(/id="(\d+)"/)
-            if (match) userId = match[1]
-          } else {
-            userId = target.replace(/^@/, '').trim()
-          }
-        } catch (e) {
-          userId = target.replace(/^@/, '').trim()
-        }
-
+        const userId = this.parseUserId(target)
         if (!userId) return '无法解析成员喵'
 
         try {
@@ -92,11 +103,19 @@ export class GetAuthModule extends BaseModule {
             }
           }
 
+          // 获取用户的自定义角色
+          const userRoleIds = this.ctx.groupHelper.auth.getUserRoleIds(userId)
+          const allRoles = this.ctx.groupHelper.auth.getRoles()
+          const userRoleNames = userRoleIds
+            .map(id => allRoles.find(r => r.id === id)?.name || id)
+            .join(', ') || '无'
+
           return [
             `成员 ${userId}`,
-            `角色为 ${role}`,
+            `群角色: ${role}`,
             `${muteLine}`,
-            `权限等级为 ${authorityLevel}`
+            `权限等级: ${authorityLevel}`,
+            `自定义角色: ${userRoleNames}`
           ].join('\n')
         } catch (e) {
           return `查询失败：${e.message || e}喵`

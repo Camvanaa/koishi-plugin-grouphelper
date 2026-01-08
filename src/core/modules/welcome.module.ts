@@ -27,7 +27,12 @@ export class WelcomeModule extends BaseModule {
    * 注册欢迎语相关命令
    */
   private registerCommands(): void {
-    this.ctx.command('welcome', '入群欢迎语管理', { authority: 3 })
+    this.registerCommand({
+      name: 'welcome',
+      desc: '入群欢迎语管理',
+      permNode: 'welcome',
+      permDesc: '管理入群欢迎语'
+    })
       .option('s', '-s <消息> 设置欢迎语')
       .option('r', '-r 移除欢迎语')
       .option('t', '-t 测试当前欢迎语')

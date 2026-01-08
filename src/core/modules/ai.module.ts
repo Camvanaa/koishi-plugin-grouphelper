@@ -376,7 +376,14 @@ export class AIModule extends BaseModule {
    */
   private registerCommands(): void {
     // ai 命令
-    this.ctx.command('ai [content:text]', '与AI进行对话')
+    this.registerCommand({
+      name: 'ai',
+      desc: '与AI进行对话',
+      args: '[content:text]',
+      permNode: 'ai',
+      permDesc: '使用AI对话功能',
+      skipAuth: true  // AI对话是公开功能
+    })
       .option('reset', '-r 重置对话上下文')
       .action(async ({ session, options }, content) => {
         if (!session) return
@@ -405,7 +412,14 @@ export class AIModule extends BaseModule {
       })
 
     // translate 命令
-    this.ctx.command('translate <text:text>', '使用AI翻译文本')
+    this.registerCommand({
+      name: 'translate',
+      desc: '使用AI翻译文本',
+      args: '<text:text>',
+      permNode: 'translate',
+      permDesc: '使用AI翻译功能',
+      skipAuth: true  // 翻译是公开功能
+    })
       .alias('tsl')
       .option('prompt', '-p <prompt:text> 自定义翻译提示词')
       .action(async ({ session, options }, text) => {
@@ -447,7 +461,12 @@ export class AIModule extends BaseModule {
       })
 
     // ai-config 命令
-    this.ctx.command('ai-config', '配置AI功能', { authority: 3 })
+    this.registerCommand({
+      name: 'ai-config',
+      desc: '配置AI功能',
+      permNode: 'ai-config',
+      permDesc: '配置AI功能'
+    })
       .option('enabled', '-e <enabled:boolean> 是否在本群启用AI功能')
       .option('prompt', '-p <prompt:text> 设置本群特定的系统提示词')
       .option('tprompt', '-tp <prompt:text> 设置本群特定的翻译提示词')

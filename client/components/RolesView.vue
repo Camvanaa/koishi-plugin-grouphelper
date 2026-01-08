@@ -21,7 +21,8 @@
         >
           <span class="role-color" :style="{ backgroundColor: role.color || '#999' }"></span>
           <span class="role-name">{{ role.name }}</span>
-          <k-icon v-if="role.id !== 'everyone'" name="grip-vertical" class="drag-handle" />
+          <k-icon v-if="role.builtin" name="lock" class="builtin-icon" title="内置角色" />
+          <k-icon v-else name="grip-vertical" class="drag-handle" />
         </div>
       </div>
     </aside>
@@ -29,24 +30,54 @@
     <!-- 主内容区：编辑面板 -->
     <main class="main-content" v-if="currentRole">
       <div class="content-header">
-        <h1>{{ currentRole.name }}</h1>
-        <div class="header-actions" v-if="currentRole.id !== 'everyone'">
+        <h1>
+          {{ currentRole.name }}
+          <span v-if="currentRole.builtin" class="builtin-badge">内置</span>
+        </h1>
+        <div class="header-actions" v-if="!currentRole.builtin">
            <button class="danger-btn" @click="deleteRole">删除角色</button>
         </div>
       </div>
 
       <div class="tabs">
-        <div class="tab-item" :class="{ active: activeTab === 'display' }" @click="activeTab = 'display'">显示</div>
+        <div class="tab-item" :class="{ active: activeTab === 'display' }" @click="activeTab = 'display'">基础</div>
         <div class="tab-item" :class="{ active: activeTab === 'permissions' }" @click="activeTab = 'permissions'">权限</div>
         <div class="tab-item" :class="{ active: activeTab === 'members' }" @click="activeTab = 'members'">成员</div>
       </div>
 
       <div class="tab-content">
-        <!-- 显示设置 -->
+        <!-- 基础设置 -->
         <div v-if="activeTab === 'display'" class="display-settings">
+          <!-- 内置角色提示 -->
+          <div v-if="currentRole.builtin" class="builtin-notice">
+            <k-icon name="info" />
+            <span>
+              <template v-if="currentRole.id === 'guild-admin'">
+                <strong>群管理员</strong> - 当用户在群内拥有管理员或群主身份时，自动获得此角色的权限（仅在当前群生效）
+              </template>
+              <template v-else-if="currentRole.id.startsWith('authority')">
+                <strong>{{ currentRole.name }}</strong> - 基于 Koishi 的 authority 权限等级自动分配（全局生效）
+              </template>
+              <template v-else>
+                此为内置角色，不可删除
+              </template>
+            </span>
+          </div>
+
+          <div class="form-group" v-if="!currentRole.builtin">
+            <label>角色 ID</label>
+            <div class="id-display">
+              <code class="role-id-code">{{ currentRole.id }}</code>
+              <button class="copy-btn" @click="copyRoleId" title="复制角色 ID">
+                📋
+              </button>
+            </div>
+            <div class="field-hint">用于命令：gauth.add @用户 {{ currentRole.name }}</div>
+          </div>
+
           <div class="form-group">
             <label>角色名称</label>
-            <input type="text" v-model="editingRole.name" :disabled="currentRole.id === 'everyone'" class="form-input">
+            <input type="text" v-model="editingRole.name" :disabled="currentRole.builtin" class="form-input">
           </div>
 
           <div class="form-group">
@@ -57,18 +88,34 @@
             </div>
           </div>
 
-          <div class="form-group checkbox-group">
-             <label class="checkbox-label">
-                <input type="checkbox" v-model="editingRole.hoist">
-                在成员列表中单独显示角色
-             </label>
+          <div class="form-group">
+            <label>生效范围</label>
+            <div v-if="currentRole.builtin" class="scope-readonly">
+              <span class="scope-badge">
+                <template v-if="currentRole.id === 'guild-admin'">仅当前群生效（由系统自动识别群管理员身份）</template>
+                <template v-else>全局生效（基于 Koishi authority 权限等级）</template>
+              </span>
+            </div>
+            <div v-else class="scope-options">
+              <label class="radio-label">
+                <input type="radio" v-model="scopeMode" value="global">
+                全局生效（所有群组）
+              </label>
+              <label class="radio-label">
+                <input type="radio" v-model="scopeMode" value="guilds">
+                仅指定群组生效
+              </label>
+            </div>
           </div>
-          
-           <div class="form-group checkbox-group">
-             <label class="checkbox-label">
-                <input type="checkbox" v-model="editingRole.mentionable">
-                允许任何人提及此角色 (@mention)
-             </label>
+
+          <div class="form-group" v-if="!currentRole.builtin && scopeMode === 'guilds'">
+            <label>指定群组 ID（每行一个）</label>
+            <textarea
+              v-model="guildIdsText"
+              placeholder="输入群号，每行一个&#10;例如：&#10;123456789&#10;987654321"
+              class="form-textarea"
+              rows="4"
+            ></textarea>
           </div>
         </div>
 
@@ -94,18 +141,25 @@
             <div v-for="(group, name) in groupedPermissions" :key="name" class="perm-group">
               <div class="group-header">{{ name }}</div>
               <div class="group-items">
-                <div v-for="node in group" :key="node.id" class="permission-item">
+                <div v-for="node in group" :key="node.id" class="permission-item" :class="{ 'covered': isCoveredByWildcard(node.id) }">
                   <div class="perm-info">
                     <div class="perm-name">{{ node.name }}</div>
                     <div class="perm-desc">{{ node.description }}</div>
-                    <div class="perm-id">{{ node.id }}</div>
+                    <div class="perm-id">
+                      {{ node.id }}
+                      <span v-if="isCoveredByWildcard(node.id)" class="covered-hint">
+                        (由 {{ isCoveredByWildcard(node.id) }} 覆盖)
+                      </span>
+                    </div>
                   </div>
                   <div
                     class="toggle-switch"
-                    :class="{ active: hasPermission(node.id) }"
-                    @click.stop="togglePermission(node.id)"
+                    :class="{ active: hasPermission(node.id), locked: isCoveredByWildcard(node.id) }"
+                    @click.stop="!isCoveredByWildcard(node.id) && togglePermission(node.id)"
+                    :title="isCoveredByWildcard(node.id) ? `已被 ${isCoveredByWildcard(node.id)} 通配符覆盖` : ''"
                   >
                     <span class="slider"></span>
+                    <span v-if="isCoveredByWildcard(node.id)" class="lock-icon">🔒</span>
                   </div>
                 </div>
               </div>
@@ -115,25 +169,44 @@
         
         <!-- 成员管理 -->
         <div v-if="activeTab === 'members'" class="members-settings">
-             <div class="add-member">
-                 <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
-                 <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
+             <!-- 内置角色提示：不可手动添加成员 -->
+             <div v-if="currentRole.builtin" class="builtin-notice">
+               <k-icon name="info" />
+               <span>
+                 <template v-if="currentRole.id === 'guild-admin'">
+                   此角色的成员由系统自动识别（群管理员/群主身份），不支持手动添加。
+                 </template>
+                 <template v-else-if="currentRole.id.startsWith('authority')">
+                   此角色的成员由 Koishi 的 authority 权限等级自动分配，不支持手动添加。
+                 </template>
+                 <template v-else>
+                   内置角色不支持手动添加成员。
+                 </template>
+               </span>
              </div>
              
-             <div class="member-list" v-if="currentRoleMembers.length > 0">
-                 <div v-for="member in currentRoleMembers" :key="member.id" class="member-item">
-                     <div class="member-info">
-                        <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
-                        <div v-else class="member-icon">👤</div>
-                        <div class="member-text">
-                          <span class="member-name">{{ member.name || member.id }}</span>
-                          <span class="member-id-sub">{{ member.id }}</span>
-                        </div>
-                     </div>
-                     <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
-                 </div>
-             </div>
-             <div v-else class="empty-tip">暂无成员（输入用户 QQ 号添加）</div>
+             <!-- 自定义角色：可以添加成员 -->
+             <template v-else>
+               <div class="add-member">
+                   <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
+                   <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
+               </div>
+               
+               <div class="member-list" v-if="currentRoleMembers.length > 0">
+                   <div v-for="member in currentRoleMembers" :key="member.id" class="member-item">
+                       <div class="member-info">
+                          <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
+                          <div v-else class="member-icon">👤</div>
+                          <div class="member-text">
+                            <span class="member-name">{{ member.name || member.id }}</span>
+                            <span class="member-id-sub">{{ member.id }}</span>
+                          </div>
+                       </div>
+                       <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
+                   </div>
+               </div>
+               <div v-else class="empty-tip">暂无成员（输入用户 QQ 号添加）</div>
+             </template>
         </div>
 
       </div>
@@ -188,8 +261,7 @@ const createDefaultRole = (): Role => ({
   color: '#999999',
   priority: 0,
   permissions: [],
-  hoist: false,
-  mentionable: false
+  guildIds: []
 })
 
 // 状态
@@ -202,6 +274,26 @@ const permSearch = ref('')
 const newMemberId = ref('')
 const currentRoleMembers = ref<RoleMember[]>([])
 const loading = ref(false)
+
+// 群组范围模式 - 使用独立的 ref 避免空数组时状态回弹
+const scopeMode = ref<'global' | 'guilds'>('global')
+
+// 群组 ID 文本（用于编辑）
+const guildIdsText = computed({
+  get: () => (editingRole.value.guildIds || []).join('\n'),
+  set: (val: string) => {
+    const ids = val.split('\n').map(s => s.trim()).filter(Boolean)
+    editingRole.value = { ...editingRole.value, guildIds: ids }
+  }
+})
+
+// 监听 scopeMode 变化，同步 guildIds
+watch(scopeMode, (newVal) => {
+  if (newVal === 'global') {
+    // 切换到全局时清空群组列表
+    editingRole.value = { ...editingRole.value, guildIds: [] }
+  }
+})
 
 // 确认对话框状态
 const confirmDialog = ref({
@@ -268,16 +360,14 @@ const hasChanges = computed(() => {
     color: currentRole.value.color,
     priority: currentRole.value.priority,
     permissions: currentRole.value.permissions || [],
-    hoist: currentRole.value.hoist,
-    mentionable: currentRole.value.mentionable
+    guildIds: currentRole.value.guildIds || []
   })
   const current = JSON.stringify({
     name: editingRole.value.name,
     color: editingRole.value.color,
     priority: editingRole.value.priority,
     permissions: editingRole.value.permissions || [],
-    hoist: editingRole.value.hoist,
-    mentionable: editingRole.value.mentionable
+    guildIds: editingRole.value.guildIds || []
   })
   return original !== current
 })
@@ -286,28 +376,35 @@ const groupedPermissions = computed(() => {
   const result: Record<string, PermissionNode[]> = {}
   const lower = permSearch.value.toLowerCase()
   
-  const filtered = permissions.value.filter(p => 
-    !lower || 
-    p.name.toLowerCase().includes(lower) || 
+  const filtered = permissions.value.filter(p =>
+    !lower ||
+    p.name.toLowerCase().includes(lower) ||
     p.id.toLowerCase().includes(lower) ||
     p.description.toLowerCase().includes(lower)
   )
 
   filtered.forEach(p => {
-    // 简单的分组逻辑：取第一个点号前的部分，或者根据 id 判断
-    let groupName = '通用'
-    if (p.id.startsWith('warn.')) groupName = '警告系统'
-    else if (p.id.startsWith('config.')) groupName = '配置管理'
-    else if (p.id.startsWith('auth.')) groupName = '权限管理'
-    else if (p.id.startsWith('blacklist.')) groupName = '黑名单'
-    else if (p.id.startsWith('log.')) groupName = '日志'
-    else if (p.id.startsWith('chat.')) groupName = '聊天'
-    else if (p.id.startsWith('subscription.')) groupName = '订阅'
-    else if (p.id === '*') groupName = '系统'
+    // 使用权限节点自带的 group 属性，如果没有则根据 id 前缀推断
+    let groupName = p.group || '通用'
+    if (!p.group) {
+      if (p.id === '*') groupName = '系统'
+      else if (p.id.endsWith('.*')) groupName = '通配符'
+    }
     
     if (!result[groupName]) result[groupName] = []
     result[groupName].push(p)
   })
+  
+  // 对每个分组内的权限进行排序：通配符权限排在前面
+  for (const group in result) {
+    result[group].sort((a, b) => {
+      const aIsWildcard = a.id.endsWith('.*') || a.id === '*'
+      const bIsWildcard = b.id.endsWith('.*') || b.id === '*'
+      if (aIsWildcard && !bIsWildcard) return -1
+      if (!aIsWildcard && bIsWildcard) return 1
+      return a.id.localeCompare(b.id)
+    })
+  }
   
   return result
 })
@@ -338,10 +435,13 @@ const selectRole = async (role: Role) => {
   const normalizedRole: Role = {
     ...createDefaultRole(),
     ...role,
-    permissions: Array.isArray(role.permissions) ? [...role.permissions] : []
+    permissions: Array.isArray(role.permissions) ? [...role.permissions] : [],
+    guildIds: Array.isArray(role.guildIds) ? [...role.guildIds] : []
   }
   editingRole.value = normalizedRole
-  console.log('[RolesView] Selected role:', normalizedRole)
+  // 同步 scopeMode
+  scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
+  console.log('[RolesView] Selected role:', normalizedRole, 'scopeMode:', scopeMode.value)
   activeTab.value = 'display'
   fetchRoleMembers(role.id)
 }
@@ -353,8 +453,7 @@ const createRole = async () => {
     color: '#999999',
     priority: 1,
     permissions: [],
-    hoist: false,
-    mentionable: false
+    guildIds: []
   }
   try {
     console.log('[RolesView] Creating new role:', newRole)
@@ -380,10 +479,19 @@ const saveChanges = async () => {
     await authApi.updateRole(editingRole.value)
     message.success('保存成功')
     await fetchData()
-    // 重新选中以更新 currentRole
+    // 直接更新 currentRole，不调用 selectRole（避免触发 hasChanges 检查）
     const updated = roles.value.find(r => r.id === editingRole.value.id)
     if (updated) {
-      selectRole(updated)
+      currentRole.value = updated
+      // 同步 editingRole
+      editingRole.value = {
+        ...createDefaultRole(),
+        ...updated,
+        permissions: Array.isArray(updated.permissions) ? [...updated.permissions] : [],
+        guildIds: Array.isArray(updated.guildIds) ? [...updated.guildIds] : []
+      }
+      // 同步 scopeMode
+      scopeMode.value = (updated.guildIds && updated.guildIds.length > 0) ? 'guilds' : 'global'
     }
   } catch (e) {
     console.error('[RolesView] Failed to save role:', e)
@@ -405,9 +513,12 @@ const resetChanges = async () => {
     const normalizedRole: Role = {
       ...createDefaultRole(),
       ...currentRole.value,
-      permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : []
+      permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
+      guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : []
     }
     editingRole.value = normalizedRole
+    // 同步 scopeMode
+    scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
     message.success('已重置更改')
   }
 }
@@ -436,10 +547,51 @@ const deleteRole = async () => {
 }
 
 // 权限操作
+/**
+ * 检查是否拥有指定权限节点
+ * 支持通配符匹配：
+ * - `*` 匹配所有权限
+ * - `warn.*` 匹配所有 `warn.xxx` 权限
+ */
 const hasPermission = (nodeId: string): boolean => {
   const perms = editingRole.value?.permissions
   if (!Array.isArray(perms)) return false
-  return perms.includes(nodeId) || perms.includes('*')
+  
+  // 1. 精确匹配
+  if (perms.includes(nodeId)) return true
+  
+  // 2. 超级通配符
+  if (perms.includes('*')) return true
+  
+  // 3. 模块级通配符匹配 (e.g. "warn.*" matches "warn.add")
+  const parts = nodeId.split('.')
+  if (parts.length > 1) {
+    const moduleName = parts[0]
+    if (perms.includes(`${moduleName}.*`)) return true
+  }
+  
+  return false
+}
+
+/**
+ * 检查是否被通配符覆盖（用于禁用开关）
+ * 如果权限被通配符覆盖，返回通配符名称
+ */
+const isCoveredByWildcard = (nodeId: string): string | null => {
+  const perms = editingRole.value?.permissions
+  if (!Array.isArray(perms)) return null
+  
+  // 超级通配符
+  if (perms.includes('*') && nodeId !== '*') return '*'
+  
+  // 模块级通配符
+  const parts = nodeId.split('.')
+  if (parts.length > 1 && !nodeId.endsWith('.*')) {
+    const wildcardId = `${parts[0]}.*`
+    if (perms.includes(wildcardId)) return wildcardId
+  }
+  
+  return null
 }
 
 const togglePermission = (nodeId: string) => {
@@ -564,12 +716,31 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
     }
 }
 
+// 复制角色 ID
+const copyRoleId = async () => {
+  if (!currentRole.value) return
+  try {
+    await navigator.clipboard.writeText(currentRole.value.id)
+    message.success('角色 ID 已复制到剪贴板')
+  } catch (e) {
+    // 回退方案：使用传统方式
+    const textarea = document.createElement('textarea')
+    textarea.value = currentRole.value.id
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    message.success('角色 ID 已复制到剪贴板')
+  }
+}
+
 </script>
 
 <style scoped>
 .roles-view-container {
   display: flex;
   height: 100%;
+  max-height: 100%;
   background-color: var(--k-card-bg);
   color: var(--k-color-text);
   overflow: hidden;
@@ -603,6 +774,30 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+}
+
+/* 角色列表 Koishi 风格滚动条 */
+.role-list::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.role-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.role-list::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+  border-radius: 3px;
+  transition: background-color 0.3s;
+}
+
+.role-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-color-text-description);
+}
+
+.role-list::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .role-item {
@@ -639,6 +834,12 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
   font-weight: 500;
 }
 
+.builtin-icon {
+  color: var(--k-color-text-description);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
 .drag-handle {
   color: var(--k-color-text-description);
   cursor: grab;
@@ -671,6 +872,40 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
 .content-header h1 {
   margin: 0;
   font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.builtin-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: var(--k-color-border);
+  color: var(--k-color-text-description);
+  border-radius: 4px;
+  font-weight: normal;
+  text-transform: uppercase;
+}
+
+.builtin-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--k-color-bg-1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: var(--k-color-text);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.builtin-notice k-icon {
+  color: var(--k-color-active);
+  font-size: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .tabs {
@@ -729,27 +964,7 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
   background: transparent;
 }
 
-.permission-groups {
-  overflow-y: auto;
-  max-height: calc(100vh - 350px);
-}
-
-.permission-groups::-webkit-scrollbar {
-  width: 6px;
-}
-
-.permission-groups::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.permission-groups::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-  border-radius: 3px;
-}
-
-.permission-groups::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
-}
+/* permission-groups 不再需要独立滚动，由 tab-content 统一管理 */
 
 .form-group {
   margin-bottom: 1.5rem;
@@ -809,16 +1024,95 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
   font-family: monospace;
 }
 
-.checkbox-group {
-  margin-top: 1rem;
+.scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.checkbox-label {
+.radio-label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
   color: var(--k-color-text);
+  font-size: 0.9rem;
+}
+
+.radio-label input[type="radio"] {
+  margin: 0;
+}
+
+.scope-readonly {
+  padding: 0.75rem;
+  background: var(--k-color-bg-1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+}
+
+.scope-badge {
+  font-size: 0.9rem;
+  color: var(--k-color-text-description);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background: var(--k-color-bg-1);
+  color: var(--k-color-text);
+  font-family: monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--k-color-active);
+}
+
+/* 角色 ID 显示 */
+.id-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--k-color-bg-1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.role-id-code {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--k-color-active);
+  background: transparent;
+  padding: 0;
+  user-select: all;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.copy-btn:hover {
+  opacity: 1;
+}
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--k-color-text-description);
+  font-family: monospace;
 }
 
 /* 当前已选权限显示 */
@@ -950,6 +1244,36 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
 
 .toggle-switch:hover .slider {
   opacity: 0.9;
+}
+
+/* 锁定状态（被通配符覆盖） */
+.toggle-switch.locked {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.toggle-switch.locked:hover .slider {
+  opacity: 1;
+}
+
+.toggle-switch .lock-icon {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+}
+
+.permission-item.covered {
+  opacity: 0.75;
+  background-color: var(--k-color-bg-2);
+}
+
+.covered-hint {
+  color: #67c23a;
+  font-size: 0.75rem;
+  margin-left: 8px;
+  font-weight: normal;
 }
 
 /* 成员列表 */

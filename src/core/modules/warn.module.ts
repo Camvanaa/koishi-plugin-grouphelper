@@ -119,22 +119,37 @@ export class WarnModule extends BaseModule {
    */
   private registerCommands(): void {
     // warn 命令 - 警告用户
-    this.ctx.command('warn <user:user> [count:number]', '警告用户', { authority: 3 })
-      .action(async ({ session }, user, count = 1) => {
-        return this.handleWarn(session, user, count)
-      })
+    this.registerCommand({
+      name: 'warn',
+      desc: '警告用户',
+      args: '<user:user> [count:number]',
+      permNode: 'add',
+      permDesc: '添加警告记录'
+    }).action(async ({ session }, user, count = 1) => {
+      return this.handleWarn(session, user, count)
+    })
 
     // warn.clear 命令 - 清除用户警告
-    this.ctx.command('warn.clear <user:user>', '清除用户警告', { authority: 3 })
-      .action(async ({ session }, user) => {
-        return this.handleClearWarn(session, user)
-      })
+    this.registerCommand({
+      name: 'warn.clear',
+      desc: '清除用户警告',
+      args: '<user:user>',
+      permNode: 'clear',
+      permDesc: '清除用户的警告记录'
+    }).action(async ({ session }, user) => {
+      return this.handleClearWarn(session, user)
+    })
 
     // warn.list 命令 - 查看警告列表
-    this.ctx.command('warn.list [user:user]', '查看警告列表', { authority: 2 })
-      .action(async ({ session }, user) => {
-        return this.handleListWarns(session, user)
-      })
+    this.registerCommand({
+      name: 'warn.list',
+      desc: '查看警告列表',
+      args: '[user:user]',
+      permNode: 'list',
+      permDesc: '查看警告记录列表'
+    }).action(async ({ session }, user) => {
+      return this.handleListWarns(session, user)
+    })
   }
 
   /**
@@ -145,10 +160,7 @@ export class WarnModule extends BaseModule {
       return '喵呜...这个命令只能在群里用喵...'
     }
 
-    // 检查权限
-    if (!this.ctx.groupHelper.auth.check(session, 'warn.add')) {
-      return '你没有权限执行此操作喵...'
-    }
+    // 权限检查已在 registerCommand 的 before 中间件中完成
     if (!user) {
       return '请指定要警告的用户喵！'
     }
@@ -254,10 +266,7 @@ export class WarnModule extends BaseModule {
       return '喵呜...这个命令只能在群里用喵...'
     }
 
-    // 检查权限
-    if (!this.ctx.groupHelper.auth.check(session, 'warn.manage')) {
-      return '你没有权限执行此操作喵...'
-    }
+    // 权限检查已在 registerCommand 的 before 中间件中完成
     if (!user) {
       return '请指定要清除警告的用户喵！'
     }
@@ -292,10 +301,7 @@ export class WarnModule extends BaseModule {
       return '喵呜...这个命令只能在群里用喵...'
     }
 
-    // 检查权限
-    if (!this.ctx.groupHelper.auth.check(session, 'warn.view')) {
-      return '你没有权限执行此操作喵...'
-    }
+    // 权限检查已在 registerCommand 的 before 中间件中完成
 
     const guildWarns = this.data.warns.get(session.guildId)
 

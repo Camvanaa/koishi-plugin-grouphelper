@@ -3,7 +3,7 @@ import type {} from '@koishijs/plugin-console'
 import { resolve } from 'path'
 
 import { GroupHelperService, registerWebSocketAPI } from './core'
-import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, EventModule } from './core/modules'
+import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule } from './core/modules'
 
 // 插件元信息
 export const name = 'grouphelper'
@@ -66,6 +66,7 @@ export function apply(ctx: Context) {
       const helpModule = new HelpModule(ctx, ctx.groupHelper.data, config)
       const reportModule = new ReportModule(ctx, ctx.groupHelper.data, config)
       const getAuthModule = new GetAuthModule(ctx, ctx.groupHelper.data, config)
+      const authModule = new AuthModule(ctx, ctx.groupHelper.data, config)
       const eventModule = new EventModule(ctx, ctx.groupHelper.data, config)
       ctx.groupHelper.registerModule(warnModule)
       ctx.groupHelper.registerModule(keywordModule)
@@ -82,6 +83,7 @@ export function apply(ctx: Context) {
       ctx.groupHelper.registerModule(helpModule)
       ctx.groupHelper.registerModule(reportModule)
       ctx.groupHelper.registerModule(getAuthModule)
+      ctx.groupHelper.registerModule(authModule)
       ctx.groupHelper.registerModule(eventModule)
 
       // 初始化所有模块

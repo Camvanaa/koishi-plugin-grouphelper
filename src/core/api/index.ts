@@ -190,35 +190,8 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   /** 获取系统所有可用的权限节点列表 (供前端选择) */
   ctx.console.addListener('grouphelper/auth/permission/list' as any, async () => {
-    // 静态定义可用的权限节点
-    const permissions = [
-      // 管理权限
-      { id: '*', name: '超级管理员', description: '拥有所有权限' },
-      { id: 'auth.role.manage', name: '角色管理', description: '创建、修改和删除角色' },
-      { id: 'auth.user.manage', name: '用户权限管理', description: '分配和移除用户角色' },
-      
-      // 配置权限
-      { id: 'config.view', name: '查看配置', description: '查看群组配置' },
-      { id: 'config.edit', name: '修改配置', description: '修改群组配置' },
-      
-      // 警告管理
-      { id: 'warn.view', name: '查看警告', description: '查看用户警告记录' },
-      { id: 'warn.add', name: '添加警告', description: '添加警告记录' },
-      { id: 'warn.manage', name: '管理警告', description: '修改和删除警告记录' },
-      
-      // 黑名单管理
-      { id: 'blacklist.view', name: '查看黑名单', description: '查看黑名单列表' },
-      { id: 'blacklist.manage', name: '管理黑名单', description: '添加和移除黑名单' },
-      
-      // 订阅管理
-      { id: 'subscription.manage', name: '管理订阅', description: '管理消息订阅' },
-      
-      // 日志
-      { id: 'log.view', name: '查看日志', description: '查看命令日志' },
-      
-      // 聊天功能
-      { id: 'chat.send', name: '发送消息', description: '使用控制台发送消息' }
-    ]
+    // 从 AuthService 获取动态注册的权限节点
+    const permissions = service.auth.getPermissions()
     return success(permissions)
   })
 

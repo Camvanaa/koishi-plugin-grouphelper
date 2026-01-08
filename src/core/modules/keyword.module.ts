@@ -29,7 +29,12 @@ export class KeywordModule extends BaseModule {
    * 注册入群验证关键词命令
    */
   private registerVerifyCommand(): void {
-    this.ctx.command('verify', '入群验证关键词管理', { authority: 3 })
+    this.registerCommand({
+      name: 'verify',
+      desc: '入群验证关键词管理',
+      permNode: 'verify',
+      permDesc: '管理入群验证关键词'
+    })
       .option('a', '-a <关键词> 添加关键词，多个关键词用英文逗号分隔')
       .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')
       .option('clear', '--clear 清除所有关键词')
@@ -137,7 +142,12 @@ export class KeywordModule extends BaseModule {
    * 注册禁言关键词命令
    */
   private registerForbiddenCommand(): void {
-    this.ctx.command('forbidden', '禁言关键词管理', { authority: 3 })
+    this.registerCommand({
+      name: 'forbidden',
+      desc: '禁言关键词管理',
+      permNode: 'forbidden',
+      permDesc: '管理禁言关键词'
+    })
       .option('a', '-a <关键词> 添加关键词，多个关键词用英文逗号分隔')
       .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')
       .option('clear', '--clear 清除所有关键词')

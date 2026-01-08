@@ -325,7 +325,13 @@ export class AntiRecallModule extends BaseModule {
    */
   private registerCommands(): void {
     // antirecall 命令 - 查询撤回记录
-    this.ctx.command('antirecall <input:text>', '查询用户撤回消息记录', { authority: 3 })
+    this.registerCommand({
+      name: 'antirecall',
+      desc: '查询用户撤回消息记录',
+      args: '<input:text>',
+      permNode: 'antirecall',
+      permDesc: '查询撤回记录'
+    })
       .alias('撤回查询')
       .usage('查询用户的撤回消息记录\n示例：\nantirecall @用户\nantirecall 123456789\nantirecall @用户 5\nantirecall 123456789 10 群号')
       .example('antirecall @用户')
@@ -421,7 +427,12 @@ export class AntiRecallModule extends BaseModule {
       })
 
     // antirecall-config 命令 - 配置防撤回
-    this.ctx.command('antirecall-config', '防撤回功能配置', { authority: 3 })
+    this.registerCommand({
+      name: 'antirecall-config',
+      desc: '防撤回功能配置',
+      permNode: 'antirecall-config',
+      permDesc: '配置防撤回功能'
+    })
       .alias('防撤回配置')
       .usage('配置群组防撤回功能\n选项：\n  -e <true/false> 启用/禁用\n  -d <days> 设置消息保留天数\n  -m <count> 设置每人最大记录数')
       .option('enabled', '-e <enabled:string> 启用或禁用防撤回功能')
@@ -476,7 +487,12 @@ export class AntiRecallModule extends BaseModule {
       })
 
     // antirecall.status 命令 - 查看状态
-    this.ctx.command('antirecall.status', '查看防撤回功能状态', { authority: 3 })
+    this.registerCommand({
+      name: 'antirecall.status',
+      desc: '查看防撤回功能状态',
+      permNode: 'antirecall.status',
+      permDesc: '查看防撤回状态'
+    })
       .action(async ({ session }) => {
         const status = this.getStatus(session.guildId)
         const { globalEnabled, groupSpecificEnabled, effectiveConfig, statistics } = status
@@ -511,7 +527,12 @@ export class AntiRecallModule extends BaseModule {
       })
 
     // antirecall.clear 命令 - 清理记录
-    this.ctx.command('antirecall.clear', '清理所有撤回记录', { authority: 4 })
+    this.registerCommand({
+      name: 'antirecall.clear',
+      desc: '清理所有撤回记录',
+      permNode: 'antirecall.clear',
+      permDesc: '清理撤回记录（高危）'
+    })
       .action(async ({ session }) => {
         this.clearAllRecords()
         this.log(session, 'antirecall.clear', '', '成功：清理所有撤回记录')
