@@ -3,12 +3,12 @@
  * 提供帮助信息显示和时间解析测试功能
  */
 
-import { Context, segment } from 'koishi'
+import { Context } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config } from '../../types'
 import { parseTimeString, formatDuration } from '../../utils'
-import { usage } from '../../config'
+const pkg = require('../../../package.json')
 
 export class HelpModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -34,32 +34,15 @@ export class HelpModule extends BaseModule {
       skipAuth: true  // 帮助是公开的
     })
       .option('a', '-a 显示所有可用命令')
-      .option('i', '-i 以图片形式显示帮助文档')
+      .option('v', '-v 显示当前版本信息')
       .action(async ({ session, options }) => {
-        if (options.i) {
-          if (!this.ctx.puppeteer) {
-            return '错误：未安装 puppeteer 插件，无法生成帮助图片。'
-          }
-          try {
-            const html = this.renderHelpHtml(usage)
-            const page = await this.ctx.puppeteer.page()
-            try {
-              await page.setContent(html, { waitUntil: 'load' })
-              const element = await page.$('.container')
-              const image = await element?.screenshot({ encoding: 'binary', omitBackground: true })
-              if (image) return segment.image(image, 'image/png')
-              return '生成图片失败'
-            } finally {
-              await page.close()
-            }
-          } catch (e) {
-            return `生成帮助图片失败：${e.message}`
-          }
-        }
         if (options.a) {
           return this.getFullHelpText()
         }
-        return '强大的群管理插件，提供一系列实用的群管理功能\n使用参数 -a 查看所有可用命令\n使用参数 -i 查看帮助文档图片'
+        if (options.v) {
+          return `当前版本：${pkg.version}`
+        }
+        return '强大的群管理插件，提供一系列实用的群管理功能\n使用参数 -a 查看所有可用命令'
       })
 
     // 时间解析测试命令
@@ -89,178 +72,9 @@ export class HelpModule extends BaseModule {
       })
   }
 
-  private renderHelpHtml(markdown: string): string {
-    // 简单的 Markdown 解析
-    let htmlContent = markdown
-      // 标题
-      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-      // 分隔线
-      .replace(/^---$/gm, '<hr>')
-      // 表格处理 (简单处理)
-      .replace(/\|(.+)\|/g, (match) => {
-        const cells = match.split('|').filter(c => c.trim())
-        if (cells.some(c => c.includes('---'))) return '' // 忽略分隔行
-        return `<tr>${cells.map(c => `<td>${c.trim()}</td>`).join('')}</tr>`
-      })
-      // 将连续的 tr 包裹在 table 中 (需要后续处理，这里先生成 tr)
-      // 引用
-      .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-      // 代码块
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // 列表
-      .replace(/^- (.*$)/gm, '<li>$1</li>')
-      // 粗体
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      // 折叠块 (details/summary) - 保持原样，浏览器支持
-      .replace(/\n/g, '<br>')
-
-    // 修复表格结构 (将连续的 tr 包装进 table)
-    htmlContent = htmlContent.replace(/(<tr>.*?<\/tr>(<br>)?)+/g, (match) => {
-      const rows = match.replace(/<br>/g, '')
-      // 识别表头：第一行通常是表头
-      const firstRowEnd = rows.indexOf('</tr>') + 5
-      const header = rows.substring(0, firstRowEnd).replace(/td>/g, 'th>')
-      const body = rows.substring(firstRowEnd)
-      return `<table><thead>${header}</thead><tbody>${body}</tbody></table>`
-    })
-
-    // 修复列表结构
-    htmlContent = htmlContent.replace(/(<li>.*?<\/li>(<br>)?)+/g, (match) => {
-      return `<ul>${match.replace(/<br>/g, '')}</ul>`
-    })
-
-    const style = `
-      @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap');
-
-      :root {
-        --bg-color: #ffffff;
-        --text-primary: #24292f;
-        --text-secondary: #57606a;
-        --border-color: #d0d7de;
-        --accent-color: #0969da;
-        --code-bg: #f6f8fa;
-        --header-bg: #f6f8fa;
-      }
-
-      body {
-        margin: 0;
-        padding: 40px;
-        font-family: 'Roboto', sans-serif;
-        color: var(--text-primary);
-        line-height: 1.6;
-        width: 800px;
-      }
-
-      .container {
-        background: var(--bg-color);
-        padding: 40px;
-        border-radius: 8px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.05);
-        border: 1px solid var(--border-color);
-      }
-
-      h1, h2, h3 {
-        margin-top: 24px;
-        margin-bottom: 16px;
-        font-weight: 600;
-        line-height: 1.25;
-      }
-
-      h1 { font-size: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-      h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; margin-top: 36px; }
-      h3 { font-size: 1.25em; margin-top: 24px; }
-
-      p, blockquote, ul, ol, dl, table, pre {
-        margin-top: 0;
-        margin-bottom: 16px;
-      }
-
-      hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: var(--border-color);
-        border: 0;
-      }
-
-      table {
-        border-spacing: 0;
-        border-collapse: collapse;
-        display: block;
-        width: max-content;
-        max-width: 100%;
-        overflow: auto;
-      }
-
-      tr {
-        border-top: 1px solid var(--border-color);
-      }
-
-      tr:nth-child(2n) {
-        background-color: var(--code-bg);
-      }
-
-      th, td {
-        padding: 6px 13px;
-        border: 1px solid var(--border-color);
-      }
-
-      th {
-        font-weight: 600;
-        background-color: var(--header-bg);
-      }
-
-      code {
-        padding: 0.2em 0.4em;
-        margin: 0;
-        font-size: 85%;
-        background-color: var(--code-bg);
-        border-radius: 6px;
-        font-family: 'JetBrains Mono', monospace;
-      }
-
-      blockquote {
-        padding: 0 1em;
-        color: var(--text-secondary);
-        border-left: 0.25em solid var(--border-color);
-      }
-
-      ul {
-        padding-left: 2em;
-      }
-
-      details {
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 8px;
-        margin-bottom: 16px;
-      }
-      
-      summary {
-        cursor: pointer;
-        font-weight: 600;
-      }
-    `
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head><style>${style}</style></head>
-      <body>
-        <div class="container">
-          ${htmlContent}
-        </div>
-      </body>
-      </html>
-    `
-  }
-
   private getFullHelpText(): string {
     return `=== 基础命令 ===
-    kick <@用户> [-b] [群号]  踢出用户，-b 表示加入黑名单
+kick <@用户> [-b] [群号]  踢出用户，-b 表示加入黑名单
 ban <@用户> {时长} [群号]  禁言用户，支持表达式
 unban <@用户> [群号]  解除用户禁言
 stop <@用户> 短期禁言用户
