@@ -263,15 +263,15 @@ export class HelpModule extends BaseModule {
     kick <@用户> [-b] [群号]  踢出用户，-b 表示加入黑名单
 ban <@用户> {时长} [群号]  禁言用户，支持表达式
 unban <@用户> [群号]  解除用户禁言
-stop <@用户> 短期禁言用户（默认权限2级）
+stop <@用户> 短期禁言用户
 ban-all  开启全体禁言
 unban-all  解除全体禁言
 unban-allppl  解除所有人禁言
 nickname <@用户> [昵称] 设置用户昵称，昵称留空则为清除
 
 === 管理员设置 ===
-admin <@用户>  设置管理员（默认权限4级）
-unadmin <@用户>  取消管理员（默认权限4级）
+admin <@用户>  设置管理员
+unadmin <@用户>  取消管理员
 
 === 角色权限管理 ===
 gauth.list  列出所有可用角色
@@ -298,7 +298,7 @@ title  群头衔管理：
 
 === 日志管理 ===
 listlog [数量]  显示最近的操作记录，默认100条
-clearlog  清理日志文件（权限等级4）：
+clearlog  清理日志文件：
   -d <天数>  保留最近几天的日志，默认7天
   -a  清理所有日志
 
@@ -329,8 +329,8 @@ cmdstats  查看命令使用统计：
   --group <类型>  分组方式：command(命令), guild(群组), user(用户), platform(平台)
   --desc  降序排列
 
-cmdclear  清除命令日志（权限等级3）
-cmdexport  导出命令日志（权限等级3）：
+cmdclear  清除命令日志
+cmdexport  导出命令日志：
   -d <天数>  导出最近N天的日志，默认7天
   -f <格式>  导出格式 (json|csv)，默认json
 
@@ -422,7 +422,7 @@ ai-config  配置AI功能：
 
 === 娱乐功能 ===
 dice <面数> [个数] 掷骰子，生成随机数
-dice-config 配置掷骰子功能
+config.dice 配置掷骰子功能
   -e {true|false}  是否启用掷骰子功能
   -l <长度>  设置掷骰子结果最大长度，默认1000字符
 banme  随机禁言自己
@@ -430,25 +430,25 @@ banme  随机禁言自己
   · 金卡概率：0.6%（73抽后概率提升，89抽保底）
   · UP奖励：24小时禁言
   · 歪奖励：12小时禁言（下次必中UP）
-banme-config  设置banme配置（权限等级3）：
+config.banme  设置banme配置（权限等级3）：
   -e {true|false}  启用/禁用功能
-  --min <秒>  最小禁言时间
-  --max <分>  最大禁言时间
-  -r <数值>  增长率
-  -p <概率>  金卡基础概率
-  --sp <次数>  软保底抽数
-  --hp <次数>  硬保底抽数
-  --ut <时长>  UP奖励时长
-  --lt <时长>  歪奖励时长
-  --ab {true|false}  是否自动禁言使用特殊字符的用户
+  --baseMin <秒>  最小禁言时间
+  --baseMax <分>  最大禁言时间
+  --rate <数值>  增长率
+  --prob <概率>  金卡基础概率
+  --spity <次数>  软保底抽数
+  --hpity <次数>  硬保底抽数
+  --uptime <时长>  UP奖励时长
+  --losetime <时长>  歪奖励时长
+  --autoBan {true|false}  是否自动禁言使用特殊字符的用户
   --reset  重置为全局配置
-banme-similar  输出形似字符映射表（权限等级3）
-banme-record-as <标准串> *引用消息* 逐字符添加形似字符映射（权限等级3）
-banme-record-allas <标准串> *引用消息* 添加字符串映射（权限等级3）
-banme-normalize *引用消息* 输出规范化文本（权限等级3）
+banme-similar  输出形似字符映射表
+banme-record-as <标准串> *引用消息* 逐字符添加形似字符映射
+banme-record-allas <标准串> *引用消息* 添加字符串映射
+banme-normalize *引用消息* 输出规范化文本
 
 === 其他功能 ===
-quit-group <群号> 让bot退出指定群聊（默认权限4级）
+quit-group <群号> 让bot退出指定群聊
 ban-list 查看禁言名单
 unban-random [数量] 随机解除指定数量用户的禁言
 

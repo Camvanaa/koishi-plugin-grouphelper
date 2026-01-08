@@ -35,6 +35,8 @@
           <span v-if="currentRole.builtin" class="builtin-badge">内置</span>
         </h1>
         <div class="header-actions" v-if="!currentRole.builtin">
+            <button class="clone-btn" @click="cloneRole">克隆角色</button>
+            <span style="width: 12px; display: inline-block;"></span>
            <button class="danger-btn" @click="deleteRole">删除角色</button>
         </div>
       </div>
@@ -251,11 +253,6 @@
         </div>
       </transition>
     </main>
-    
-    <div v-else class="empty-state">
-        <k-icon name="shield" class="empty-icon" />
-        <div>选择一个角色进行编辑</div>
-    </div>
 
     <!-- 自定义确认对话框 -->
     <transition name="fade">
@@ -598,6 +595,58 @@ const resetChanges = async () => {
     // 同步 scopeMode
     scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
     message.success('已重置更改')
+  }
+}
+
+const cloneRole = async () => {
+  if (!currentRole.value) {
+    message.warning('请先选择一个角色')
+    return
+  }
+  if (currentRole.value.builtin) {
+    message.warning('内置角色无法克隆')
+    return
+  }
+
+  const confirmed = await showConfirm({
+    title: '克隆角色',
+    message: `确定要克隆角色"${currentRole.value.name}"吗？`,
+    type: 'normal'
+  })
+  if (!confirmed) return
+
+  const baseName = currentRole.value.name || '角色'
+  let newName = `${baseName}（克隆）`
+  const existingNames = new Set(roles.value.map(r => r.name))
+  let idx = 1
+  while (existingNames.has(newName)) {
+    idx += 1
+    newName = `${baseName}（克隆 ${idx}）`
+  }
+
+  const newRole: Role = {
+    ...createDefaultRole(),
+    ...currentRole.value,
+    id: Date.now().toString() + Math.floor(Math.random() * 10000).toString(),
+    name: newName,
+    // 确保数组被复制，避免引用同一对象
+    permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
+    guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
+    builtin: false
+  }
+
+  try {
+    console.log('[RolesView] Cloning role:', currentRole.value.id, '->', newRole)
+    await authApi.updateRole(newRole)
+    message.success('克隆成功')
+    await fetchData()
+    const created = roles.value.find(r => r.id === newRole.id)
+    if (created) {
+      await selectRole(created)
+    }
+  } catch (e) {
+    console.error('[RolesView] Failed to clone role:', e)
+    message.error('克隆失败: ' + (e instanceof Error ? e.message : String(e)))
   }
 }
 
@@ -1683,6 +1732,22 @@ const copyRoleId = async () => {
 }
 
 .danger-btn:hover {
+  opacity: 0.85;
+}
+
+.clone-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #22b8ee;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.clone-btn:hover {
   opacity: 0.85;
 }
 

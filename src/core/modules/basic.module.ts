@@ -144,6 +144,17 @@ export class BasicModule extends BaseModule {
       .example('ban 123456789 1h')
       .example('ban @用户 1h 群号')
       .action(async ({ session }, input) => {
+
+      if (!input) {
+        // 将对应的 log.success 设为失败
+        session['_commandFailed'] = true
+        session['_commandError'] = '未提供输入'
+        this.logCommand(session, 'ban', 'none', '失败：未提供输入')
+        return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
+      }
+      if (session.quote && input.endsWith(session.quote.content.toString())) {
+        input = input.slice(0, input.length - session.quote.content.length).trim()
+      }
         let args: string[]
         if (input.includes('<at')) {
           const atMatch = input.match(/<at[^>]+>/)
@@ -158,9 +169,9 @@ export class BasicModule extends BaseModule {
           args = input.split(/\s+/)
         }
 
-        if (!args || args.length < 2) {
+        if (!input || !args || args.length < 2) {
           this.logCommand(session, 'ban', 'none', 'Failed: Insufficient parameters')
-          return '喵呜...格式：ban <用户> <时长> [群号]'
+          return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
         }
 
         const [target, duration, groupId] = args

@@ -114,6 +114,7 @@
                 />
                 <k-button size="small" type="danger" @click="updateWarn(item, 0)" title="清除警告">
                   <template #icon><k-icon name="trash-2" /></template>
+                  清除
                 </k-button>
               </div>
             </div>
