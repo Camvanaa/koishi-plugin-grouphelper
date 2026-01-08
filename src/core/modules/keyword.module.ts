@@ -345,15 +345,16 @@ export class KeywordModule extends BaseModule {
 
       if (effectiveKeywords.length === 0) return next()
 
-      // 处理自动禁言
-      if (forbiddenConfig.autoBan) {
-        const matched = await this.handleAutoBan(session, content, effectiveKeywords, forbiddenConfig)
-        if (matched) return
-      }
 
       // 处理自动撤回
       if (forbiddenConfig.autoDelete) {
         await this.handleAutoDelete(session, content, effectiveKeywords, forbiddenConfig)
+      }
+
+      // 处理自动禁言
+      if (forbiddenConfig.autoBan) {
+        const matched = await this.handleAutoBan(session, content, effectiveKeywords, forbiddenConfig)
+        if (matched) return
       }
 
       return next()
