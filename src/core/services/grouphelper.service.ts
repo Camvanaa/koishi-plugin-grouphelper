@@ -267,10 +267,16 @@ export class GroupHelperService extends Service {
   ): Promise<void> {
     const user = session.userId || session.username
     const group = session.guildId || 'private'
-    this._data.writeLog(`[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
+    const date = new Date()
+    date.setHours(date.getHours() + 8)
+    const time = date.toISOString()
+      .replace('T', ' ')
+      .replace('Z', '')
+      .slice(0, 16)
+    this._data.writeLog(`[${time}]? [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
 
     // 推送日志消息
-    await this.pushMessage(session.bot, `[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`, 'log')
+    await this.pushMessage(session.bot, `[${time}]! [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`, 'log')
   }
 
   /**

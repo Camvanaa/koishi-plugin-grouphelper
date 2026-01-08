@@ -110,7 +110,15 @@ export class LogModule extends BaseModule {
       const result = await next()
       
       if (session.argv && session.argv.command) {
-        this.logCommandExecution(session.argv, true, undefined, result)
+        // 检查命令是否被标记为失败
+        const commandFailed = (session as any)._commandFailed
+        const commandError = (session as any)._commandError
+        
+        if (commandFailed) {
+          this.logCommandExecution(session.argv, false, commandError, result)
+        } else {
+          this.logCommandExecution(session.argv, true, undefined, result)
+        }
       }
       
       return result
