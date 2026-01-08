@@ -257,6 +257,13 @@
                 </label>
               </div>
               <div class="form-group">
+                <label>触发回显</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.forbidden.echo" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
                 <label>禁言时长(ms)</label>
                  <el-input-number v-model="editingConfig.forbidden.muteDuration" :min="0" :step="1000" style="width: 100%" />
               </div>

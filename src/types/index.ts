@@ -231,6 +231,7 @@ export interface GroupConfig {
     autoBan: boolean
     autoKick: boolean
     muteDuration: number
+    echo?: boolean  // 操作后回显结果
   }
   welcomeMsg?: string
   welcomeEnabled?: boolean

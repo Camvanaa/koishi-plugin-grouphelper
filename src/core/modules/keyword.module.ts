@@ -12,7 +12,7 @@ export class KeywordModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'keyword',
     description: '关键词管理功能，包括入群验证和禁言关键词',
-    version: '1.0.0'
+    version: '1.0.1'
   }
 
   constructor(ctx: Context, data: DataManager, config: Config) {
@@ -156,6 +156,7 @@ export class KeywordModule extends BaseModule {
       .option('b', '-b <value:string> 设置是否自动禁言')
       .option('k', '-k <value:string> 设置是否自动踢出')
       .option('t', '-t <时长> 设置自动禁言时长')
+      .option('echo','--echo <value:string> 是否在操作后回显结果')
       .action(async ({ session, options }) => {
         return this.handleForbidden(session, options)
       })
@@ -175,6 +176,7 @@ export class KeywordModule extends BaseModule {
       const keywords = groupConfig.keywords || []
       return `全局禁言关键词：\n${this.config.forbidden.keywords.join('、') || '无'}
 当前群禁言关键词：\n${keywords.join('、') || '无'}
+回显状态：${forbiddenConfig.echo ? '开启' : '关闭'}
 自动撤回状态：${forbiddenConfig.autoDelete ? '开启' : '关闭'}
 自动禁言状态：${forbiddenConfig.autoBan ? '开启' : '关闭'}
 自动踢出状态：${forbiddenConfig.autoKick ? '开启' : '关闭'}
@@ -290,6 +292,19 @@ export class KeywordModule extends BaseModule {
       }
     }
 
+    // 设置是否回显
+    if (options.echo !== undefined) {
+      const state = this.parseBooleanOption(options.echo)
+      console.log('echo state', state)
+      if (state === null) return '无效的值，请使用 true/false'
+      ensureForbiddenExists()
+      groupConfig.forbidden.echo = state
+      this.data.groupConfig.set(session.guildId, groupConfig)
+      this.data.groupConfig.flush()
+      this.log(session, 'forbidden', 'echo', `成功：已设置回显：${state}`)
+      return `回显状态更新为${state}`
+    }
+
     return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n多个关键词用英文逗号分隔'
   }
 
@@ -338,7 +353,7 @@ export class KeywordModule extends BaseModule {
 
       // 处理自动撤回
       if (forbiddenConfig.autoDelete) {
-        await this.handleAutoDelete(session, content, effectiveKeywords)
+        await this.handleAutoDelete(session, content, effectiveKeywords, forbiddenConfig)
       }
 
       return next()
@@ -389,15 +404,21 @@ export class KeywordModule extends BaseModule {
 
         if (covered) {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(duration)}`)
-          await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(duration)} 啦...`)
+          if (forbiddenConfig.echo) {
+            await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(duration)} 啦...`)
+          }
         } else {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${formatDuration(duration)}`)
-          await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(duration)} 啦...`)
+          if (forbiddenConfig.echo) {
+            await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(duration)} 啦...`)
+          }
         }
         return true
       } catch (e) {
         this.log(session, 'keyword-ban', session.userId, `失败`)
-        await session.send('自动禁言失败了...可能是权限不够喵')
+        if (forbiddenConfig.echo) {
+          await session.send('自动禁言失败了...可能是权限不够喵')
+        }
       }
       break
     }
@@ -410,7 +431,8 @@ export class KeywordModule extends BaseModule {
   private async handleAutoDelete(
     session: Session,
     content: string,
-    keywords: string[]
+    keywords: string[],
+    forbiddenConfig: any
   ): Promise<void> {
     for (const keyword of keywords) {
       const matched = this.matchKeyword(content, keyword)
@@ -419,10 +441,14 @@ export class KeywordModule extends BaseModule {
       try {
         await session.bot.deleteMessage(session.guildId, session.messageId)
         this.log(session, 'keyword-delete', session.userId, `成功：关键词匹配，消息已撤回`)
-        await session.send(`喵呜！发现了关键词，消息已被撤回...`)
+        if (forbiddenConfig.echo) {
+          await session.send(`喵呜！发现了关键词，消息已被撤回...`)
+        }
       } catch (e) {
         this.log(session, 'keyword-delete', session.userId, `失败`)
-        await session.send('自动撤回失败了...可能是权限不够喵')
+        if (forbiddenConfig.echo) {
+          await session.send('自动撤回失败了...可能是权限不够喵')
+        }
       }
       break
     }

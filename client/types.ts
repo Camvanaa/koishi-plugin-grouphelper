@@ -22,6 +22,7 @@ export interface GroupConfig {
     autoBan: boolean
     autoKick: boolean
     muteDuration: number
+    echo?: boolean
   }
   welcomeMsg?: string
   welcomeEnabled?: boolean
