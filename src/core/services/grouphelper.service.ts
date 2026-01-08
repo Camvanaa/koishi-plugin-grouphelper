@@ -273,10 +273,10 @@ export class GroupHelperService extends Service {
       .replace('T', ' ')
       .replace('Z', '')
       .slice(0, 16)
-    this._data.writeLog(`[${time}]? [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
+    this._data.writeLog(`[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
 
     // 推送日志消息
-    await this.pushMessage(session.bot, `[${time}]! [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`, 'log')
+    await this.pushMessage(session.bot, `[${time}] [${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`, 'log')
   }
 
   /**

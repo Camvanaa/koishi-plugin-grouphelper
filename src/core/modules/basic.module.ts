@@ -27,7 +27,7 @@ export class BasicModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'basic',
     description: '基础群管命令模块',
-    version: '1.0.0'
+    version: '1.0.1'
   }
 
   protected async onInit(): Promise<void> {
@@ -102,7 +102,7 @@ export class BasicModule extends BaseModule {
         }
 
         if (!userId) {
-          this.logCommand(session, 'kick', 'none', '失败：无法读取目标用户')
+          this.logCommand(session, 'kick', 'none', '失败：无法读取目标用户', false)
           return '喵呜...请输入正确的用户（@或QQ号）'
         }
 
@@ -123,7 +123,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'kick', userId, `成功：移出群聊 ${targetGroup}`)
           return `已把 ${userId} 踢出去喵~`
         } catch (e) {
-          this.logCommand(session, 'kick', userId, `失败：未知错误`)
+          this.logCommand(session, 'kick', userId, `失败：未知错误`, false)
           return `喵呜...踢出失败了：${e.message}`
         }
       })
@@ -147,9 +147,7 @@ export class BasicModule extends BaseModule {
 
       if (!input) {
         // 将对应的 log.success 设为失败
-        session['_commandFailed'] = true
-        session['_commandError'] = '未提供输入'
-        this.logCommand(session, 'ban', 'none', '失败：未提供输入')
+        this.logCommand(session, 'ban', 'none', '失败：缺少必要参数', false)
         return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
       }
       if (session.quote && input.endsWith(session.quote.content.toString())) {
@@ -170,7 +168,7 @@ export class BasicModule extends BaseModule {
         }
 
         if (!input || !args || args.length < 2) {
-          this.logCommand(session, 'ban', 'none', 'Failed: Insufficient parameters')
+          this.logCommand(session, 'ban', 'none', '失败：缺少必要参数',false)
           return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
         }
 
@@ -191,12 +189,12 @@ export class BasicModule extends BaseModule {
         }
 
         if (!userId) {
-          this.logCommand(session, 'ban', 'none', '失败：无法读取目标用户')
+          this.logCommand(session, 'ban', 'none', '失败：无法读取目标用户', false)
           return '喵呜...请输入正确的用户（@或QQ号）'
         }
 
         if (!duration) {
-          this.logCommand(session, 'ban', userId, '失败：未指定禁言时长')
+          this.logCommand(session, 'ban', userId, '失败：未指定禁言时长', false)
           return '喵呜...请告诉我要禁言多久呀~'
         }
 
@@ -211,7 +209,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'ban', userId, `成功：已禁言 ${timeStr}，群号：${targetGroup}`)
           return `已经把 ${userId} 禁言 ${duration} (${timeStr}) 啦喵~`
         } catch (e) {
-          this.logCommand(session, 'ban', userId, `失败：未知错误`)
+          this.logCommand(session, 'ban', userId, `失败：未知错误`, false)
           return `喵呜...禁言失败了：${e.message}`
         }
       })
@@ -237,7 +235,7 @@ export class BasicModule extends BaseModule {
         const lastMute = guildMutes[userId] || { startTime: 0, duration: 0 }
         
         if (lastMute.startTime + lastMute.duration > Date.now()) {
-          this.logCommand(session, 'stop', userId, '失败：已在禁言中')
+          this.logCommand(session, 'stop', userId, '失败：已在禁言中', false)
           return `喵呜...${userId} 已经处于禁言状态啦，不需要短期禁言喵~`
         }
         
@@ -247,7 +245,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'stop', userId, `成功：已短期禁言，群号 ${session.guildId}`)
           return `已将 ${userId} 短期禁言啦喵~`
         } catch (e) {
-          this.logCommand(session, 'stop', userId, '失败：未知错误')
+          this.logCommand(session, 'stop', userId, '失败：未知错误', false)
           return `喵呜...短期禁言失败了：${e.message}`
         }
       })
@@ -299,7 +297,7 @@ export class BasicModule extends BaseModule {
         }
 
         if (!userId) {
-          this.logCommand(session, 'unban', 'none', '失败：无法读取目标用户')
+          this.logCommand(session, 'unban', 'none', '失败：无法读取目标用户', false)
           return '喵呜...请输入正确的用户（@或QQ号）'
         }
 
@@ -311,7 +309,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'unban', userId, `成功：已解除禁言，群号 ${targetGroup}`)
           return `已经把 ${userId} 的禁言解除啦喵！开心~`
         } catch (e) {
-          this.logCommand(session, 'unban', userId, `失败：未知错误`)
+          this.logCommand(session, 'unban', userId, `失败：未知错误`, false)
           return `喵呜...解除禁言失败了：${e.message}`
         }
       })
@@ -333,7 +331,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'ban-all', session.guildId, `成功：已开启全体禁言，群号 ${session.guildId}`)
           return '喵呜...全体禁言开启啦，大家都要乖乖的~'
         } catch (e) {
-          this.logCommand(session, 'ban-all', session.guildId, `失败：未知错误`)
+          this.logCommand(session, 'ban-all', session.guildId, `失败：未知错误`, false)
           return `出错啦喵...${e}`
         }
       })
@@ -355,7 +353,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'unban-all', session.guildId, `成功：已解除全体禁言，群号 ${session.guildId}`)
           return '全体禁言解除啦喵，可以开心聊天啦~'
         } catch (e) {
-          this.logCommand(session, 'unban-all', session.guildId, `失败：未知错误`)
+          this.logCommand(session, 'unban-all', session.guildId, `失败：未知错误`, false)
           return `出错啦喵...${e}`
         }
       })
@@ -366,9 +364,9 @@ export class BasicModule extends BaseModule {
   /**
    * 记录命令执行日志
    */
-  private logCommand(session: any, command: string, target: string, result: string): void {
+  private logCommand(session: any, command: string, target: string, result: string, success?: boolean): void {
     // 使用 BaseModule 的 log 方法
-    this.log(session, command, target, result)
+    this.log(session, command, target, result, success)
   }
 
   /**
@@ -431,7 +429,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'admin', userId, '成功：已设置为管理员')
           return `已将 ${userId} 设置为管理员喵~`
         } catch (e) {
-          this.logCommand(session, 'admin', userId, `失败：未知错误`)
+          this.logCommand(session, 'admin', userId, `失败：未知错误`, false)
           return `设置失败了喵...${e.message}`
         }
       })
@@ -522,7 +520,7 @@ export class BasicModule extends BaseModule {
         }
 
         if (banList.length === 0) {
-          this.logCommand(session, 'unban-random', session.guildId, '失败：当前没有被禁言的成员')
+          this.logCommand(session, 'unban-random', session.guildId, '失败：当前没有被禁言的成员', false)
           return '当前没有被禁言的成员喵~'
         }
 
@@ -588,6 +586,7 @@ export class BasicModule extends BaseModule {
           this.logCommand(session, 'unban-allppl', session.guildId, `成功：已解除 ${count} 人的禁言`)
           return count > 0 ? `已解除 ${count} 人的禁言啦！` : '当前没有被禁言的成员喵~'
         } catch (e) {
+          this.logCommand(session, 'unban-allppl', session.guildId, `失败：未知错误`, false)
           return `出错啦喵...${e}`
         }
       })
@@ -633,7 +632,7 @@ export class BasicModule extends BaseModule {
           }
           return '请使用 -s <文本> 设置头衔或 -r 移除头衔\n可选 -u @用户 为指定用户设置'
         } catch (e) {
-          this.logCommand(session, 'title', targetId, `失败：未知错误`)
+          this.logCommand(session, 'title', targetId, `失败：未知错误`, false)
           return `出错啦喵...${e.message}`
         }
       })
@@ -670,7 +669,7 @@ export class BasicModule extends BaseModule {
           }
           return '请使用 -s 设置精华消息或 -r 取消精华消息'
         } catch (e) {
-          this.logCommand(session, 'essence', session.quote?.messageId || 'none', `失败：未知错误`)
+          this.logCommand(session, 'essence', session.quote?.messageId || 'none', `失败：未知错误`, false)
           return `出错啦喵...${e.message}`
         }
       })
@@ -715,7 +714,7 @@ antirepeat 0 - 关闭复读检测`
         }
 
         if (threshold < 3) {
-          this.logCommand(session, 'antirepeat', session.guildId, '失败：无效的阈值')
+          this.logCommand(session, 'antirepeat', session.guildId, '失败：无效的阈值', false)
           return '喵呜...阈值至少要设置为3条以上喵...'
         }
 
@@ -746,7 +745,7 @@ antirepeat 0 - 关闭复读检测`
           this.logCommand(session, 'quit-group', groupId, `成功：已退出群聊 ${groupId}`)
           return `已成功退出群聊 ${groupId} 喵~`
         } catch (e) {
-          this.logCommand(session, 'quit-group', groupId, `失败：未知错误`)
+          this.logCommand(session, 'quit-group', groupId, `失败：未知错误`, false)
           return `喵呜...退出群聊失败了：${e.message}`
         }
       })
@@ -779,7 +778,7 @@ antirepeat 0 - 关闭复读检测`
             return `已将 ${userId} 的昵称清除喵~`
           }
         } catch (e) {
-          this.logCommand(session, 'nickname', userId, `失败：未知错误`)
+          this.logCommand(session, 'nickname', userId, `失败：未知错误`, false)
           return `喵呜...设置昵称失败了：${e.message}`
         }
       })
@@ -815,7 +814,7 @@ antirepeat 0 - 关闭复读检测`
           }
           return `已将消息发送到群 ${groupId} 喵~`
         } catch (e) {
-          this.logCommand(session, 'send', groupId, `失败：未知错误`)
+          this.logCommand(session, 'send', groupId, `失败：未知错误`, false)
           return `喵呜...发送失败了：${e.message}`
         }
       })
