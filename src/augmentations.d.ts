@@ -4,6 +4,16 @@
  */
 
 import { Subscription, GroupConfig, WarnRecord, BlacklistRecord } from './types'
+import { Context } from 'koishi'
+import { Puppeteer } from 'koishi-plugin-puppeteer'
+import { Status } from '@koishijs/plugin-status'
+
+declare module 'koishi' {
+  interface Context {
+    puppeteer: Puppeteer
+    status: Status
+  }
+}
 
 /** API 响应格式 */
 interface ApiResponse<T = any> {

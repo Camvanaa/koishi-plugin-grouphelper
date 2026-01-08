@@ -3,16 +3,16 @@ import type {} from '@koishijs/plugin-console'
 import { resolve } from 'path'
 
 import { GroupHelperService, registerWebSocketAPI } from './core'
-import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule } from './core/modules'
+import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule, StatusModule } from './core/modules'
 
 // 插件元信息
 export const name = 'grouphelper'
-export const usage = '群组管理助手'
+export { usage } from './config'
 
 // 声明依赖注入
 export const inject = {
   required: ['database'],
-  optional: ['console']
+  optional: ['console', 'puppeteer']
 }
 
 // 声明服务类型扩展（注意：这里不能使用，需要在 service 文件中声明）
@@ -68,6 +68,7 @@ export function apply(ctx: Context) {
       const getAuthModule = new GetAuthModule(ctx, ctx.groupHelper.data, config)
       const authModule = new AuthModule(ctx, ctx.groupHelper.data, config)
       const eventModule = new EventModule(ctx, ctx.groupHelper.data, config)
+      const statusModule = new StatusModule(ctx, ctx.groupHelper.data, config)
       ctx.groupHelper.registerModule(warnModule)
       ctx.groupHelper.registerModule(keywordModule)
       ctx.groupHelper.registerModule(basicModule)
@@ -85,6 +86,7 @@ export function apply(ctx: Context) {
       ctx.groupHelper.registerModule(getAuthModule)
       ctx.groupHelper.registerModule(authModule)
       ctx.groupHelper.registerModule(eventModule)
+      ctx.groupHelper.registerModule(statusModule)
 
       // 初始化所有模块
       await ctx.groupHelper.initModules()
