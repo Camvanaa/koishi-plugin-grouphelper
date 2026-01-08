@@ -43,6 +43,7 @@ import LogsView from '../components/LogsView.vue'
 import SubscriptionView from '../components/SubscriptionView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import ChatView from '../components/ChatView.vue'
+import RolesView from '../components/RolesView.vue'
 
 const currentView = ref('dashboard')
 
@@ -52,6 +53,7 @@ const activeComponent = computed(() => {
     case 'config': return ConfigView
     case 'warns': return WarnsView
     case 'blacklist': return BlacklistView
+    case 'roles': return RolesView
     case 'logs': return LogsView
     case 'chat': return ChatView
     case 'subscriptions': return SubscriptionView
@@ -65,6 +67,7 @@ const menuItems = [
   { id: 'config', label: '群组配置', icon: 'grouphelper:config' },
   { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
   { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
+  { id: 'roles', label: '角色权限', icon: 'grouphelper:roles' },
   { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
   { id: 'chat', label: '实时聊天', icon: 'grouphelper:chat' },
   { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:subscription' },

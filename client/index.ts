@@ -14,6 +14,7 @@ icons.register('grouphelper:log', customIcons.log)
 icons.register('grouphelper:subscription', customIcons.subscription)
 icons.register('grouphelper:settings', customIcons.settings)
 icons.register('grouphelper:chat', customIcons.chat)
+icons.register('grouphelper:roles', GroupIcon)
 
 export default (ctx: Context) => {
   ctx.page({

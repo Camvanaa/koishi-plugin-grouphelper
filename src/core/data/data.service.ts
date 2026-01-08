@@ -18,7 +18,9 @@ import type {
   Subscription,
   RecallRecord,
   CommandLogData,
-  LeaveRecord
+  LeaveRecord,
+  AuthRolesData,
+  AuthUsersData
 } from '../../types'
 
 /** 数据存储映射类型 */
@@ -34,6 +36,8 @@ export interface DataStores {
   recallRecords: JsonDataStore<RecallRecord>
   commandLogs: JsonDataStore<CommandLogData>
   leaveRecords: JsonDataStore<Record<string, LeaveRecord>>
+  authRoles: JsonDataStore<AuthRolesData>
+  authUsers: JsonDataStore<AuthUsersData>
 }
 
 export class DataManager {
@@ -206,6 +210,32 @@ export class DataManager {
       )
     }
     return this.stores.leaveRecords
+  }
+
+  /**
+   * 获取角色存储
+   */
+  get authRoles(): JsonDataStore<AuthRolesData> {
+    if (!this.stores.authRoles) {
+      this.stores.authRoles = new JsonDataStore(
+        path.resolve(this.dataPath, 'auth_roles.json'),
+        { roles: {}, defaultLevels: {} }
+      )
+    }
+    return this.stores.authRoles
+  }
+
+  /**
+   * 获取用户角色关联存储
+   */
+  get authUsers(): JsonDataStore<AuthUsersData> {
+    if (!this.stores.authUsers) {
+      this.stores.authUsers = new JsonDataStore(
+        path.resolve(this.dataPath, 'auth_users.json'),
+        { users: {} }
+      )
+    }
+    return this.stores.authUsers
   }
 
 

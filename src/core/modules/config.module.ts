@@ -42,16 +42,25 @@ export class ConfigModule extends BaseModule {
 
         // 显示所有配置
         if (options.t) {
+          if (!this.ctx.groupHelper.auth.check(session, 'config.view')) {
+            return '你没有权限查看配置喵...'
+          }
           return await this.showAllConfig(session)
         }
 
         // 黑名单管理
         if (options.b) {
+          if (!this.ctx.groupHelper.auth.check(session, 'blacklist.manage')) {
+            return '你没有权限管理黑名单喵...'
+          }
           return await this.handleBlacklist(session, options, content)
         }
 
         // 警告管理
         if (options.w) {
+          if (!this.ctx.groupHelper.auth.check(session, 'warn.manage')) {
+            return '你没有权限管理警告喵...'
+          }
           return await this.handleWarns(session, options, content)
         }
 

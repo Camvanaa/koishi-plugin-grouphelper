@@ -2,16 +2,6 @@
   <div class="settings-view">
     <div class="view-header">
       <h2 class="view-title">全局设置</h2>
-      <div class="header-actions">
-        <k-button type="primary" @click="saveSettings" :loading="saving">
-          <template #icon><k-icon name="save" /></template>
-          保存设置
-        </k-button>
-        <k-button @click="resetSettings" :loading="resetting">
-          <template #icon><k-icon name="refresh-ccw" /></template>
-          恢复默认
-        </k-button>
-      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -532,6 +522,36 @@
         </div>
       </div>
     </div>
+    
+    <!-- 底部浮动保存栏 -->
+    <transition name="slide-up">
+      <div class="save-bar" v-if="hasChanges">
+        <span>检测到未保存的修改</span>
+        <div class="save-actions">
+          <button class="reset-default-btn" @click="resetToDefault">恢复默认</button>
+          <button class="reset-btn" @click="resetChanges">放弃更改</button>
+          <button class="save-btn" @click="saveSettings">保存更改</button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 自定义确认对话框 -->
+    <transition name="fade">
+      <div class="modal-overlay" v-if="confirmDialog.show" @click="cancelConfirm">
+        <div class="modal-dialog" @click.stop>
+          <div class="modal-header">
+            <h3>{{ confirmDialog.title }}</h3>
+          </div>
+          <div class="modal-body">
+            <p>{{ confirmDialog.message }}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="secondary-btn" @click="cancelConfirm">取消</button>
+            <button :class="confirmDialog.type === 'danger' ? 'danger-btn' : 'primary-btn'" @click="doConfirm">确认</button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -614,9 +634,53 @@ const defaultSettings = {
 
 const loading = ref(true)
 const saving = ref(false)
-const resetting = ref(false)
 const settings = ref<any>({ ...defaultSettings })
+const originalSettings = ref<string>('') // 原始设置的 JSON 字符串用于比较
 const activeSection = ref('warn')
+
+// 确认对话框状态
+const confirmDialog = ref({
+  show: false,
+  title: '确认',
+  message: '',
+  type: 'normal' as 'normal' | 'danger',
+  onConfirm: () => {},
+  onCancel: () => {}
+})
+
+// 显示确认对话框
+const showConfirm = (options: { title?: string, message: string, type?: 'normal' | 'danger' }): Promise<boolean> => {
+  return new Promise((resolve) => {
+    confirmDialog.value = {
+      show: true,
+      title: options.title || '确认',
+      message: options.message,
+      type: options.type || 'normal',
+      onConfirm: () => {
+        confirmDialog.value.show = false
+        resolve(true)
+      },
+      onCancel: () => {
+        confirmDialog.value.show = false
+        resolve(false)
+      }
+    }
+  })
+}
+
+const cancelConfirm = () => {
+  confirmDialog.value.onCancel()
+}
+
+const doConfirm = () => {
+  confirmDialog.value.onConfirm()
+}
+
+// 检测是否有未保存的修改
+const hasChanges = computed(() => {
+  if (!originalSettings.value) return false
+  return JSON.stringify(settings.value) !== originalSettings.value
+})
 
 // 将数组转换为文本
 const keywordsText = computed({
@@ -676,6 +740,8 @@ const loadSettings = async () => {
     const data = await settingsApi.get()
     // 深度合并默认值和返回数据
     settings.value = deepMerge({ ...defaultSettings }, data || {})
+    // 保存原始设置用于比较
+    originalSettings.value = JSON.stringify(settings.value)
   } catch (e: any) {
     message.error(e.message || '加载设置失败')
   } finally {
@@ -687,6 +753,8 @@ const saveSettings = async () => {
   saving.value = true
   try {
     await settingsApi.update(settings.value)
+    // 更新原始设置
+    originalSettings.value = JSON.stringify(settings.value)
     message.success('设置已保存')
   } catch (e: any) {
     message.error(e.message || '保存设置失败')
@@ -695,19 +763,31 @@ const saveSettings = async () => {
   }
 }
 
-const resetSettings = async () => {
-  if (!confirm('确定要恢复默认设置吗？所有自定义设置都将丢失。')) return
+const resetChanges = async () => {
+  const confirmed = await showConfirm({
+    title: '放弃更改',
+    message: '确定要放弃当前所有未保存的修改吗？',
+    type: 'normal'
+  })
   
-  resetting.value = true
-  try {
-    await settingsApi.reset()
-    message.success('设置已恢复默认')
-    // 重新加载设置
-    await loadSettings()
-  } catch (e: any) {
-    message.error(e.message || '重置设置失败')
-  } finally {
-    resetting.value = false
+  if (confirmed) {
+    // 从原始设置恢复
+    settings.value = JSON.parse(originalSettings.value)
+    message.success('已放弃更改')
+  }
+}
+
+const resetToDefault = async () => {
+  const confirmed = await showConfirm({
+    title: '恢复默认设置',
+    message: '确定要将所有设置恢复为默认值吗？此操作将覆盖当前所有设置，需要保存后才会生效。',
+    type: 'danger'
+  })
+  
+  if (confirmed) {
+    // 恢复为默认设置
+    settings.value = JSON.parse(JSON.stringify(defaultSettings))
+    message.success('已恢复默认设置，请保存以应用更改')
   }
 }
 
@@ -728,7 +808,12 @@ const loadCacheStats = async () => {
 }
 
 const refreshCache = async () => {
-  if (!confirm('确定要强制刷新所有缓存吗？这可能需要一些时间。')) return
+  const confirmed = await showConfirm({
+    title: '刷新缓存',
+    message: '确定要强制刷新所有缓存吗？这可能需要一些时间。',
+    type: 'normal'
+  })
+  if (!confirmed) return
   
   cacheRefreshing.value = true
   try {
@@ -743,7 +828,12 @@ const refreshCache = async () => {
 }
 
 const clearCache = async () => {
-  if (!confirm('确定要清空所有缓存吗？')) return
+  const confirmed = await showConfirm({
+    title: '清空缓存',
+    message: '确定要清空所有缓存吗？',
+    type: 'danger'
+  })
+  if (!confirmed) return
   
   try {
     await cacheApi.clear()
@@ -1089,5 +1179,200 @@ onMounted(() => {
 
 .cache-info li:last-child {
   margin-bottom: 0;
+}
+
+/* 保存浮动条 */
+.save-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #202225;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 100;
+  width: 80%;
+  max-width: 600px;
+  justify-content: space-between;
+}
+
+.save-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.reset-default-btn {
+  background: #f56c6c;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.reset-default-btn:hover {
+  background: #e04b4b;
+}
+
+.reset-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+}
+
+.save-btn {
+  background: #43b581;
+  border: none;
+  color: white;
+  padding: 8px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.save-btn:hover {
+  background: #3ca374;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translate(-50%, 100%);
+  opacity: 0;
+}
+
+/* 自定义确认对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-dialog {
+  background: var(--k-card-bg, white);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  min-width: 320px;
+  max-width: 480px;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--k-color-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--k-color-text);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body p {
+  margin: 0;
+  color: var(--k-color-text);
+  line-height: 1.6;
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--k-color-border);
+  background: var(--k-color-bg-1);
+}
+
+.secondary-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--k-color-border, #dcdfe6);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--k-color-text, #303133);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+  border-color: var(--k-color-active, #409eff);
+  color: var(--k-color-active, #409eff);
+}
+
+.primary-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  background: var(--k-color-active, #409eff);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+  opacity: 0.85;
+}
+
+.danger-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  background: #f56c6c;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.danger-btn:hover {
+  opacity: 0.85;
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active .modal-dialog,
+.fade-leave-active .modal-dialog {
+  transition: transform 0.2s ease;
+}
+
+.fade-enter-from .modal-dialog,
+.fade-leave-to .modal-dialog {
+  transform: scale(0.95);
 }
 </style>

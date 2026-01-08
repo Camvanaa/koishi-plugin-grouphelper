@@ -7,6 +7,7 @@ import { DataManager } from '../data'
 import { BaseModule } from '../modules'
 import { SettingsManager, PluginSettings } from '../settings'
 import { CacheService } from './cache.service'
+import { AuthService } from './auth.service'
 import type { Subscription } from '../../types'
 
 // 声明服务类型
@@ -27,12 +28,15 @@ export class GroupHelperService extends Service {
   private _settingsManager: SettingsManager
   /** 缓存服务 */
   private _cache: CacheService
+  /** 权限服务 */
+  private _auth: AuthService
 
   constructor(ctx: Context) {
     super(ctx, 'groupHelper')
     this._data = new DataManager(ctx)
     this._settingsManager = new SettingsManager(this._data.dataPath)
     this._cache = new CacheService(ctx, this._data.dataPath)
+    this._auth = new AuthService(ctx, this._data)
   }
 
   /** 获取数据管理器 */
@@ -53,6 +57,11 @@ export class GroupHelperService extends Service {
   /** 获取缓存服务 */
   get cache(): CacheService {
     return this._cache
+  }
+
+  /** 获取权限服务 */
+  get auth(): AuthService {
+    return this._auth
   }
 
   /**

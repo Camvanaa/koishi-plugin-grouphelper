@@ -3,6 +3,12 @@
  * 注意：这里直接定义类型，不从 src 导入（client 和 src 有独立的 tsconfig）
  */
 
+export interface RoleMember {
+ id: string
+ name: string
+ avatar: string
+}
+
 // 群组配置
 export interface GroupConfig {
   guildName?: string
@@ -158,9 +164,35 @@ export interface ChatMessage {
   selfId: string
 }
 
+// 权限相关类型
+export interface Role {
+  id: string
+  name: string
+  color?: string
+  priority: number
+  permissions: string[]
+  hoist?: boolean
+  mentionable?: boolean
+}
+
+export interface PermissionNode {
+  id: string
+  name: string
+  description: string
+}
+
 // 扩展 @koishijs/client 的 Events 接口
 declare module '@koishijs/client' {
   interface Events {
+    // 权限管理 API
+    'grouphelper/auth/role/list'(): Promise<Role[]>
+    'grouphelper/auth/role/update'(params: { role: Role }): Promise<{ success: boolean }>
+    'grouphelper/auth/role/delete'(params: { roleId: string }): Promise<{ success: boolean }>
+    'grouphelper/auth/user/get'(params: { userId: string }): Promise<string[]>
+    'grouphelper/auth/user/assign'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
+    'grouphelper/auth/user/revoke'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
+    'grouphelper/auth/permission/list'(): Promise<PermissionNode[]>
+
     // 群组配置 API
     'grouphelper/config/list'(): Promise<Record<string, GroupConfig>>
     'grouphelper/config/get'(guildId: string): Promise<GroupConfig | undefined>

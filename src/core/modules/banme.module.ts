@@ -288,7 +288,10 @@ export class BanmeModule extends BaseModule {
 
     // 输出形似字符映射表
     this.ctx.command('banme-similar', '输出 banme 形似字符映射表', { authority: 3 })
-      .action(() => {
+      .action(({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'config.view')) {
+          return '你没有权限查看配置喵...'
+        }
         let similarChars = this.readData(this.similarCharsPath)
         if (!similarChars || Object.keys(similarChars).length === 0) {
           this.setDefaultSimilarChars()
@@ -302,6 +305,9 @@ export class BanmeModule extends BaseModule {
     // 规范化命令测试
     this.ctx.command('banme-normalize <command:string>', '规范化 banme 命令', { authority: 3 })
       .action(({ session }, command) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'config.view')) {
+          return '你没有权限执行此操作喵...'
+        }
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
         const normalizedCommand = this.normalizeCommand(this.normalizeCommand(command))
         const response = `规范化后的命令：${normalizedCommand}\n长度：${normalizedCommand.length}\n字符列表：\n`
@@ -312,6 +318,9 @@ export class BanmeModule extends BaseModule {
     // 通过引用消息逐字符添加形似字符替换
     this.ctx.command('banme-record-as <standardCommand:string>', '通过引用消息逐字符添加形似字符替换', { authority: 3 })
       .action(async ({ session }, standardCommand) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'config.edit')) {
+          return '你没有权限修改配置喵...'
+        }
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
         if (!session.quote) return '请引用一条消息来记录映射喵~'
         if (standardCommand.length === 0) return '请提供标准命令字符串喵~'
@@ -340,6 +349,9 @@ export class BanmeModule extends BaseModule {
     // 通过引用消息添加字符串映射
     this.ctx.command('banme-record-allas <standardCommand:string>', '通过引用消息添加字符串映射', { authority: 3 })
       .action(async ({ session }, standardCommand) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'config.edit')) {
+          return '你没有权限修改配置喵...'
+        }
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
         if (!session.quote) return '请引用一条消息来记录映射喵~'
         if (standardCommand.length === 0) return '请提供一个标准字符串喵~'
@@ -367,6 +379,9 @@ export class BanmeModule extends BaseModule {
       .option('autoBan', '--autoBan <enabled:boolean> 是否自动禁言使用特殊字符的用户')
       .option('reset', '--reset 重置为全局配置')
       .action(async ({ session, options }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'config.edit')) {
+          return '你没有权限修改配置喵...'
+        }
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
         const configs = this.data.groupConfig.getAll()

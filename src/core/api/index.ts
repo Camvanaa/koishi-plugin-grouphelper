@@ -6,7 +6,7 @@
 import { Context, h } from 'koishi'
 import type {} from '@koishijs/plugin-console'
 import { GroupHelperService } from '../services/grouphelper.service'
-import type { Subscription } from '../../types'
+import type { Subscription, Role } from '../../types'
 import * as crypto from 'crypto'
 
 /** API 响应格式 */
@@ -125,6 +125,101 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     data.groupConfig.delete(params.guildId)
     await data.groupConfig.flush()
     return success({ success: true })
+  })
+
+  // ===== 权限管理 API =====
+
+  /** 获取所有角色 */
+  ctx.console.addListener('grouphelper/auth/role/list' as any, async () => {
+    return success(service.auth.getRoles())
+  })
+
+  /** 创建/更新角色 */
+  ctx.console.addListener('grouphelper/auth/role/update' as any, async (params: { role: Role }) => {
+    await service.auth.saveRole(params.role)
+    await service.data.authRoles.flush()
+    return success({ success: true })
+  })
+
+  /** 删除角色 */
+  ctx.console.addListener('grouphelper/auth/role/delete' as any, async (params: { roleId: string }) => {
+    await service.auth.deleteRole(params.roleId)
+    await service.data.authRoles.flush()
+    await service.data.authUsers.flush() // 用户关联可能被清理
+    return success({ success: true })
+  })
+
+  /** 获取某用户的角色列表 */
+  ctx.console.addListener('grouphelper/auth/user/get' as any, async (params: { userId: string }) => {
+    return success(service.auth.getUserRoleIds(params.userId))
+  })
+
+  /** 获取角色的成员列表 */
+  ctx.console.addListener('grouphelper/auth/role/members' as any, async (params: { roleId: string, fetchNames?: boolean }) => {
+    const userIds = service.auth.getRoleMembers(params.roleId)
+    
+    if (params.fetchNames) {
+      const cacheData = service.cache.getCachedData()
+      const members = userIds.map(userId => {
+        const cached = cacheData.users[userId]
+        return {
+          id: userId,
+          name: cached?.name || '',
+          avatar: cached?.avatar || `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+        }
+      })
+      return success(members)
+    }
+    
+    return success(userIds.map(id => ({ id, name: '', avatar: '' })))
+  })
+
+  /** 分配角色 */
+  ctx.console.addListener('grouphelper/auth/user/assign' as any, async (params: { userId: string, roleId: string }) => {
+    await service.auth.assignRole(params.userId, params.roleId)
+    await service.data.authUsers.flush()
+    return success({ success: true })
+  })
+
+  /** 移除角色 */
+  ctx.console.addListener('grouphelper/auth/user/revoke' as any, async (params: { userId: string, roleId: string }) => {
+    await service.auth.revokeRole(params.userId, params.roleId)
+    await service.data.authUsers.flush()
+    return success({ success: true })
+  })
+
+  /** 获取系统所有可用的权限节点列表 (供前端选择) */
+  ctx.console.addListener('grouphelper/auth/permission/list' as any, async () => {
+    // 静态定义可用的权限节点
+    const permissions = [
+      // 管理权限
+      { id: '*', name: '超级管理员', description: '拥有所有权限' },
+      { id: 'auth.role.manage', name: '角色管理', description: '创建、修改和删除角色' },
+      { id: 'auth.user.manage', name: '用户权限管理', description: '分配和移除用户角色' },
+      
+      // 配置权限
+      { id: 'config.view', name: '查看配置', description: '查看群组配置' },
+      { id: 'config.edit', name: '修改配置', description: '修改群组配置' },
+      
+      // 警告管理
+      { id: 'warn.view', name: '查看警告', description: '查看用户警告记录' },
+      { id: 'warn.add', name: '添加警告', description: '添加警告记录' },
+      { id: 'warn.manage', name: '管理警告', description: '修改和删除警告记录' },
+      
+      // 黑名单管理
+      { id: 'blacklist.view', name: '查看黑名单', description: '查看黑名单列表' },
+      { id: 'blacklist.manage', name: '管理黑名单', description: '添加和移除黑名单' },
+      
+      // 订阅管理
+      { id: 'subscription.manage', name: '管理订阅', description: '管理消息订阅' },
+      
+      // 日志
+      { id: 'log.view', name: '查看日志', description: '查看命令日志' },
+      
+      // 聊天功能
+      { id: 'chat.send', name: '发送消息', description: '使用控制台发送消息' }
+    ]
+    return success(permissions)
   })
 
   // ===== 警告记录 API =====

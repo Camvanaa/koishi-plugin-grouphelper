@@ -54,48 +54,56 @@ sub status - 查看订阅状态`
     // 订阅操作日志
     this.ctx.command('sub.log', '订阅操作日志', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleSubscription(session, 'log')
       })
 
     // 订阅成员变动
     this.ctx.command('sub.member', '订阅成员变动', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleSubscription(session, 'memberChange')
       })
 
     // 订阅禁言到期通知
     this.ctx.command('sub.mute', '订阅禁言到期通知', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleSubscription(session, 'muteExpire')
       })
 
     // 订阅黑名单变更
     this.ctx.command('sub.blacklist', '订阅黑名单变更', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleSubscription(session, 'blacklist')
       })
 
     // 订阅警告通知
     this.ctx.command('sub.warning', '订阅警告通知', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleSubscription(session, 'warning')
       })
 
     // 订阅所有通知
     this.ctx.command('sub.all', '订阅所有通知', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleAllSubscriptions(session, true)
       })
 
     // 取消所有订阅
     this.ctx.command('sub.none', '取消所有订阅', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.handleAllSubscriptions(session, false)
       })
 
     // 查看订阅状态
     this.ctx.command('sub.status', '查看订阅状态', { authority: 3 })
       .action(async ({ session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'subscription.manage')) return '你没有权限管理订阅喵...'
         return this.showSubscriptionStatus(session)
       })
   }

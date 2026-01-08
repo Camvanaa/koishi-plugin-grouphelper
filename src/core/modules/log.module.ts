@@ -181,6 +181,7 @@ export class LogModule extends BaseModule {
     // 显示操作日志
     this.ctx.command('listlog [lines:number]', '显示最近的操作记录', { authority: 3 })
       .action(async ({ session }, lines = 100) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限查看日志喵...'
         if (!fs.existsSync(this.logPath)) {
           return '还没有任何日志记录喵~'
         }
@@ -256,7 +257,8 @@ export class LogModule extends BaseModule {
       .option('authority', '-a <level> 筛选特定权限级别')
       .option('since', '-s <date> 显示指定时间之后的日志')
       .option('until', '--until <date> 显示指定时间之前的日志')
-      .action(async ({ options }) => {
+      .action(async ({ options, session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限查看日志喵...'
         try {
           const logs = this.readCommandLogs().slice(-Math.min(options.limit * 10, 1000)).reverse()
 
@@ -285,7 +287,8 @@ export class LogModule extends BaseModule {
       .option('user', '-u <userId> 筛选特定用户')
       .option('guild', '-g <guildId> 筛选特定群组')
       .option('sortBy', '--sort <type> 排序方式: count, time, guild, user', { fallback: 'count' })
-      .action(async ({ options }) => {
+      .action(async ({ options, session }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限查看日志喵...'
         try {
           const allLogs = this.readCommandLogs()
 
@@ -311,6 +314,7 @@ export class LogModule extends BaseModule {
       .option('days', '-d <number> 清除N天前的日志', { fallback: 0 })
       .option('all', '--all 清除所有日志')
       .action(async ({ session, options }) => {
+        if (!this.ctx.groupHelper.auth.check(session, 'log.view')) return '你没有权限清理日志喵...'
         try {
           if (options.all) {
             this.saveCommandLogs([])

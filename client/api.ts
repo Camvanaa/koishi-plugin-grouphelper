@@ -4,10 +4,10 @@
  */
 
 import { send } from '@koishijs/client'
-import type { GroupConfig, WarnRecord, BlacklistRecord, Subscription } from './types'
+import type { GroupConfig, WarnRecord, BlacklistRecord, Subscription, Role, PermissionNode, RoleMember } from './types'
 
 // 重新导出类型
-export type { GroupConfig, WarnRecord, BlacklistRecord, Subscription }
+export type { GroupConfig, WarnRecord, BlacklistRecord, Subscription, Role, PermissionNode, RoleMember }
 
 // 仪表盘统计数据类型
 export interface DashboardStats {
@@ -150,4 +150,16 @@ export const cacheApi = {
   /** 按需获取名称（会触发缓存） */
   fetchName: (type: 'guild' | 'user' | 'member', guildId?: string, userId?: string) =>
     call<{ name?: string; nick?: string; avatar?: string }>('grouphelper/cache/fetch-name', { type, guildId, userId }),
+}
+
+// 权限管理 API
+export const authApi = {
+  getRoles: () => call<Role[]>('grouphelper/auth/role/list'),
+  updateRole: (role: Role) => call<{ success: boolean }>('grouphelper/auth/role/update', { role }),
+  deleteRole: (roleId: string) => call<{ success: boolean }>('grouphelper/auth/role/delete', { roleId }),
+  getUserRoles: (userId: string) => call<string[]>('grouphelper/auth/user/get', { userId }),
+  assignRole: (userId: string, roleId: string) => call<{ success: boolean }>('grouphelper/auth/user/assign', { userId, roleId }),
+  revokeRole: (userId: string, roleId: string) => call<{ success: boolean }>('grouphelper/auth/user/revoke', { userId, roleId }),
+  getPermissions: () => call<PermissionNode[]>('grouphelper/auth/permission/list'),
+  getRoleMembers: (roleId: string, fetchNames?: boolean) => call<RoleMember[]>('grouphelper/auth/role/members', { roleId, fetchNames }),
 }

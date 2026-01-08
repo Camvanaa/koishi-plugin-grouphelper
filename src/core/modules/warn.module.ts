@@ -144,6 +144,11 @@ export class WarnModule extends BaseModule {
     if (!session.guildId) {
       return '喵呜...这个命令只能在群里用喵...'
     }
+
+    // 检查权限
+    if (!this.ctx.groupHelper.auth.check(session, 'warn.add')) {
+      return '你没有权限执行此操作喵...'
+    }
     if (!user) {
       return '请指定要警告的用户喵！'
     }
@@ -248,6 +253,11 @@ export class WarnModule extends BaseModule {
     if (!session.guildId) {
       return '喵呜...这个命令只能在群里用喵...'
     }
+
+    // 检查权限
+    if (!this.ctx.groupHelper.auth.check(session, 'warn.manage')) {
+      return '你没有权限执行此操作喵...'
+    }
     if (!user) {
       return '请指定要清除警告的用户喵！'
     }
@@ -280,6 +290,11 @@ export class WarnModule extends BaseModule {
   private async handleListWarns(session: Session, user: any): Promise<string> {
     if (!session.guildId) {
       return '喵呜...这个命令只能在群里用喵...'
+    }
+
+    // 检查权限
+    if (!this.ctx.groupHelper.auth.check(session, 'warn.view')) {
+      return '你没有权限执行此操作喵...'
     }
 
     const guildWarns = this.data.warns.get(session.guildId)

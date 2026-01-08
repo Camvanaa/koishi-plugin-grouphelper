@@ -422,3 +422,23 @@ export interface RecallRecord {
 export interface LeaveRecord {
   expireTime: number
 }
+
+// 权限系统相关接口
+export interface Role {
+  id: string
+  name: string
+  color?: string
+  priority: number
+  permissions: string[]
+  hoist?: boolean
+  mentionable?: boolean
+}
+
+export interface AuthRolesData extends Record<string, unknown> {
+  roles: Record<string, Role>
+  defaultLevels: Record<number, string[]> // 0-5 对应的默认权限列表
+}
+
+export interface AuthUsersData extends Record<string, unknown> {
+  users: Record<string, string[]> // userId -> roleIds
+}
