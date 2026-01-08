@@ -98,6 +98,7 @@ export interface Config {
   }
   /** 默认欢迎语 */
   defaultWelcome?: string
+  defaultGoodbye?: string
   /** 掷骰子设置 */
   dice: {
     enabled: boolean
@@ -234,7 +235,9 @@ export interface GroupConfig {
     echo?: boolean  // 操作后回显结果
   }
   welcomeMsg?: string
+  goodbyeMsg?: string
   welcomeEnabled?: boolean
+  goodbyeEnabled?: boolean
   levelLimit?: number  // 等级限制
   leaveCooldown?: number  // 退群冷却天数
   banme?: BanMeConfig

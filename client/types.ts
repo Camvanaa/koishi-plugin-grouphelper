@@ -25,7 +25,9 @@ export interface GroupConfig {
     echo?: boolean
   }
   welcomeMsg?: string
+  goodbyeMsg?: string
   welcomeEnabled?: boolean
+  goodbyeEnabled?: boolean
   levelLimit?: number
   leaveCooldown?: number
   dice?: {

@@ -41,6 +41,19 @@ export class WelcomeModule extends BaseModule {
       .action(async ({ session, options }) => {
         return this.handleWelcomeCommand(session, options)
       })
+
+      this.registerCommand({
+      name: 'goodbye',
+      desc: '退群欢送语管理',
+      permNode: 'goodbye',
+      permDesc: '管理退群欢送语'
+    })
+      .option('s', '-s <消息> 设置欢送语')
+      .option('r', '-r 移除欢送语')
+      .option('t', '-t 测试当前欢送语')
+      .action(async ({ session, options }) => {
+        return this.handleGoodbyeCommand(session, options)
+      })
   }
 
   /**
@@ -64,6 +77,7 @@ export class WelcomeModule extends BaseModule {
       keywords: [],
       approvalKeywords: [],
       welcomeMsg: '',
+      goodbyeMsg: '',
       auto: 'false',
       reject: '答案错误，请重新申请',
       levelLimit: 0,
@@ -146,6 +160,70 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
   }
 
   /**
+   * 处理欢送语命令
+   */
+
+  private async handleGoodbyeCommand(session: Session, options: any): Promise<string> {
+    if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+
+    const allConfigs = this.data.groupConfig.getAll()
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || {
+      keywords: [],
+      approvalKeywords: [],
+      welcomeMsg: '',
+      goodbyeMsg: '',
+      auto: 'false',
+      reject: '答案错误，请重新申请',
+      levelLimit: 0,
+      leaveCooldown: 0
+    }
+    // 设置欢送语
+    if (options.s) {
+      groupConfig.goodbyeMsg = options.s
+      allConfigs[session.guildId] = groupConfig
+      this.data.groupConfig.setAll(allConfigs)
+      this.log(session, 'goodbye', 'set', `已设置欢送语：${options.s}`)
+      return `已经设置好欢送语啦喵，要不要用 -t 试试看效果呀？`
+    }
+
+    // 移除欢送语
+    if (options.r) {
+      delete groupConfig.goodbyeMsg
+      allConfigs[session.guildId] = groupConfig
+      this.data.groupConfig.setAll(allConfigs)
+      this.log(session, 'goodbye', 'remove', '已移除欢送语')
+      return `欢送语已经被我吃掉啦喵~`
+    }
+
+    // 测试欢送语
+    if (options.t) {
+      const msg = groupConfig.goodbyeMsg || this.config.defaultGoodbye
+      if (!msg) return '未设置欢送语'
+
+      const testMsg = this.formatWelcomeMessage(msg, session.userId, session.guildId)
+      return testMsg
+    }
+
+    // 显示当前配置
+    const currentMsg = groupConfig.goodbyeMsg
+    const currentLevelLimit = groupConfig.levelLimit || 0
+    const currentLeaveCooldown = groupConfig.leaveCooldown || 0
+
+    return `当前欢送语：${currentMsg || '未设置'}
+
+可用变量：
+{at} - @退群成员
+{user} - 退群成员QQ号
+{group} - 群号
+
+使用方法：
+goodbye -s <欢送语>  设置欢送语
+goodbye -r  移除欢送语
+goodbye -t  测试当前欢送语`
+  }
+    
+
+  /**
    * 处理成员入群事件
    */
   private async handleMemberJoin(session: Session): Promise<void> {
@@ -168,6 +246,32 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
       console.log(`[WelcomeModule] Sent welcome message to ${session.userId} in ${session.guildId}`)
     } catch (e) {
       console.error(`[WelcomeModule] Failed to send welcome message: ${e}`)
+    }
+  }
+
+  /**
+   * 处理成员退群事件
+   */
+  private async handleMemberLeave(session: Session): Promise<void> {
+    if (!session.guildId || !session.userId) return
+
+    const allConfigs = this.data.groupConfig.getAll()
+    const groupConfig = allConfigs[session.guildId] || {}
+    
+    // 检查开关状态：明确禁用或（未定义且无自定义消息）时视为禁用
+    if (groupConfig.goodbyeEnabled === false) return
+    if (groupConfig.goodbyeEnabled === undefined && !groupConfig.goodbyeMsg) return
+
+    const goodbyeMsg = groupConfig.goodbyeMsg || this.config.defaultGoodbye
+
+    if (!goodbyeMsg) return
+
+    try {
+      const formattedMsg = this.formatWelcomeMessage(goodbyeMsg, session.userId, session.guildId)
+      await session.send(formattedMsg)
+      console.log(`[WelcomeModule] Sent goodbye message to ${session.userId} in ${session.guildId}`)
+    } catch (e) {
+      console.error(`[WelcomeModule] Failed to send goodbye message: ${e}`)
     }
   }
 

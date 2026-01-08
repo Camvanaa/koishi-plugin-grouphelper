@@ -59,6 +59,10 @@
               <span class="dot"></span>
               欢迎消息
             </div>
+            <div class="feature-item" :class="{ active: config.goodbyeEnabled }">
+              <span class="dot"></span>
+              欢送消息
+            </div>
             <div class="feature-item" :class="{ active: config.antiRecall?.enabled }">
               <span class="dot"></span>
               防撤回
@@ -266,6 +270,24 @@
               <div class="form-group">
                 <label>禁言时长(ms)</label>
                  <el-input-number v-model="editingConfig.forbidden.muteDuration" :min="0" :step="1000" style="width: 100%" />
+              </div>
+
+              <div class="section-title" style="margin-top: 2rem;">退群欢送</div>
+              <div class="form-group">
+                <label>启用欢送消息</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="editingConfig.goodbyeEnabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="form-group" v-if="editingConfig.goodbyeEnabled">
+                <label>欢送语</label>
+                <textarea
+                  v-model="editingConfig.goodbyeMsg"
+                  rows="3"
+                  placeholder="输入欢送消息... ({at}提退群成员)"
+                  class="form-textarea"
+                ></textarea>
               </div>
 
             </div>
