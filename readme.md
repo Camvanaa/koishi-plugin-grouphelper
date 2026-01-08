@@ -1,3 +1,7 @@
+# 目前在 npmjs 上的版本存在重大安全漏洞，请勿使用此版本插件
+
+# github 仓库中的版本已修复
+
 # koishi-plugin-grouphelper
 
 [![npm](https://img.shields.io/npm/v/koishi-plugin-grouphelper?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-grouphelper)
