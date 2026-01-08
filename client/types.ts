@@ -6,6 +6,7 @@
 // 群组配置
 export interface GroupConfig {
   guildName?: string
+  guildAvatar?: string
   keywords?: string[]
   approvalKeywords?: string[]
   auto?: string
@@ -75,6 +76,8 @@ export interface BlacklistRecord {
 export interface Subscription {
   type: 'group' | 'private'
   id: string
+  name?: string
+  avatar?: string
   features: {
     log?: boolean
     memberChange?: boolean

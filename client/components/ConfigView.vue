@@ -43,7 +43,13 @@
       >
         <div class="card-header">
           <div class="guild-info">
-            <k-icon name="users" class="guild-icon" />
+            <img
+              v-if="fetchNames && config.guildAvatar"
+              :src="config.guildAvatar"
+              class="guild-avatar"
+              @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+            />
+            <k-icon v-else name="users" class="guild-icon" />
             <span class="guild-id">{{ config.guildName ? `${config.guildName} (${guildId})` : guildId }}</span>
           </div>
         </div>
@@ -795,16 +801,30 @@ onMounted(() => {
 .guild-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.guild-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .guild-icon {
   color: var(--k-color-active);
+  font-size: 24px;
 }
 
 .guild-id {
   font-weight: 600;
   color: var(--k-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-body {

@@ -470,6 +470,66 @@
             ></textarea>
           </div>
         </div>
+
+        <!-- 缓存管理 -->
+        <div v-show="activeSection === 'cache'" class="config-section">
+          <div class="section-header">
+            <h3>缓存管理</h3>
+            <p class="section-desc">管理群组、用户和成员信息缓存，提升页面加载速度</p>
+          </div>
+
+          <div v-if="cacheLoading" class="loading-state">
+            <k-icon name="loader" class="spin" />
+            <span>加载中...</span>
+          </div>
+
+          <div v-else-if="cacheStats" class="cache-stats">
+            <div class="stat-row">
+              <span class="stat-label">群组缓存:</span>
+              <span class="stat-value">{{ cacheStats.guilds }} 个</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">用户缓存:</span>
+              <span class="stat-value">{{ cacheStats.users }} 个</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">成员缓存:</span>
+              <span class="stat-value">{{ cacheStats.members }} 个</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">最后刷新:</span>
+              <span class="stat-value">{{ cacheStats.lastFullRefreshTime }}</span>
+            </div>
+          </div>
+
+          <div class="cache-actions">
+            <k-button type="primary" @click="refreshCache" :loading="cacheRefreshing">
+              <template #icon><k-icon name="refresh-cw" /></template>
+              强制刷新缓存
+            </k-button>
+            <k-button @click="clearCache">
+              <template #icon><k-icon name="trash-2" /></template>
+              清空缓存
+            </k-button>
+            <k-button @click="loadCacheStats">
+              <template #icon><k-icon name="bar-chart-2" /></template>
+              重新加载统计
+            </k-button>
+          </div>
+
+          <div class="cache-info">
+            <k-icon name="info" />
+            <div>
+              <p><strong>关于缓存:</strong></p>
+              <ul>
+                <li>缓存会在插件启动时自动预热，收集所有需要的群组和用户信息</li>
+                <li>缓存有效期为 7 天，过期后会自动从 Bot 重新获取最新信息</li>
+                <li>刷新缓存会强制更新所有已缓存的信息，适合在群组或用户信息变更后使用</li>
+                <li>清空缓存会删除所有缓存数据，下次访问时会重新获取</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -478,7 +538,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { message } from '@koishijs/client'
-import { settingsApi } from '../api'
+import { settingsApi, cacheApi, type CacheStats } from '../api'
 
 // 默认配置结构
 const defaultSettings = {
@@ -594,6 +654,7 @@ const sections = [
   { id: 'antiRecall', label: '防撤回', icon: 'eye' },
   { id: 'openai', label: 'AI功能', icon: 'cpu' },
   { id: 'report', label: '举报功能', icon: 'flag' },
+  { id: 'cache', label: '缓存管理', icon: 'database' },
 ]
 
 // 深度合并对象
@@ -649,6 +710,56 @@ const resetSettings = async () => {
     resetting.value = false
   }
 }
+
+// 缓存管理
+const cacheStats = ref<CacheStats | null>(null)
+const cacheLoading = ref(false)
+const cacheRefreshing = ref(false)
+
+const loadCacheStats = async () => {
+  cacheLoading.value = true
+  try {
+    cacheStats.value = await cacheApi.stats()
+  } catch (e: any) {
+    message.error(e.message || '获取缓存统计失败')
+  } finally {
+    cacheLoading.value = false
+  }
+}
+
+const refreshCache = async () => {
+  if (!confirm('确定要强制刷新所有缓存吗？这可能需要一些时间。')) return
+  
+  cacheRefreshing.value = true
+  try {
+    const result = await cacheApi.refresh()
+    cacheStats.value = result.stats
+    message.success('缓存刷新完成')
+  } catch (e: any) {
+    message.error(e.message || '刷新缓存失败')
+  } finally {
+    cacheRefreshing.value = false
+  }
+}
+
+const clearCache = async () => {
+  if (!confirm('确定要清空所有缓存吗？')) return
+  
+  try {
+    await cacheApi.clear()
+    await loadCacheStats()
+    message.success('缓存已清空')
+  } catch (e: any) {
+    message.error(e.message || '清空缓存失败')
+  }
+}
+
+// 监听activeSection变化，切换到缓存管理时加载统计
+watch(activeSection, (newVal) => {
+  if (newVal === 'cache') {
+    loadCacheStats()
+  }
+})
 
 onMounted(() => {
   loadSettings()
@@ -905,5 +1016,78 @@ onMounted(() => {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* 缓存管理样式 */
+.cache-stats {
+  background: var(--k-color-bg-1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px dashed var(--k-color-border);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: var(--k-color-text);
+}
+
+.stat-value {
+  color: var(--k-color-active);
+  font-weight: 600;
+}
+
+.cache-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.cache-info {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(64, 158, 255, 0.05);
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--k-color-text);
+}
+
+.cache-info .k-icon {
+  flex-shrink: 0;
+  color: var(--k-color-active);
+  margin-top: 2px;
+}
+
+.cache-info p {
+  margin: 0 0 0.5rem;
+}
+
+.cache-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.cache-info li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.cache-info li:last-child {
+  margin-bottom: 0;
 }
 </style>

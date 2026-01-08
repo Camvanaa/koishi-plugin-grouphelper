@@ -45,7 +45,13 @@
             @click="selectGuild(guildId as string)"
           >
             <div class="item-icon">
-              <k-icon name="users" />
+              <img
+                v-if="fetchNames && groupWarns[0].guildAvatar"
+                :src="groupWarns[0].guildAvatar"
+                class="guild-avatar"
+                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+              />
+              <k-icon v-else name="users" />
             </div>
             <div class="item-info">
               <div class="item-name" :title="getGuildName(groupWarns[0])">
@@ -78,7 +84,13 @@
             >
               <div class="user-info">
                 <div class="avatar-placeholder">
-                  <k-icon name="user" />
+                  <img
+                    v-if="fetchNames && item.userAvatar"
+                    :src="item.userAvatar"
+                    class="user-avatar"
+                    @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <k-icon v-else name="user" />
                 </div>
                 <div class="user-details">
                   <div class="user-name">{{ item.userName !== 'Unknown' ? item.userName : '未知用户' }}</div>
@@ -180,8 +192,10 @@ interface ProcessedWarn {
   key: string
   userId: string
   userName: string
+  userAvatar: string
   guildId: string
   guildName: string
+  guildAvatar: string
   count: number
   timestamp: number
 }
@@ -388,6 +402,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.guild-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .sidebar-item.active .item-icon {
@@ -503,6 +526,13 @@ onMounted(() => {
   justify-content: center;
   color: var(--k-color-text-description);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-details {

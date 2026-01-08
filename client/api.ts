@@ -98,6 +98,9 @@ export const chatApi = {
   /** 获取群信息 */
   getGuildInfo: (guildId: string) =>
     call<{ name?: string; avatar?: string }>('grouphelper/chat/guild-info', { guildId }),
+  /** 获取用户信息 */
+  getUserInfo: (userId: string) =>
+    call<{ name?: string; avatar?: string }>('grouphelper/chat/user-info', { userId }),
 }
 
 // 图片代理 API
@@ -126,4 +129,25 @@ export const imageApi = {
       return { success: false, error: e.message || '图片加载失败' }
     }
   },
+}
+
+// 缓存管理 API
+export interface CacheStats {
+  guilds: number
+  users: number
+  members: number
+  lastFullRefresh: number
+  lastFullRefreshTime: string
+}
+
+export const cacheApi = {
+  /** 获取缓存统计信息 */
+  stats: () => call<CacheStats>('grouphelper/cache/stats'),
+  /** 强制刷新所有缓存 */
+  refresh: () => call<{ success: boolean; stats: CacheStats }>('grouphelper/cache/refresh'),
+  /** 清空所有缓存 */
+  clear: () => call<{ success: boolean }>('grouphelper/cache/clear'),
+  /** 按需获取名称（会触发缓存） */
+  fetchName: (type: 'guild' | 'user' | 'member', guildId?: string, userId?: string) =>
+    call<{ name?: string; nick?: string; avatar?: string }>('grouphelper/cache/fetch-name', { type, guildId, userId }),
 }

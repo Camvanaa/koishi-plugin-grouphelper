@@ -39,8 +39,16 @@
       >
         <div class="card-header">
           <div class="sub-info">
-            <k-icon :name="sub.type === 'group' ? 'users' : 'user'" class="sub-icon" />
-            <span class="sub-id">{{ (sub as any).name ? `${(sub as any).name} (${sub.id})` : sub.id }}</span>
+            <div class="sub-avatar">
+              <img
+                v-if="fetchNames && sub.avatar"
+                :src="sub.avatar"
+                class="avatar-img"
+                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+              />
+              <k-icon v-else :name="sub.type === 'group' ? 'users' : 'user'" class="sub-icon" />
+            </div>
+            <span class="sub-id">{{ sub.name ? `${sub.name} (${sub.id})` : sub.id }}</span>
             <span class="sub-tag">{{ sub.type === 'group' ? '群组' : '私聊' }}</span>
           </div>
           <div class="card-actions">
@@ -431,7 +439,28 @@ onMounted(() => {
 .sub-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+}
+
+.sub-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--k-color-bg-2);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .sub-icon {
@@ -441,6 +470,9 @@ onMounted(() => {
 .sub-id {
   font-weight: 600;
   color: var(--k-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sub-tag {
@@ -449,6 +481,7 @@ onMounted(() => {
   border-radius: 4px;
   background: var(--k-color-bg-3);
   color: var(--k-color-text-description);
+  flex-shrink: 0;
 }
 
 .card-body {

@@ -6,6 +6,7 @@ import { Context, Service } from 'koishi'
 import { DataManager } from '../data'
 import { BaseModule } from '../modules'
 import { SettingsManager, PluginSettings } from '../settings'
+import { CacheService } from './cache.service'
 import type { Subscription } from '../../types'
 
 // 声明服务类型
@@ -24,11 +25,14 @@ export class GroupHelperService extends Service {
   private _modules: Map<string, BaseModule> = new Map()
   /** 设置管理器 */
   private _settingsManager: SettingsManager
+  /** 缓存服务 */
+  private _cache: CacheService
 
   constructor(ctx: Context) {
     super(ctx, 'groupHelper')
     this._data = new DataManager(ctx)
     this._settingsManager = new SettingsManager(this._data.dataPath)
+    this._cache = new CacheService(ctx, this._data.dataPath)
   }
 
   /** 获取数据管理器 */
@@ -44,6 +48,11 @@ export class GroupHelperService extends Service {
   /** 获取插件配置（兼容旧代码） */
   get pluginConfig(): PluginSettings {
     return this._settingsManager.settings
+  }
+
+  /** 获取缓存服务 */
+  get cache(): CacheService {
+    return this._cache
   }
 
   /**
@@ -84,6 +93,98 @@ export class GroupHelperService extends Service {
         console.error(`[GroupHelper] 模块 ${name} 初始化失败:`, error)
       }
     }
+
+    // 初始化完成后，异步预热缓存
+    this.warmCacheAsync()
+  }
+
+  /**
+   * 异步预热缓存（不阻塞启动）
+   */
+  private warmCacheAsync(): void {
+    // 使用 setTimeout 确保不阻塞主流程
+    setTimeout(async () => {
+      try {
+        const allConfigs = this._data.groupConfig.getAll()
+        const allWarns = this._data.warns.getAll()
+        const allSubs = this._data.subscriptions.get('list') || []
+        const allRecalls = this._data.recallRecords.getAll()
+
+        // 收集需要缓存的 ID
+        const guildIds = new Set<string>()
+        const userIds = new Set<string>()
+        const memberPairs: Array<{ guildId: string, userId: string }> = []
+
+        // 从群组配置收集
+        Object.keys(allConfigs).forEach(guildId => {
+          if (/^\d+$/.test(guildId)) {
+            guildIds.add(guildId)
+          }
+        })
+
+        // 从警告记录收集（兼容两种格式）
+        Object.entries(allWarns).forEach(([key, value]) => {
+          if (!value || typeof value !== 'object') return
+          
+          // 检查是否是旧格式（包含 groups 嵌套）
+          if ('groups' in value && typeof value.groups === 'object') {
+            // 旧格式：外层是 userId，groups 下才是真正的群组警告
+            const userId = key
+            userIds.add(userId)
+            Object.entries(value.groups as Record<string, any>).forEach(([guildId, warnInfo]) => {
+              if (/^\d+$/.test(guildId)) {
+                guildIds.add(guildId)
+                memberPairs.push({ guildId, userId })
+              }
+            })
+          } else {
+            // 新格式：外层是 guildId，内层是 userId
+            const guildId = key
+            if (/^\d+$/.test(guildId)) {
+              guildIds.add(guildId)
+            }
+            Object.keys(value).forEach(userId => {
+              if (/^\d+$/.test(userId) || /^[a-zA-Z0-9_-]+$/.test(userId)) {
+                userIds.add(userId)
+                memberPairs.push({ guildId, userId })
+              }
+            })
+          }
+        })
+
+        // 从撤回记录收集
+        Object.entries(allRecalls).forEach(([guildId, users]) => {
+          if (!users || typeof users !== 'object') return
+          if (/^\d+$/.test(guildId)) {
+            guildIds.add(guildId)
+          }
+          Object.keys(users).forEach(userId => {
+            if (/^\d+$/.test(userId) || /^[a-zA-Z0-9_-]+$/.test(userId)) {
+              userIds.add(userId)
+              memberPairs.push({ guildId, userId })
+            }
+          })
+        })
+
+        // 从订阅收集
+        allSubs.forEach((sub: Subscription) => {
+          if (sub.type === 'group' && /^\d+$/.test(sub.id)) {
+            guildIds.add(sub.id)
+          } else if (sub.type === 'private') {
+            userIds.add(sub.id)
+          }
+        })
+
+        // 预热缓存
+        await this._cache.warmCache(
+          Array.from(guildIds),
+          Array.from(userIds),
+          memberPairs
+        )
+      } catch (error) {
+        console.error('[GroupHelper] 缓存预热失败:', error)
+      }
+    }, 2000) // 延迟2秒执行，避免影响启动
   }
 
   /**

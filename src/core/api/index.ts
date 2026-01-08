@@ -60,24 +60,27 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     const allConfigs = data.groupConfig.getAll()
     const results: Record<string, any> = {}
 
-    // 并行获取群组名称
-    await Promise.all(Object.entries(allConfigs).map(async ([guildId, config]) => {
-      let guildName = ''
-      if (params?.fetchNames) {
-        for (const bot of ctx.bots) {
-          try {
-            const guild = await bot.getGuild(guildId)
-            if (guild?.name) {
-              guildName = guild.name
-              break
-            }
-          } catch {
-            continue
-          }
+    if (params?.fetchNames) {
+      // 开启解析：从缓存读取群组名称和头像，未缓存使用默认头像
+      const cacheData = service.cache.getCachedData()
+      Object.entries(allConfigs).forEach(([guildId, config]) => {
+        const cached = cacheData.guilds[guildId]
+        results[guildId] = {
+          ...config,
+          guildName: cached?.name || '',
+          guildAvatar: cached?.avatar || `https://p.qlogo.cn/gh/${guildId}/${guildId}/640/`
         }
-      }
-      results[guildId] = { ...config, guildName }
-    }))
+      })
+    } else {
+      // 关闭解析：不读取名称
+      Object.entries(allConfigs).forEach(([guildId, config]) => {
+        results[guildId] = {
+          ...config,
+          guildName: '',
+          guildAvatar: ''
+        }
+      })
+    }
 
     return success(results)
   })
@@ -142,51 +145,62 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     const allWarns = data.warns.getAll()
     const result: any[] = []
 
-    // 遍历外层 (guildId)
-    for (const [guildId, guildWarns] of Object.entries(allWarns)) {
-      if (!guildWarns || typeof guildWarns !== 'object') continue
+    if (params?.fetchNames) {
+      // 开启解析：从缓存读取名称和头像，未缓存使用默认头像
+      const cacheData = service.cache.getCachedData()
+      
+      for (const [guildId, guildWarns] of Object.entries(allWarns)) {
+        if (!guildWarns || typeof guildWarns !== 'object') continue
 
-      let guildName = ''
-      if (params?.fetchNames) {
-        for (const bot of ctx.bots) {
-          try {
-            const guild = await bot.getGuild(guildId)
-            if (guild?.name) {
-              guildName = guild.name
-              break
-            }
-          } catch {}
+        const guildCache = cacheData.guilds[guildId]
+        const guildName = guildCache?.name || ''
+        const guildAvatar = guildCache?.avatar || `https://p.qlogo.cn/gh/${guildId}/${guildId}/640/`
+
+        // @ts-ignore
+        for (const [userId, warnInfo] of Object.entries(guildWarns)) {
+          if (!warnInfo || typeof warnInfo !== 'object' || !('count' in warnInfo)) continue
+          const info = warnInfo as { count: number, timestamp: number }
+          
+          const memberKey = `${guildId}:${userId}`
+          const memberCache = cacheData.members[memberKey]
+          const userName = memberCache?.nick || memberCache?.name || ''
+          const userAvatar = memberCache?.avatar || `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+
+          result.push({
+            key: memberKey,
+            guildId,
+            userId,
+            guildName,
+            guildAvatar,
+            userName,
+            userAvatar,
+            count: info.count,
+            timestamp: info.timestamp
+          })
         }
       }
+    } else {
+      // 关闭解析：不读取名称
+      for (const [guildId, guildWarns] of Object.entries(allWarns)) {
+        if (!guildWarns || typeof guildWarns !== 'object') continue
 
-      // 遍历内层 (userId -> {count, timestamp})
-      // @ts-ignore
-      for (const [userId, warnInfo] of Object.entries(guildWarns)) {
-        if (!warnInfo || typeof warnInfo !== 'object' || !('count' in warnInfo)) continue
-        const info = warnInfo as { count: number, timestamp: number }
-        
-        let userName = ''
-        if (params?.fetchNames && /^\d+$/.test(userId)) {
-          for (const bot of ctx.bots) {
-            try {
-              const member = await bot.getGuildMember(guildId, userId)
-              if (member?.user?.name || member?.nick) {
-                userName = member.nick || member.user.name
-                break
-              }
-            } catch {}
-          }
+        // @ts-ignore
+        for (const [userId, warnInfo] of Object.entries(guildWarns)) {
+          if (!warnInfo || typeof warnInfo !== 'object' || !('count' in warnInfo)) continue
+          const info = warnInfo as { count: number, timestamp: number }
+
+          result.push({
+            key: `${guildId}:${userId}`,
+            guildId,
+            userId,
+            guildName: '',
+            guildAvatar: '',
+            userName: '',
+            userAvatar: '',
+            count: info.count,
+            timestamp: info.timestamp
+          })
         }
-
-        result.push({
-          key: `${guildId}:${userId}`,
-          guildId,
-          userId,
-          guildName: guildName || '',
-          userName: userName || userId,
-          count: info.count,
-          timestamp: info.timestamp
-        })
       }
     }
 
@@ -304,35 +318,27 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     const subsData = data.subscriptions.get('list') || []
     
     if (params?.fetchNames) {
-      const enrichedList = await Promise.all(subsData.map(async (sub) => {
+      // 开启解析：从缓存读取名称和头像，未缓存使用默认头像
+      const cacheData = service.cache.getCachedData()
+      const enrichedList = subsData.map((sub) => {
         let name = ''
+        let avatar = ''
         if (sub.type === 'group') {
-          for (const bot of ctx.bots) {
-            try {
-              const guild = await bot.getGuild(sub.id)
-              if (guild?.name) {
-                name = guild.name
-                break
-              }
-            } catch {}
-          }
+          const cached = cacheData.guilds[sub.id]
+          name = cached?.name || ''
+          avatar = cached?.avatar || `https://p.qlogo.cn/gh/${sub.id}/${sub.id}/640/`
         } else if (sub.type === 'private') {
-          for (const bot of ctx.bots) {
-            try {
-              const user = await bot.getUser(sub.id)
-              if (user?.name || user?.nick) {
-                name = user.nick || user.name
-                break
-              }
-            } catch {}
-          }
+          const cached = cacheData.users[sub.id]
+          name = cached?.name || ''
+          avatar = cached?.avatar || `https://q1.qlogo.cn/g?b=qq&nk=${sub.id}&s=640`
         }
-        return { ...sub, name }
-      }))
+        return { ...sub, name, avatar }
+      })
       return success(enrichedList)
+    } else {
+      // 关闭解析：不读取名称
+      return success(subsData.map(sub => ({ ...sub, name: '', avatar: '' })))
     }
-
-    return success(subsData)
   })
 
   /** 添加订阅 */
@@ -375,9 +381,17 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     const allConfigs = data.groupConfig.getAll()
     const subsList = data.subscriptions.get('list') || []
 
+    // 统计所有警告记录的真实数量
+    let totalWarnCount = 0
+    for (const guildWarns of Object.values(allWarns)) {
+      if (guildWarns && typeof guildWarns === 'object') {
+        totalWarnCount += Object.keys(guildWarns).length
+      }
+    }
+
     return success({
       totalGroups: Object.keys(allConfigs).length,
-      totalWarns: Object.keys(allWarns).length,
+      totalWarns: totalWarnCount,
       totalBlacklisted: Object.keys(allBlacklist).length,
       totalSubscriptions: subsList.length,
       timestamp: Date.now()
@@ -474,6 +488,74 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     }
   })
 
+  // ===== 缓存管理 API =====
+
+  /** 获取缓存统计信息 */
+  ctx.console.addListener('grouphelper/cache/stats' as any, async () => {
+    try {
+      const stats = service.cache.getStats()
+      return success(stats)
+    } catch (e) {
+      ctx.logger('grouphelper').error('获取缓存统计失败:', e)
+      return error(e instanceof Error ? e.message : '获取缓存统计失败')
+    }
+  })
+
+  /** 强制刷新缓存 */
+  ctx.console.addListener('grouphelper/cache/refresh' as any, async () => {
+    try {
+      ctx.logger('grouphelper').info('开始刷新缓存...')
+      await service.cache.refreshAll()
+      ctx.logger('grouphelper').info('缓存刷新完成')
+      return success({ success: true, stats: service.cache.getStats() })
+    } catch (e) {
+      ctx.logger('grouphelper').error('刷新缓存失败:', e)
+      return error(e instanceof Error ? e.message : '刷新缓存失败')
+    }
+  })
+
+  /** 清空缓存 */
+  ctx.console.addListener('grouphelper/cache/clear' as any, async () => {
+    try {
+      await service.cache.clearAll()
+      ctx.logger('grouphelper').info('缓存已清空')
+      return success({ success: true })
+    } catch (e) {
+      ctx.logger('grouphelper').error('清空缓存失败:', e)
+      return error(e instanceof Error ? e.message : '清空缓存失败')
+    }
+  })
+
+  /** 按需获取单个名称（会触发缓存） */
+  ctx.console.addListener('grouphelper/cache/fetch-name' as any, async (params: {
+    type: 'guild' | 'user' | 'member'
+    guildId?: string
+    userId?: string
+  }) => {
+    try {
+      const { type, guildId, userId } = params
+      
+      if (type === 'guild' && guildId) {
+        const info = await service.cache.getGuildInfo(guildId)
+        return success({ name: info?.name || '', avatar: info?.avatar })
+      } else if (type === 'user' && userId) {
+        const info = await service.cache.getUserInfo(userId)
+        return success({ name: info?.name || '', avatar: info?.avatar })
+      } else if (type === 'member' && guildId && userId) {
+        const info = await service.cache.getMemberInfo(guildId, userId)
+        return success({
+          name: info?.name || '',
+          nick: info?.nick || '',
+          avatar: info?.avatar
+        })
+      }
+      
+      return error('无效的参数')
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '获取名称失败')
+    }
+  })
+
   // ===== 聊天功能 API =====
 
   /** 获取群信息 */
@@ -498,6 +580,31 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       return error('无法获取群信息')
     } catch (e) {
       return error(e instanceof Error ? e.message : '获取群信息失败')
+    }
+  })
+
+  /** 获取用户信息 */
+  ctx.console.addListener('grouphelper/chat/user-info' as any, async (params: { userId: string }) => {
+    try {
+      const { userId } = params
+      if (!userId) return error('缺少 userId 参数')
+
+      for (const bot of ctx.bots) {
+        try {
+          const user = await bot.getUser(userId)
+          if (user) {
+            let avatar = user.avatar
+            // OneBot/QQ 个人头像回退
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+            }
+            return success({ name: user.name || user.nick || userId, avatar })
+          }
+        } catch {}
+      }
+      return error('无法获取用户信息')
+    } catch (e) {
+      return error(e instanceof Error ? e.message : '获取用户信息失败')
     }
   })
 

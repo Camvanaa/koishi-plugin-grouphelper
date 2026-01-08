@@ -12,7 +12,7 @@
       <!-- 连接群聊按钮 -->
       <div class="connect-group-bar">
         <button class="connect-btn" @click="showConnectDialog = true">
-          <k-icon name="plus" /> 连接群聊
+          <k-icon name="plus" /> 新建会话
         </button>
       </div>
 
@@ -108,21 +108,34 @@
     <div class="connect-dialog-overlay" v-if="showConnectDialog" @click.self="showConnectDialog = false">
       <div class="connect-dialog">
         <div class="dialog-header">
-          <h3>连接群聊</h3>
+          <h3>新建会话</h3>
           <button class="close-btn" @click="showConnectDialog = false">×</button>
         </div>
         <div class="dialog-body">
           <div class="form-group">
-            <label>群号 / 频道ID</label>
+            <label>会话类型</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" v-model="connectForm.type" value="group" />
+                群聊
+              </label>
+              <label class="radio-label">
+                <input type="radio" v-model="connectForm.type" value="private" />
+                私聊
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>{{ connectForm.type === 'group' ? '群号 / 频道ID' : '用户ID' }}</label>
             <input
-              v-model="connectForm.channelId"
+              v-model="connectForm.targetId"
               type="text"
-              placeholder="输入群号或频道ID"
-              @keydown.enter="connectToGroup"
+              :placeholder="connectForm.type === 'group' ? '输入群号' : '输入QQ号/用户ID'"
+              @keydown.enter="connectToChat"
             />
           </div>
           <div class="form-group">
-            <label>群名称 (可选)</label>
+            <label>显示名称 (可选)</label>
             <input
               v-model="connectForm.name"
               type="text"
@@ -140,7 +153,7 @@
         </div>
         <div class="dialog-footer">
           <button class="cancel-btn" @click="showConnectDialog = false">取消</button>
-          <button class="confirm-btn" @click="connectToGroup" :disabled="!connectForm.channelId.trim()">
+          <button class="confirm-btn" @click="connectToChat" :disabled="!connectForm.targetId.trim()">
             连接
           </button>
         </div>
@@ -259,7 +272,8 @@ const sending = ref(false)
 const messageListRef = ref<HTMLElement | null>(null)
 const showConnectDialog = ref(false)
 const connectForm = reactive({
-  channelId: '',
+  type: 'group' as 'group' | 'private',
+  targetId: '',
   name: '',
   platform: 'onebot'
 })
@@ -338,60 +352,67 @@ const selectSession = (id: string) => {
   currentSessionId.value = id
 }
 
-// 连接到群聊
-const connectToGroup = async () => {
-  const channelId = connectForm.channelId.trim()
-  if (!channelId) return
+// 连接到会话
+const connectToChat = async () => {
+  const targetId = connectForm.targetId.trim()
+  if (!targetId) return
   
-  let groupName = connectForm.name.trim()
+  let displayName = connectForm.name.trim()
+  const isGroup = connectForm.type === 'group'
   
-  // 如果名称为空，尝试自动获取群名
-  if (!groupName) {
+  // 如果名称为空，尝试自动获取名称
+  if (!displayName) {
     try {
-      const info = await chatApi.getGuildInfo(channelId)
-      if (info?.name) {
-        groupName = info.name
+      if (isGroup) {
+        const info = await chatApi.getGuildInfo(targetId)
+        if (info?.name) displayName = info.name
+      } else {
+        const info = await chatApi.getUserInfo(targetId)
+        if (info?.name) displayName = info.name
       }
     } catch (e) {
-      console.warn('Failed to fetch guild info:', e)
+      console.warn('Failed to fetch info:', e)
     }
   }
   
   // 如果仍然没有名称，使用默认名称
-  if (!groupName) {
-    groupName = `群聊 ${channelId}`
+  if (!displayName) {
+    displayName = isGroup ? `群聊 ${targetId}` : `私聊 ${targetId}`
   }
   
   // 检查是否已存在该会话
-  let session = sessions.value.find(s => s.id === channelId)
+  let session = sessions.value.find(s => s.id === targetId)
   
   if (!session) {
     // 创建新会话
     session = {
-      id: channelId,
-      type: 'group',
-      name: groupName,
+      id: targetId,
+      type: connectForm.type,
+      name: displayName,
       platform: connectForm.platform,
-      guildId: channelId, // 群聊的 guildId 通常等于 channelId
-      avatar: `https://p.qlogo.cn/gh/${channelId}/${channelId}/640/`,
+      guildId: isGroup ? targetId : undefined,
+      avatar: isGroup
+        ? `https://p.qlogo.cn/gh/${targetId}/${targetId}/640/`
+        : `https://q1.qlogo.cn/g?b=qq&nk=${targetId}&s=640`,
       messages: [],
       unread: 0
     }
     sessions.value.unshift(session)
   } else {
     // 如果获取到了新名称，更新现有会话
-    if (groupName && groupName !== session.name) {
-      session.name = groupName
+    if (displayName && displayName !== session.name) {
+      session.name = displayName
     }
   }
   
   // 选中该会话
-  currentSessionId.value = channelId
+  currentSessionId.value = targetId
   
   // 关闭对话框并重置表单
   showConnectDialog.value = false
-  connectForm.channelId = ''
+  connectForm.targetId = ''
   connectForm.name = ''
+  connectForm.type = 'group'
 }
 
 const scrollToBottom = () => {
@@ -860,13 +881,14 @@ const renderMessage = (msg: ChatMessage) => {
 }
 
 .message-bubble {
-  background: var(--k-color-bg-3);
+  background: var(--k-color-active-bg, rgba(100, 100, 100, 0.1));
   padding: 0.75rem 1rem;
   border-radius: 0 12px 12px 12px;
   color: var(--k-color-text);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 /* Deep selector required for v-html content in scoped css */
@@ -931,6 +953,7 @@ const renderMessage = (msg: ChatMessage) => {
   background: var(--k-color-active);
   color: white;
   border-radius: 12px 0 12px 12px;
+  border: none;
 }
 
 .chat-input-area {
@@ -1138,6 +1161,20 @@ const renderMessage = (msg: ChatMessage) => {
 
 .form-group input::placeholder {
   color: var(--k-color-text-description);
+}
+
+.radio-group {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--k-color-text);
+  font-size: 0.9rem;
 }
 
 .dialog-footer {
