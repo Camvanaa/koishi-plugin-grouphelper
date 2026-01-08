@@ -64,6 +64,10 @@ export class WelcomeModule extends BaseModule {
     this.ctx.on('guild-member-added', async (session) => {
       await this.handleMemberJoin(session)
     })
+
+    this.ctx.on('guild-member-removed', async (session) => {
+      await this.handleMemberLeave(session)
+    })
   }
 
   /**

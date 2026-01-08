@@ -23,5 +23,6 @@ export default (ctx: Context) => {
     icon: 'grouphelper',
     component: Index,
     order: 500,
+    authority: 4, // 设置默认权限等级为 4
   })
 }
