@@ -14,6 +14,10 @@ icons.register('grouphelper:log', customIcons.log)
 icons.register('grouphelper:subscription', customIcons.subscription)
 icons.register('grouphelper:settings', customIcons.settings)
 icons.register('grouphelper:chat', customIcons.chat)
+icons.register('grouphelper:npm', customIcons.npm)
+icons.register('grouphelper:box', customIcons.box)
+icons.register('grouphelper:activity', customIcons.activity)
+icons.register('grouphelper:git-branch', customIcons.gitBranch)
 icons.register('grouphelper:roles', GroupIcon)
 
 export default (ctx: Context) => {

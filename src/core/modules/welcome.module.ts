@@ -13,6 +13,17 @@ export class WelcomeModule extends BaseModule {
     version: '1.0.0'
   }
 
+  private static readonly defaultWelcomeConfig : GroupConfig = {
+  keywords: [],
+  approvalKeywords: [],
+  welcomeMsg: '',
+  goodbyeMsg: '',
+  auto: 'false',
+  reject: '答案错误，请重新申请',
+  levelLimit: 0,
+  leaveCooldown: 0
+}
+
   constructor(ctx: Context, data: DataManager, config: Config) {
     super(ctx, data, config)
   }
@@ -31,7 +42,8 @@ export class WelcomeModule extends BaseModule {
       name: 'welcome',
       desc: '入群欢迎语管理',
       permNode: 'welcome',
-      permDesc: '管理入群欢迎语'
+      permDesc: '管理入群欢迎语',
+      usage: '-s 设置欢迎语，-r 移除，-t 测试，-l 设置等级限制，-j 设置退群冷却'
     })
       .option('s', '-s <消息> 设置欢迎语')
       .option('r', '-r 移除欢迎语')
@@ -46,7 +58,8 @@ export class WelcomeModule extends BaseModule {
       name: 'goodbye',
       desc: '退群欢送语管理',
       permNode: 'goodbye',
-      permDesc: '管理退群欢送语'
+      permDesc: '管理退群欢送语',
+      usage: '-s 设置欢送语，-r 移除，-t 测试'
     })
       .option('s', '-s <消息> 设置欢送语')
       .option('r', '-r 移除欢送语')
@@ -77,16 +90,7 @@ export class WelcomeModule extends BaseModule {
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || {
-      keywords: [],
-      approvalKeywords: [],
-      welcomeMsg: '',
-      goodbyeMsg: '',
-      auto: 'false',
-      reject: '答案错误，请重新申请',
-      levelLimit: 0,
-      leaveCooldown: 0
-    }
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
 
     // 设置等级限制
     if (options.l !== undefined) {
@@ -117,6 +121,7 @@ export class WelcomeModule extends BaseModule {
     // 设置欢迎语
     if (options.s) {
       groupConfig.welcomeMsg = options.s
+      groupConfig.welcomeEnabled = true
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'set', `已设置欢迎语：${options.s}`)
@@ -125,7 +130,8 @@ export class WelcomeModule extends BaseModule {
 
     // 移除欢迎语
     if (options.r) {
-      delete groupConfig.welcomeMsg
+      groupConfig.welcomeMsg = ''
+      groupConfig.welcomeEnabled = false
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'remove', '已移除欢迎语')
@@ -171,19 +177,12 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || {
-      keywords: [],
-      approvalKeywords: [],
-      welcomeMsg: '',
-      goodbyeMsg: '',
-      auto: 'false',
-      reject: '答案错误，请重新申请',
-      levelLimit: 0,
-      leaveCooldown: 0
-    }
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
+    
     // 设置欢送语
     if (options.s) {
       groupConfig.goodbyeMsg = options.s
+      groupConfig.goodbyeEnabled = true
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'goodbye', 'set', `已设置欢送语：${options.s}`)
@@ -192,7 +191,8 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
 
     // 移除欢送语
     if (options.r) {
-      delete groupConfig.goodbyeMsg
+      groupConfig.goodbyeMsg = ''
+      groupConfig.goodbyeEnabled = false
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'goodbye', 'remove', '已移除欢送语')

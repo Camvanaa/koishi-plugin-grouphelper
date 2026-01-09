@@ -82,6 +82,12 @@
             <input type="text" v-model="editingRole.name" :disabled="currentRole.builtin" class="form-input">
           </div>
 
+          <div class="form-group" v-if="!currentRole.builtin">
+            <label>角色别名</label>
+            <input type="text" v-model="editingRole.alias" placeholder="用于命令查找的简短名称" class="form-input">
+            <div class="field-hint">命令示例：gauth.add @用户 {{ editingRole.alias || editingRole.name || '别名' }}</div>
+          </div>
+
           <div class="form-group">
             <label>角色颜色</label>
             <div class="color-picker-wrapper">
@@ -284,6 +290,7 @@ import { message } from '@koishijs/client'
 const createDefaultRole = (): Role => ({
   id: '',
   name: '',
+  alias: '',
   color: '#999999',
   priority: 0,
   permissions: [],
@@ -432,6 +439,7 @@ const hasChanges = computed(() => {
   // 使用更可靠的比较方式
   const original = JSON.stringify({
     name: currentRole.value.name,
+    alias: currentRole.value.alias || '',
     color: currentRole.value.color,
     priority: currentRole.value.priority,
     permissions: currentRole.value.permissions || [],
@@ -439,6 +447,7 @@ const hasChanges = computed(() => {
   })
   const current = JSON.stringify({
     name: editingRole.value.name,
+    alias: editingRole.value.alias || '',
     color: editingRole.value.color,
     priority: editingRole.value.priority,
     permissions: editingRole.value.permissions || [],
@@ -525,6 +534,7 @@ const createRole = async () => {
   const newRole: Role = {
     id: Date.now().toString(),
     name: '新角色',
+    alias: '',
     color: '#999999',
     priority: 1,
     permissions: [],
@@ -629,6 +639,7 @@ const cloneRole = async () => {
     ...currentRole.value,
     id: Date.now().toString() + Math.floor(Math.random() * 10000).toString(),
     name: newName,
+    alias: '', // 克隆时清空别名，避免冲突
     // 确保数组被复制，避免引用同一对象
     permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
     guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
@@ -871,8 +882,20 @@ const copyRoleId = async () => {
   background-color: var(--k-card-bg);
   color: var(--k-color-text);
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 20px;
   border: 1px solid var(--k-color-border);
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sidebar {
@@ -932,13 +955,14 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 0.5rem 0.75rem;
   margin-bottom: 2px;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .role-item:hover {
   background-color: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .role-item.active {
@@ -1427,9 +1451,15 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 1rem;
   background-color: var(--k-color-bg-1);
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid var(--k-color-border);
   margin-bottom: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.permission-item:hover {
+  transform: translateX(4px);
+  border-color: var(--k-color-active);
 }
 
 .perm-info .perm-name {
@@ -1547,8 +1577,14 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 0.75rem;
   background: var(--k-color-bg-1);
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid var(--k-color-border);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.member-item:hover {
+  transform: translateX(4px);
+  border-color: var(--k-color-active);
 }
 
 .member-info {
@@ -1767,11 +1803,12 @@ const copyRoleId = async () => {
 
 .modal-dialog {
   background: var(--k-card-bg, white);
-  border-radius: 12px;
+  border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   min-width: 320px;
   max-width: 480px;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .modal-header {

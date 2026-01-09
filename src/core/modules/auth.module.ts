@@ -36,20 +36,45 @@ export class AuthModule extends BaseModule {
   }
 
   /**
-   * 通过 ID 或名称查找角色
-   * @param roleIdentifier 角色 ID 或名称
-   * @returns 找到的角色，或 null
+   * 通过 ID、名称或别名查找角色
+   * @param roleIdentifier 角色 ID、名称或别名
+   * @returns { role, warning } 找到的角色和可能的警告信息
    */
-  private findRole(roleIdentifier: string) {
+  private findRole(roleIdentifier: string): { role: ReturnType<typeof this.ctx.groupHelper.auth.getRoles>[0] | null, warning?: string } {
     const allRoles = this.ctx.groupHelper.auth.getRoles()
+    const lowerIdentifier = roleIdentifier.toLowerCase()
+
     // 优先精确匹配 ID
     let role = allRoles.find(r => r.id === roleIdentifier)
-    if (!role) {
-      // 再尝试匹配名称（忽略大小写）
-      const lowerIdentifier = roleIdentifier.toLowerCase()
-      role = allRoles.find(r => r.name.toLowerCase() === lowerIdentifier)
+    if (role) {
+      return { role }
     }
-    return role || null
+
+    // 尝试匹配别名（忽略大小写）
+    const aliasMatches = allRoles.filter(r => r.alias && r.alias.toLowerCase() === lowerIdentifier)
+    if (aliasMatches.length > 1) {
+      return {
+        role: aliasMatches[0],
+        warning: `存在 ${aliasMatches.length} 个角色使用相同别名 "${roleIdentifier}"，已匹配第一个：${aliasMatches[0].name}`
+      }
+    }
+    if (aliasMatches.length === 1) {
+      return { role: aliasMatches[0] }
+    }
+
+    // 尝试匹配名称（忽略大小写）
+    const nameMatches = allRoles.filter(r => r.name.toLowerCase() === lowerIdentifier)
+    if (nameMatches.length > 1) {
+      return {
+        role: nameMatches[0],
+        warning: `存在 ${nameMatches.length} 个角色使用相同名称 "${roleIdentifier}"，已匹配第一个：${nameMatches[0].name} (${nameMatches[0].id})`
+      }
+    }
+    if (nameMatches.length === 1) {
+      return { role: nameMatches[0] }
+    }
+
+    return { role: null }
   }
 
   /**
@@ -61,15 +86,17 @@ export class AuthModule extends BaseModule {
       name: 'gauth',
       desc: '管理用户角色',
       permNode: 'gauth',
-      permDesc: '管理用户角色（主命令）'
+      permDesc: '管理用户角色（主命令）',
+      usage: '角色管理系统，使用子命令操作'
     })
 
     // gauth.list - 列出所有可用角色
     this.registerCommand({
       name: 'gauth.list',
       desc: '列出所有可用角色',
-      permNode: 'gauth-list',
-      permDesc: '列出所有可用角色'
+      permNode: 'gauth.list',
+      permDesc: '列出所有可用角色',
+      usage: '显示系统中所有可分配的角色'
     })
       .action(async ({ session }) => {
         const roles = this.ctx.groupHelper.auth.getRoles()
@@ -92,8 +119,10 @@ export class AuthModule extends BaseModule {
       name: 'gauth.info',
       desc: '查看用户的角色',
       args: '<target:user>',
-      permNode: 'gauth-info',
-      permDesc: '查看用户的角色'
+      permNode: 'gauth.info',
+      permDesc: '查看用户的角色',
+      usage: '查看指定用户所拥有的角色',
+      examples: ['gauth.info @用户']
     })
       .example('gauth.info @可爱猫娘')
       .example('gauth.info 123456')
@@ -127,8 +156,10 @@ export class AuthModule extends BaseModule {
       name: 'gauth.add',
       desc: '给用户添加角色',
       args: '<target:user> <roleIdentifier:text>',
-      permNode: 'gauth-add',
-      permDesc: '给用户添加角色'
+      permNode: 'gauth.add',
+      permDesc: '给用户添加角色',
+      usage: '给指定用户分配角色',
+      examples: ['gauth.add @用户 admin']
     })
       .example('gauth.add @可爱猫娘 admin')
       .example('gauth.add @可爱猫娘 管理员')
@@ -144,7 +175,7 @@ export class AuthModule extends BaseModule {
         if (!userId) return '无法解析用户 ID'
 
         // 通过 ID 或名称查找角色
-        const role = this.findRole(roleIdentifier)
+        const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
           return `角色 "${roleIdentifier}" 不存在，使用 gauth.list 查看可用角色`
         }
@@ -156,7 +187,8 @@ export class AuthModule extends BaseModule {
 
         try {
           await this.ctx.groupHelper.auth.assignRole(userId, role.id)
-          return `已将用户 ${userId} 添加到角色 "${role.name}"`
+          const msg = `已将用户 ${userId} 添加到角色 "${role.name}"`
+          return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
           return `添加失败: ${e.message || e}`
         }
@@ -167,8 +199,10 @@ export class AuthModule extends BaseModule {
       name: 'gauth.remove',
       desc: '从用户移除角色',
       args: '<target:user> <roleIdentifier:text>',
-      permNode: 'gauth-remove',
-      permDesc: '从用户移除角色'
+      permNode: 'gauth.remove',
+      permDesc: '从用户移除角色',
+      usage: '从指定用户撤销角色',
+      examples: ['gauth.remove @用户 admin']
     })
       .alias('gauth.rm')
       .example('gauth.remove @可爱猫娘 admin')
@@ -185,7 +219,7 @@ export class AuthModule extends BaseModule {
         if (!userId) return '无法解析用户 ID'
 
         // 通过 ID 或名称查找角色
-        const role = this.findRole(roleIdentifier)
+        const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
           return `角色 "${roleIdentifier}" 不存在`
         }
@@ -203,7 +237,8 @@ export class AuthModule extends BaseModule {
 
         try {
           await this.ctx.groupHelper.auth.revokeRole(userId, role.id)
-          return `已从用户 ${userId} 移除角色 "${role.name}"`
+          const msg = `已从用户 ${userId} 移除角色 "${role.name}"`
+          return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
           return `移除失败: ${e.message || e}`
         }

@@ -1,6 +1,6 @@
 import { Context, Service, Session } from 'koishi'
 import { DataManager } from '../data'
-import { Role, PermissionNode } from '../../types'
+import { Role, PermissionNode, RegisteredCommand } from '../../types'
 
 /** 内置角色 ID 列表 */
 export const BUILTIN_ROLE_IDS = [
@@ -18,6 +18,8 @@ export class AuthService {
   private _permissions: Map<string, PermissionNode> = new Map()
   /** 已注册的模块通配符 */
   private _moduleWildcards: Set<string> = new Set()
+  /** 已注册的命令（用于动态生成帮助） */
+  private _commands: Map<string, RegisteredCommand> = new Map()
 
   constructor(
     private ctx: Context,
@@ -143,6 +145,35 @@ export class AuthService {
    */
   getPermissions(): PermissionNode[] {
     return Array.from(this._permissions.values())
+  }
+
+  /**
+   * 注册命令信息（用于动态生成帮助）
+   */
+  registerCommand(cmd: RegisteredCommand): void {
+    this._commands.set(cmd.name, cmd)
+  }
+
+  /**
+   * 获取所有已注册的命令
+   */
+  getCommands(): RegisteredCommand[] {
+    return Array.from(this._commands.values())
+  }
+
+  /**
+   * 按模块分组获取命令
+   */
+  getCommandsByModule(): Map<string, RegisteredCommand[]> {
+    const grouped = new Map<string, RegisteredCommand[]>()
+    for (const cmd of this._commands.values()) {
+      const key = cmd.moduleDesc || cmd.module
+      if (!grouped.has(key)) {
+        grouped.set(key, [])
+      }
+      grouped.get(key)!.push(cmd)
+    }
+    return grouped
   }
 
   /**

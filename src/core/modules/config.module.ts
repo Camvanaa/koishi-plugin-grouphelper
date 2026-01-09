@@ -30,16 +30,16 @@ export class ConfigModule extends BaseModule {
    */
   private registerCommands(): void {
     // 手动注册额外的权限节点
-    this.ctx.groupHelper.auth.registerPermission('config.view', '查看配置', '查看所有配置和记录', 'config')
-    this.ctx.groupHelper.auth.registerPermission('config.blacklist', '黑名单管理', '管理黑名单（添加/移除）', 'config')
-    this.ctx.groupHelper.auth.registerPermission('config.warn', '警告管理', '管理警告记录（添加/移除）', 'config')
+    this.ctx.groupHelper.auth.registerPermission('config.view', '查看配置', '查看所有配置和记录', this.meta.description)
+    this.ctx.groupHelper.auth.registerPermission('config.blacklist', '黑名单管理', '管理黑名单（添加/移除）', this.meta.description)
+    this.ctx.groupHelper.auth.registerPermission('config.warn', '警告管理', '管理警告记录（添加/移除）', this.meta.description)
 
     this.registerCommand({
       name: 'config',
       desc: '配置管理',
       permNode: 'config',
       permDesc: '配置管理主命令',
-      skipAuth: true  // 主命令跳过权限检查，子功能各自检查
+      usage: '-t 显示配置，-b 黑名单管理，-w 警告管理'
     })
       .option('t', '-t 显示所有记录')
       .option('b', '-b 黑名单管理')

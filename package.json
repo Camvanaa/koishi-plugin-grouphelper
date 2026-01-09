@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-grouphelper",
   "description": "带有webui的功能全面的群管插件",
-  "version": "0.3.4",
+  "version": "0.3.7",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "exports": {

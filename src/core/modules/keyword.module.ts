@@ -33,7 +33,8 @@ export class KeywordModule extends BaseModule {
       name: 'verify',
       desc: '入群验证关键词管理',
       permNode: 'verify',
-      permDesc: '管理入群验证关键词'
+      permDesc: '管理入群验证关键词',
+      usage: '-a 添加关键词，-r 移除，--clear 清空，-l 列出，-n 自动拒绝，-w 设置拒绝词'
     })
       .option('a', '-a <关键词> 添加关键词，多个关键词用英文逗号分隔')
       .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')
@@ -146,7 +147,8 @@ export class KeywordModule extends BaseModule {
       name: 'forbidden',
       desc: '禁言关键词管理',
       permNode: 'forbidden',
-      permDesc: '管理禁言关键词'
+      permDesc: '管理禁言关键词',
+      usage: '-a 添加关键词，-r 移除，--clear 清空，-l 列出，-d/-b/-k 开关，-t 禁言时长'
     })
       .option('a', '-a <关键词> 添加关键词，多个关键词用英文逗号分隔')
       .option('r', '-r <关键词> 移除关键词，多个关键词用英文逗号分隔')

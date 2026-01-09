@@ -186,8 +186,20 @@ onMounted(() => {
   margin-bottom: 1rem;
   background: var(--k-card-bg);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: 20px;
   border: 1px solid var(--k-color-border);
+  animation: fadeInUp 0.3s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .search-item {
@@ -226,7 +238,9 @@ onMounted(() => {
   overflow: hidden;
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 20px;
+  animation: fadeInUp 0.4s ease-out backwards;
+  animation-delay: 0.1s;
 }
 
 .empty-state {
@@ -267,6 +281,7 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-border);
   align-items: center;
   font-size: 0.9rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .table-row:last-child {
@@ -275,6 +290,7 @@ onMounted(() => {
 
 .table-row:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .col-time { width: 160px; flex-shrink: 0; color: var(--k-color-text-description); }

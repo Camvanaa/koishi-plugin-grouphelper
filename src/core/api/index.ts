@@ -8,6 +8,7 @@ import type {} from '@koishijs/plugin-console'
 import { GroupHelperService } from '../services/grouphelper.service'
 import type { Subscription, Role } from '../../types'
 import * as crypto from 'crypto'
+const pkg = require('../../../package.json')
 
 /** API 响应格式 */
 interface ApiResponse<T = any> {
@@ -442,6 +443,18 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 统计 API =====
 
+  /** 获取模块状态 */
+  ctx.console.addListener('grouphelper/stats/modules' as any, async () => {
+    const modules = service.getAllModules()
+    const result = modules.map(m => ({
+      name: m.meta.name,
+      description: m.meta.description,
+      state: m.state,
+      error: m.error ? m.error.message : undefined
+    }))
+    return success(result)
+  })
+
   /** 获取仪表盘统计 */
   ctx.console.addListener('grouphelper/stats/dashboard', async () => {
     const allWarns = data.warns.getAll()
@@ -462,6 +475,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       totalWarns: totalWarnCount,
       totalBlacklisted: Object.keys(allBlacklist).length,
       totalSubscriptions: subsList.length,
+      version: pkg.version,
       timestamp: Date.now()
     })
   })

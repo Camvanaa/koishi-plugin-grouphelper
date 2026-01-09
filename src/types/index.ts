@@ -438,6 +438,8 @@ export interface PermissionNode {
 export interface Role {
   id: string
   name: string
+  /** 角色别名（用于命令查找，没有时使用 name） */
+  alias?: string
   color?: string
   priority: number
   permissions: string[]
@@ -454,4 +456,26 @@ export interface AuthRolesData extends Record<string, unknown> {
 
 export interface AuthUsersData extends Record<string, unknown> {
   users: Record<string, string[]> // userId -> roleIds
+}
+
+/** 已注册的命令信息（用于动态生成帮助） */
+export interface RegisteredCommand {
+  /** 完整命令名（如 warn、warn.clear） */
+  name: string
+  /** 命令描述 */
+  desc: string
+  /** 参数定义 */
+  args?: string
+  /** 使用方法说明 */
+  usage?: string
+  /** 命令示例 */
+  examples?: string[]
+  /** 所属模块名 */
+  module: string
+  /** 模块描述（用于分组） */
+  moduleDesc: string
+  /** 权限节点 ID */
+  permId?: string
+  /** 是否跳过权限检查 */
+  skipAuth?: boolean
 }

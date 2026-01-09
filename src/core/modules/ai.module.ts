@@ -382,7 +382,9 @@ export class AIModule extends BaseModule {
       args: '[content:text]',
       permNode: 'ai',
       permDesc: '使用AI对话功能',
-      skipAuth: true  // AI对话是公开功能
+      skipAuth: true,  // AI对话是公开功能
+      usage: '-r 重置对话上下文',
+      examples: ['ai 今天天气怎么样', 'ai -r']
     })
       .option('reset', '-r 重置对话上下文')
       .action(async ({ session, options }, content) => {
@@ -418,7 +420,9 @@ export class AIModule extends BaseModule {
       args: '<text:text>',
       permNode: 'translate',
       permDesc: '使用AI翻译功能',
-      skipAuth: true  // 翻译是公开功能
+      skipAuth: true,  // 翻译是公开功能
+      usage: '翻译文本，可回复消息翻译，-p 自定义提示词',
+      examples: ['tsl Hello World', 'tsl -p 翻译成日语 你好']
     })
       .alias('tsl')
       .option('prompt', '-p <prompt:text> 自定义翻译提示词')
@@ -465,7 +469,8 @@ export class AIModule extends BaseModule {
       name: 'ai-config',
       desc: '配置AI功能',
       permNode: 'ai-config',
-      permDesc: '配置AI功能'
+      permDesc: '配置AI功能',
+      usage: '-e 启用/禁用，-p 系统提示词，-tp 翻译提示词，-r 重置'
     })
       .option('enabled', '-e <enabled:boolean> 是否在本群启用AI功能')
       .option('prompt', '-p <prompt:text> 设置本群特定的系统提示词')

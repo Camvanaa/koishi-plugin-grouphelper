@@ -32,7 +32,8 @@ export class StatusModule extends BaseModule {
       desc: '查看系统状态',
       permNode: 'status.view',
       permDesc: '查看系统状态图片',
-      skipAuth: true // 允许直接调用
+      skipAuth: true, // 允许直接调用
+      usage: '生成系统状态信息图片'
     })
       .action(async ({ session }) => {
         // 检查 puppeteer 服务

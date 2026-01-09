@@ -6,7 +6,7 @@
         <!-- Logo 区域 -->
         <div class="logo-area">
           <span class="logo-text">GROUP HELPER</span>
-          <span class="version-text">v0.3.4</span>
+          <span class="version-text">v{{ pkg.version }}</span>
         </div>
         <!-- 导航标签 -->
         <div class="nav-tabs">
@@ -27,7 +27,7 @@
     <!-- 主内容区 -->
     <div class="main-content">
       <keep-alive>
-        <component :is="activeComponent" />
+        <component :is="activeComponent" @change-view="currentView = $event" />
       </keep-alive>
     </div>
   </k-layout>
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import pkg from '../../package.json'
 import DashboardView from '../components/DashboardView.vue'
 import ConfigView from '../components/ConfigView.vue'
 import WarnsView from '../components/WarnsView.vue'
@@ -169,4 +170,27 @@ const menuItems = [
 }
 
 /* 默认隐藏外层滚动条，由子组件自行管理 */
+</style>
+
+<style>
+/* 全局滚动条样式美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.3);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(150, 150, 150, 0.5);
+}
 </style>
