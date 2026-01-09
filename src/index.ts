@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 import { GroupHelperService, registerWebSocketAPI } from './core'
 import { WarnModule, KeywordModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule, StatusModule,
-  MemberManageModule, MessageManageModule, OrderManageModule, AntirepeatModule} from './core/modules'
+  MemberManageModule, MessageManageModule, OrderManageModule, AntirepeatModule, crossGroupModule} from './core/modules'
 
 // 插件元信息
 export const name = 'grouphelper'
@@ -73,6 +73,7 @@ export function apply(ctx: Context) {
       const authModule = new AuthModule(ctx, ctx.groupHelper.data, config)
       const eventModule = new EventModule(ctx, ctx.groupHelper.data, config)
       const statusModule = new StatusModule(ctx, ctx.groupHelper.data, config)
+      const crossGroupManageModule = new crossGroupModule(ctx, ctx.groupHelper.data, config)
       ctx.groupHelper.registerModule(warnModule)
       ctx.groupHelper.registerModule(keywordModule)
       ctx.groupHelper.registerModule(memberManageModule)
@@ -94,6 +95,7 @@ export function apply(ctx: Context) {
       ctx.groupHelper.registerModule(authModule)
       ctx.groupHelper.registerModule(eventModule)
       ctx.groupHelper.registerModule(statusModule)
+      ctx.groupHelper.registerModule(crossGroupManageModule)
 
       // 初始化所有模块
       await ctx.groupHelper.initModules()
