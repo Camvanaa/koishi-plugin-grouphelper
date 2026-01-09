@@ -178,7 +178,11 @@ const versions = reactive({
 
 const loadNotice = async () => {
   try {
-    const res = await fetch('https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/notice.md')
+    // 添加时间戳参数防止浏览器缓存
+    const timestamp = Date.now()
+    const res = await fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/notice.md?t=${timestamp}`, {
+      cache: 'no-store'
+    })
     if (res.ok) {
       notice.value = await res.text()
     }
@@ -188,21 +192,24 @@ const loadNotice = async () => {
 }
 
 const loadVersions = async () => {
+  const timestamp = Date.now()
+  const fetchOptions = { cache: 'no-store' as RequestCache }
+
   try {
     // GitHub Main
-    fetch('https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/main/package.json')
+    fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/main/package.json?t=${timestamp}`, fetchOptions)
       .then(res => res.json())
       .then(pkg => versions.main = pkg.version)
       .catch(() => versions.main = '获取失败')
 
     // GitHub Dev
-    fetch('https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/package.json')
+    fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/package.json?t=${timestamp}`, fetchOptions)
       .then(res => res.json())
       .then(pkg => versions.dev = pkg.version)
       .catch(() => versions.dev = '获取失败')
 
     // NPM
-    fetch('https://registry.npmjs.org/koishi-plugin-grouphelper/latest')
+    fetch('https://registry.npmjs.org/koishi-plugin-grouphelper/latest', fetchOptions)
       .then(res => res.json())
       .then(pkg => versions.npm = pkg.version)
       .catch(() => versions.npm = '获取失败')
