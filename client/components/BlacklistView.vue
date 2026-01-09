@@ -227,8 +227,20 @@ onMounted(() => {
 .blacklist-table {
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .table-header {
@@ -249,7 +261,7 @@ onMounted(() => {
   padding: 1rem;
   align-items: center;
   border-bottom: 1px solid var(--k-color-border);
-  transition: background 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .table-row:last-child {
@@ -258,6 +270,8 @@ onMounted(() => {
 
 .table-row:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(6px);
+  box-shadow: -4px 0 0 #f56c6c;
 }
 
 .col-user {
@@ -290,10 +304,11 @@ onMounted(() => {
 
 .add-dialog {
   background: var(--k-card-bg);
-  border-radius: 12px;
+  border-radius: 20px;
   width: 90%;
   max-width: 400px;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .dialog-header {

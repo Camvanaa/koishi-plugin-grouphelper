@@ -800,14 +800,27 @@ onMounted(() => {
 .config-card {
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .config-card:hover {
   border-color: var(--k-color-active);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px);
 }
 
 .card-header {
@@ -946,12 +959,13 @@ onMounted(() => {
 
 .dialog-card {
   background: var(--k-card-bg);
-  border-radius: 12px;
+  border-radius: 20px;
   width: 90%;
   max-width: 400px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .dialog-body {
@@ -978,6 +992,8 @@ onMounted(() => {
 .edit-dialog.large {
   max-width: 800px;
   height: 80vh;
+  border-radius: 20px;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .dialog-header {
@@ -1029,15 +1045,16 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   color: var(--k-color-text);
   font-size: 0.9rem;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .sidebar-item:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .sidebar-item.active {
@@ -1077,14 +1094,16 @@ onMounted(() => {
 /* 插件卡片样式 */
 .plugin-card {
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--k-card-bg);
-  transition: border-color 0.3s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .plugin-card:hover {
   border-color: var(--k-color-active);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .plugin-header {

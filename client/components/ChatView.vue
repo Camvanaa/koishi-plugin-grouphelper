@@ -1015,8 +1015,20 @@ const renderMessage = (msg: ChatMessage) => {
   display: flex;
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 20px;
   overflow: hidden;
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chat-sidebar {
@@ -1080,12 +1092,13 @@ const renderMessage = (msg: ChatMessage) => {
   padding: 0.75rem 1rem;
   gap: 0.75rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   border-left: 3px solid transparent;
 }
 
 .session-item:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .session-item.active {
@@ -1603,7 +1616,7 @@ const renderMessage = (msg: ChatMessage) => {
 
 .connect-dialog {
   background: var(--k-card-bg);
-  border-radius: 12px;
+  border-radius: 20px;
   width: 400px;
   max-width: 90%;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1877,11 +1890,12 @@ const renderMessage = (msg: ChatMessage) => {
   gap: 10px;
   padding: 6px 12px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .member-item:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .member-item.owner .member-name {
@@ -1971,7 +1985,7 @@ const renderMessage = (msg: ChatMessage) => {
   z-index: 10000;
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   min-width: 140px;
   padding: 6px 0;

@@ -905,8 +905,20 @@ onMounted(() => {
   display: flex;
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .settings-sidebar {
@@ -922,16 +934,17 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   color: var(--k-color-text);
   font-size: 0.875rem;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   margin-bottom: 2px;
 }
 
 .sidebar-item:hover {
   background: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .sidebar-item.active {
@@ -1112,9 +1125,15 @@ onMounted(() => {
 .cache-stats {
   background: var(--k-color-bg-1);
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.cache-stats:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .stat-row {
@@ -1152,7 +1171,7 @@ onMounted(() => {
   padding: 1rem;
   background: rgba(64, 158, 255, 0.05);
   border: 1px solid rgba(64, 158, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 0.875rem;
   color: var(--k-color-text);
 }
@@ -1271,11 +1290,12 @@ onMounted(() => {
 
 .modal-dialog {
   background: var(--k-card-bg, white);
-  border-radius: 12px;
+  border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   min-width: 320px;
   max-width: 480px;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .modal-header {

@@ -871,8 +871,20 @@ const copyRoleId = async () => {
   background-color: var(--k-card-bg);
   color: var(--k-color-text);
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 20px;
   border: 1px solid var(--k-color-border);
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sidebar {
@@ -932,13 +944,14 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 0.5rem 0.75rem;
   margin-bottom: 2px;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .role-item:hover {
   background-color: var(--k-color-bg-1);
+  transform: translateX(4px);
 }
 
 .role-item.active {
@@ -1427,9 +1440,15 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 1rem;
   background-color: var(--k-color-bg-1);
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid var(--k-color-border);
   margin-bottom: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.permission-item:hover {
+  transform: translateX(4px);
+  border-color: var(--k-color-active);
 }
 
 .perm-info .perm-name {
@@ -1547,8 +1566,14 @@ const copyRoleId = async () => {
   align-items: center;
   padding: 0.75rem;
   background: var(--k-color-bg-1);
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid var(--k-color-border);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.member-item:hover {
+  transform: translateX(4px);
+  border-color: var(--k-color-active);
 }
 
 .member-info {
@@ -1767,11 +1792,12 @@ const copyRoleId = async () => {
 
 .modal-dialog {
   background: var(--k-card-bg, white);
-  border-radius: 12px;
+  border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   min-width: 320px;
   max-width: 480px;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .modal-header {

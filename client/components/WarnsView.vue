@@ -349,10 +349,22 @@ onMounted(() => {
   display: flex;
   flex: 1;
   border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border-radius: 20px;
   background: var(--k-card-bg);
   overflow: hidden;
   height: 0; /* 关键：触发 flex 高度计算 */
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 左侧边栏 */
@@ -383,15 +395,16 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 6px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   margin-bottom: 2px;
 }
 
 .sidebar-item:hover {
   background: var(--k-color-bg-2);
+  transform: translateX(4px);
 }
 
 .sidebar-item.active {
@@ -503,11 +516,13 @@ onMounted(() => {
   align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--k-color-border);
-  transition: background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .user-row:hover {
   background-color: var(--k-color-bg-1);
+  transform: translateX(6px);
+  box-shadow: -4px 0 0 var(--k-color-active);
 }
 
 .user-info {
@@ -655,12 +670,13 @@ onMounted(() => {
 
 .dialog-card {
   background: var(--k-card-bg);
-  border-radius: 12px;
+  border-radius: 20px;
   width: 90%;
   max-width: 400px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .dialog-header {

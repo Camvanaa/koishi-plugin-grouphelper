@@ -416,15 +416,28 @@ onMounted(() => {
 .sub-card {
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: pointer;
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sub-card:hover {
   border-color: var(--k-color-active);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px);
 }
 
 .card-header {
@@ -535,12 +548,13 @@ onMounted(() => {
 
 .dialog-card {
   background: var(--k-card-bg);
-  border-radius: 12px;
+  border-radius: 20px;
   width: 90%;
   max-width: 500px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 .dialog-header {
