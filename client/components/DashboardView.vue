@@ -2,6 +2,19 @@
   <div class="dashboard-view">
     <h2 class="view-title">仪表盘</h2>
     
+    <!-- 公告栏 -->
+    <div class="notice-section" v-if="notice">
+      <div class="notice-card">
+        <div class="notice-header">
+          <k-icon name="bell" />
+          <span class="notice-title">最新公告</span>
+        </div>
+        <div class="notice-content">
+          <k-markdown :source="notice" />
+        </div>
+      </div>
+    </div>
+
     <!-- 统计卡片 -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -79,6 +92,7 @@ interface DashboardStats {
 
 const loading = ref(false)
 const error = ref('')
+const notice = ref('')
 const stats = reactive<DashboardStats>({
   totalGroups: 0,
   totalWarns: 0,
@@ -86,6 +100,18 @@ const stats = reactive<DashboardStats>({
   totalSubscriptions: 0,
   timestamp: 0
 })
+
+const loadNotice = async () => {
+  try {
+    // 尝试从 GitHub 获取最新公告，如果失败则不显示
+    const res = await fetch('https://github.com/Camvanaa/koishi-plugin-grouphelper/blob/dev/notice.md')
+    if (res.ok) {
+      notice.value = await res.text()
+    }
+  } catch (e) {
+    console.error('Failed to fetch notice:', e)
+  }
+}
 
 const loadStats = async () => {
   loading.value = true
@@ -106,6 +132,7 @@ const formatTime = (timestamp: number) => {
 
 onMounted(() => {
   loadStats()
+  loadNotice()
 })
 </script>
 
@@ -120,6 +147,32 @@ onMounted(() => {
   font-weight: 600;
   color: var(--k-color-text);
   margin: 0 0 1.5rem 0;
+}
+
+.notice-section {
+  margin-bottom: 1.5rem;
+}
+
+.notice-card {
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.notice-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--k-color-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.notice-content {
+  line-height: 1.6;
+  color: var(--k-color-text);
 }
 
 .stats-grid {
