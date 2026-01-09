@@ -12,7 +12,7 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { Config, MuteRecord } from '../../types'
 import { parseUserId, parseTimeString, formatDuration } from '../../utils'
 
-export class memberManageModule extends BaseModule {
+export class MemberManageModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'manage-member',
     description: '成员管理模块',

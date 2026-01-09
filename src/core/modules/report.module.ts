@@ -927,7 +927,7 @@ export class ReportModule extends BaseModule {
   /**
    * 记录命令日志
    */
-  private async logCommand(session: any, command: string, target: string, details: string): Promise<void> {
+  protected async logCommand(session: any, command: string, target: string, details: string): Promise<void> {
     try {
       const commandLogs = this.data.commandLogs.getAll()
       if (!commandLogs.logs) {

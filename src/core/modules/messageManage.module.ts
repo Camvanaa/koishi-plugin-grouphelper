@@ -11,7 +11,7 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { Config, MuteRecord } from '../../types'
 import { parseUserId, parseTimeString, formatDuration } from '../../utils'
 
-export class messageManageModule extends BaseModule {
+export class MessageManageModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'manage-message',
     description: '消息管理模块',
