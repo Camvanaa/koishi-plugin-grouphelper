@@ -248,7 +248,8 @@ export class ReportModule extends BaseModule {
       desc: '举报违规消息',
       permNode: 'report',
       permDesc: '使用举报功能',
-      skipAuth: true  // 举报是普通功能，不需要权限（有单独的冷却机制）
+      skipAuth: true,  // 举报是普通功能，不需要权限（有单独的冷却机制）
+      usage: '回复违规消息使用，AI自动审核处理'
     })
       .option('verbose', '-v 显示详细判断结果')
       .action(async ({ session, options }) => {
@@ -491,7 +492,8 @@ export class ReportModule extends BaseModule {
       name: 'report-config',
       desc: '配置举报功能',
       permNode: 'report-config',
-      permDesc: '配置举报功能'
+      permDesc: '配置举报功能',
+      usage: '配置举报功能的启用、自动处理、上下文等选项'
     })
       .option('enabled', '-e <enabled:boolean> 是否启用举报功能')
       .option('auto', '-a <auto:boolean> 是否自动处理违规')

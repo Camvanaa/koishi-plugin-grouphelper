@@ -35,7 +35,9 @@ export class MemberManageModule extends BaseModule {
       desc: '踢出用户',
       args: '<input:text>',
       permNode: 'kick',
-      permDesc: '踢出群成员'
+      permDesc: '踢出群成员',
+      usage: '支持 @用户 或 QQ号，可指定群号，-b 加入黑名单',
+      examples: ['kick @用户', 'kick 123456789', 'kick @用户 -b']
     })
       .example('kick @用户')
       .example('kick 123456789')
@@ -114,7 +116,8 @@ export class MemberManageModule extends BaseModule {
       desc: '设置管理员',
       args: '<user:user>',
       permNode: 'admin',
-      permDesc: '设置群管理员'
+      permDesc: '设置群管理员',
+      examples: ['admin @用户']
     })
       .example('admin @用户')
       .action(async ({ session }, user) => {
@@ -136,7 +139,8 @@ export class MemberManageModule extends BaseModule {
       desc: '取消管理员',
       args: '<user:user>',
       permNode: 'unadmin',
-      permDesc: '取消群管理员'
+      permDesc: '取消群管理员',
+      examples: ['unadmin @用户']
     })
       .example('unadmin @用户')
       .action(async ({ session }, user) => {
@@ -165,7 +169,9 @@ export class MemberManageModule extends BaseModule {
       name: 'title',
       desc: '群头衔管理',
       permNode: 'title',
-      permDesc: '设置群头衔'
+      permDesc: '设置群头衔',
+      usage: '-s <文本> 设置头衔，-r 移除头衔，-u @用户 指定用户',
+      examples: ['title -s 大佬', 'title -r', 'title -s 萌新 -u @用户']
     })
       .option('s', '-s <text> 设置头衔')
       .option('r', '-r 移除头衔')
@@ -209,7 +215,8 @@ export class MemberManageModule extends BaseModule {
       name: 'unban-allppl',
       desc: '解除所有人禁言',
       permNode: 'unban-allppl',
-      permDesc: '批量解除所有禁言'
+      permDesc: '批量解除所有禁言',
+      usage: '解除当前群所有被禁言成员的禁言状态'
     })
       .action(async ({ session }) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'

@@ -42,7 +42,8 @@ export class WelcomeModule extends BaseModule {
       name: 'welcome',
       desc: '入群欢迎语管理',
       permNode: 'welcome',
-      permDesc: '管理入群欢迎语'
+      permDesc: '管理入群欢迎语',
+      usage: '-s 设置欢迎语，-r 移除，-t 测试，-l 设置等级限制，-j 设置退群冷却'
     })
       .option('s', '-s <消息> 设置欢迎语')
       .option('r', '-r 移除欢迎语')
@@ -57,7 +58,8 @@ export class WelcomeModule extends BaseModule {
       name: 'goodbye',
       desc: '退群欢送语管理',
       permNode: 'goodbye',
-      permDesc: '管理退群欢送语'
+      permDesc: '管理退群欢送语',
+      usage: '-s 设置欢送语，-r 移除，-t 测试'
     })
       .option('s', '-s <消息> 设置欢送语')
       .option('r', '-r 移除欢送语')

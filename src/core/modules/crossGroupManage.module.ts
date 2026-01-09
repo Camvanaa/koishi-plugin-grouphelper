@@ -32,7 +32,9 @@ export class crossGroupModule extends BaseModule {
       desc: '退出指定群聊',
       args: '<groupId:string>',
       permNode: 'quit-group',
-      permDesc: '退出群聊（高危）'
+      permDesc: '退出群聊（高危）',
+      usage: '让机器人退出指定的群聊',
+      examples: ['quit-group 123456789']
     })
       .example('quit-group 123456789')
       .action(async ({ session }, groupId) => {
@@ -57,7 +59,9 @@ export class crossGroupModule extends BaseModule {
       desc: '向指定群发送消息',
       args: '<groupId:string>',
       permNode: 'send',
-      permDesc: '远程发送群消息'
+      permDesc: '远程发送群消息',
+      usage: '回复一条消息后使用，-s 静默发送（不显示发送者）',
+      examples: ['send 123456789', 'send 123456789 -s']
     })
       .example('send 123456789')
       .option('s', '-s 静默发送，不显示发送者信息')

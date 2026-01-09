@@ -32,6 +32,10 @@ export interface CommandDef {
   permDesc?: string
   /** 跳过权限检查（默认 false） */
   skipAuth?: boolean
+  /** 使用方法说明（用于动态生成帮助） */
+  usage?: string
+  /** 命令示例 */
+  examples?: string[]
 }
 
 /** 模块状态 */
@@ -131,13 +135,13 @@ export abstract class BaseModule {
     const moduleName = this.meta.name
     const cmdName = def.name
     const cmdDef = def.args ? `${cmdName} ${def.args}` : cmdName
-    
+
     // 生成权限节点ID
     const permNode = def.permNode || cmdName.replace(/\./g, '-')
     const permId = `${moduleName}.${permNode}`
     const permName = def.desc
     const permDesc = def.permDesc || def.desc
-    
+
     // 在 AuthService 中注册权限节点
     if (!def.skipAuth) {
       this.ctx.groupHelper.auth.registerPermission(
@@ -147,22 +151,35 @@ export abstract class BaseModule {
         this.meta.description // 使用模块描述作为分组
       )
     }
-    
+
+    // 注册命令信息（用于动态生成帮助）
+    this.ctx.groupHelper.auth.registerCommand({
+      name: cmdName,
+      desc: def.desc,
+      args: def.args,
+      usage: def.usage,
+      examples: def.examples,
+      module: moduleName,
+      moduleDesc: this.meta.description,
+      permId: def.skipAuth ? undefined : permId,
+      skipAuth: def.skipAuth
+    })
+
     // 创建 Koishi 命令
     const command = this.ctx.command(cmdDef, def.desc)
-    
+
     // 添加权限检查中间件（除非跳过）
     if (!def.skipAuth) {
       command.before(async ({ session }) => {
         if (!session) return
-        
+
         // 使用 AuthService 检查权限
         if (!this.ctx.groupHelper.auth.check(session, permId)) {
           return '你没有权限执行此操作喵...'
         }
       })
     }
-    
+
     return command
   }
 

@@ -124,7 +124,9 @@ export class WarnModule extends BaseModule {
       desc: '警告用户',
       args: '<user:user> [count:number]',
       permNode: 'add',
-      permDesc: '添加警告记录'
+      permDesc: '添加警告记录',
+      usage: '警告用户，达到阈值后自动禁言',
+      examples: ['warn @用户', 'warn @用户 3']
     }).action(async ({ session }, user, count = 1) => {
       return this.handleWarn(session, user, count)
     })
@@ -135,7 +137,8 @@ export class WarnModule extends BaseModule {
       desc: '清除用户警告',
       args: '<user:user>',
       permNode: 'clear',
-      permDesc: '清除用户的警告记录'
+      permDesc: '清除用户的警告记录',
+      examples: ['warn.clear @用户']
     }).action(async ({ session }, user) => {
       return this.handleClearWarn(session, user)
     })
@@ -146,7 +149,9 @@ export class WarnModule extends BaseModule {
       desc: '查看警告列表',
       args: '[user:user]',
       permNode: 'list',
-      permDesc: '查看警告记录列表'
+      permDesc: '查看警告记录列表',
+      usage: '不指定用户则显示本群所有警告',
+      examples: ['warn.list', 'warn.list @用户']
     }).action(async ({ session }, user) => {
       return this.handleListWarns(session, user)
     })

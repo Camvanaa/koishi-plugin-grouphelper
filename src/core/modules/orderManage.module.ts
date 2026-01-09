@@ -41,7 +41,9 @@ export class OrderManageModule extends BaseModule {
       desc: '禁言用户',
       args: '<input:text>',
       permNode: 'ban',
-      permDesc: '禁言群成员'
+      permDesc: '禁言群成员',
+      usage: '格式：ban <用户> <时长> [群号]',
+      examples: ['ban @用户 1h', 'ban 123456789 30min']
     })
       .example('ban @用户 1h')
       .example('ban 123456789 1h')
@@ -127,7 +129,9 @@ export class OrderManageModule extends BaseModule {
       desc: '短期禁言',
       args: '<user:user>',
       permNode: 'stop',
-      permDesc: '短期禁言（10分钟）'
+      permDesc: '短期禁言（10分钟）',
+      usage: '固定10分钟的短期禁言',
+      examples: ['stop @用户']
     })
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
@@ -163,7 +167,9 @@ export class OrderManageModule extends BaseModule {
       desc: '解除用户禁言',
       args: '<input:text>',
       permNode: 'unban',
-      permDesc: '解除禁言'
+      permDesc: '解除禁言',
+      usage: '格式：unban <用户> [群号]',
+      examples: ['unban @用户', 'unban 123456789']
     })
       .example('unban @用户')
       .example('unban 123456789')
@@ -226,7 +232,8 @@ export class OrderManageModule extends BaseModule {
       name: 'ban-all',
       desc: '全体禁言',
       permNode: 'ban-all',
-      permDesc: '开启全体禁言'
+      permDesc: '开启全体禁言',
+      usage: '开启全群禁言模式'
     })
       .action(async ({ session }) => {
         try {
@@ -248,7 +255,8 @@ export class OrderManageModule extends BaseModule {
       name: 'unban-all',
       desc: '解除全体禁言',
       permNode: 'unban-all',
-      permDesc: '解除全体禁言'
+      permDesc: '解除全体禁言',
+      usage: '关闭全群禁言模式'
     })
       .action(async ({ session }) => {
         try {
@@ -270,7 +278,8 @@ export class OrderManageModule extends BaseModule {
       name: 'ban-list',
       desc: '查询当前禁言名单',
       permNode: 'ban-list',
-      permDesc: '查询禁言名单'
+      permDesc: '查询禁言名单',
+      usage: '显示当前群内所有被禁言的成员'
     })
       .action(async ({ session }) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
@@ -307,7 +316,9 @@ export class OrderManageModule extends BaseModule {
       desc: '随机解除若干人禁言',
       args: '<count:number>',
       permNode: 'unban-random',
-      permDesc: '随机解除禁言'
+      permDesc: '随机解除禁言',
+      usage: '从当前禁言名单中随机解除指定数量的禁言',
+      examples: ['unban-random 3']
     })
       .action(async ({ session }, count) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
@@ -353,7 +364,9 @@ export class OrderManageModule extends BaseModule {
       desc: '设置用户昵称',
       args: '<user:user> <nickname:string> <group:string>',
       permNode: 'nickname',
-      permDesc: '设置群成员昵称'
+      permDesc: '设置群成员昵称',
+      usage: '设置指定用户的群名片，不填昵称则清除',
+      examples: ['nickname @用户 小猫咪']
     })
       .example('nickname 123456789 小猫咪')
       .action(async ({ session }, user, nickname, group) => {

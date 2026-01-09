@@ -61,7 +61,8 @@ export class AuthModule extends BaseModule {
       name: 'gauth',
       desc: '管理用户角色',
       permNode: 'gauth',
-      permDesc: '管理用户角色（主命令）'
+      permDesc: '管理用户角色（主命令）',
+      usage: '角色管理系统，使用子命令操作'
     })
 
     // gauth.list - 列出所有可用角色
@@ -69,7 +70,8 @@ export class AuthModule extends BaseModule {
       name: 'gauth.list',
       desc: '列出所有可用角色',
       permNode: 'gauth.list',
-      permDesc: '列出所有可用角色'
+      permDesc: '列出所有可用角色',
+      usage: '显示系统中所有可分配的角色'
     })
       .action(async ({ session }) => {
         const roles = this.ctx.groupHelper.auth.getRoles()
@@ -93,7 +95,9 @@ export class AuthModule extends BaseModule {
       desc: '查看用户的角色',
       args: '<target:user>',
       permNode: 'gauth.info',
-      permDesc: '查看用户的角色'
+      permDesc: '查看用户的角色',
+      usage: '查看指定用户所拥有的角色',
+      examples: ['gauth.info @用户']
     })
       .example('gauth.info @可爱猫娘')
       .example('gauth.info 123456')
@@ -128,7 +132,9 @@ export class AuthModule extends BaseModule {
       desc: '给用户添加角色',
       args: '<target:user> <roleIdentifier:text>',
       permNode: 'gauth.add',
-      permDesc: '给用户添加角色'
+      permDesc: '给用户添加角色',
+      usage: '给指定用户分配角色',
+      examples: ['gauth.add @用户 admin']
     })
       .example('gauth.add @可爱猫娘 admin')
       .example('gauth.add @可爱猫娘 管理员')
@@ -168,7 +174,9 @@ export class AuthModule extends BaseModule {
       desc: '从用户移除角色',
       args: '<target:user> <roleIdentifier:text>',
       permNode: 'gauth.remove',
-      permDesc: '从用户移除角色'
+      permDesc: '从用户移除角色',
+      usage: '从指定用户撤销角色',
+      examples: ['gauth.remove @用户 admin']
     })
       .alias('gauth.rm')
       .example('gauth.remove @可爱猫娘 admin')

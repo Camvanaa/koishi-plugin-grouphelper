@@ -282,7 +282,8 @@ export class BanmeModule extends BaseModule {
     this.registerCommand({
       name: 'banme',
       desc: '随机禁言自己',
-      skipAuth: true // 所有人都能使用
+      skipAuth: true, // 所有人都能使用
+      usage: '随机抽取禁言时长，支持抽卡保底系统'
     }).action(async ({ session }) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
       if (session.quote) return '喵喵？回复消息时不能使用这个命令哦~'
@@ -293,7 +294,8 @@ export class BanmeModule extends BaseModule {
     this.registerCommand({
       name: 'banme.similar',
       desc: '查看形似字符映射表',
-      permDesc: '查看 banme 形似字符映射配置'
+      permDesc: '查看 banme 形似字符映射配置',
+      usage: '显示当前配置的形似字符替换规则'
     }).action(({ session }) => {
       let similarChars = this.readData(this.similarCharsPath)
       if (!similarChars || Object.keys(similarChars).length === 0) {
@@ -310,7 +312,9 @@ export class BanmeModule extends BaseModule {
       name: 'banme.normalize',
       desc: '规范化命令测试',
       args: '<command:string>',
-      permDesc: '测试 banme 规范化功能'
+      permDesc: '测试 banme 规范化功能',
+      usage: '测试字符串规范化结果，用于调试形似字符',
+      examples: ['banme.normalize bаnmе']
     }).action(({ session }, command) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
       const normalizedCommand = this.normalizeCommand(this.normalizeCommand(command))
@@ -324,7 +328,8 @@ export class BanmeModule extends BaseModule {
       name: 'banme.record',
       desc: '记录形似字符映射',
       args: '<standardCommand:string>',
-      permDesc: '通过引用消息逐字符添加形似字符替换'
+      permDesc: '通过引用消息逐字符添加形似字符替换',
+      usage: '引用一条包含形似字符的消息，提供标准字符串进行映射'
     }).action(async ({ session }, standardCommand) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
       if (!session.quote) return '请引用一条消息来记录映射喵~'
@@ -356,7 +361,8 @@ export class BanmeModule extends BaseModule {
       name: 'banme.alias',
       desc: '记录字符串别名',
       args: '<standardCommand:string>',
-      permDesc: '通过引用消息添加字符串映射'
+      permDesc: '通过引用消息添加字符串映射',
+      usage: '引用一条消息，将其整体映射为标准字符串'
     }).action(async ({ session }, standardCommand) => {
       if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
       if (!session.quote) return '请引用一条消息来记录映射喵~'
@@ -375,7 +381,8 @@ export class BanmeModule extends BaseModule {
     this.registerCommand({
       name: 'banme.config',
       desc: '设置banme配置',
-      permDesc: '修改 banme 功能配置'
+      permDesc: '修改 banme 功能配置',
+      usage: '配置本群的 banme 参数，包括启用、时长、概率等'
     })
       .option('enabled', '--enabled <enabled:boolean> 是否启用')
       .option('baseMin', '--baseMin <seconds:number> 最小禁言时间(秒)')

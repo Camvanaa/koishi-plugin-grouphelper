@@ -28,7 +28,9 @@ export class AntirepeatModule extends BaseModule {
       desc: '复读管理',
       args: '[threshold:number]',
       permNode: 'antirepeat',
-      permDesc: '管理复读检测'
+      permDesc: '管理复读检测',
+      usage: '设置复读阈值并启用，0为关闭',
+      examples: ['antirepeat 5', 'antirepeat 0']
     })
       .action(async ({ session }, threshold) => {
         if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'

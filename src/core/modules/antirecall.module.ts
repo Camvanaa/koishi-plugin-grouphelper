@@ -330,7 +330,9 @@ export class AntiRecallModule extends BaseModule {
       desc: '查询用户撤回消息记录',
       args: '<input:text>',
       permNode: 'antirecall',
-      permDesc: '查询撤回记录'
+      permDesc: '查询撤回记录',
+      usage: '查询指定用户的撤回消息历史',
+      examples: ['antirecall @用户', 'antirecall 123456789 5']
     })
       .alias('撤回查询')
       .usage('查询用户的撤回消息记录\n示例：\nantirecall @用户\nantirecall 123456789\nantirecall @用户 5\nantirecall 123456789 10 群号')
@@ -431,7 +433,9 @@ export class AntiRecallModule extends BaseModule {
       name: 'antirecall-config',
       desc: '防撤回功能配置',
       permNode: 'antirecall-config',
-      permDesc: '配置防撤回功能'
+      permDesc: '配置防撤回功能',
+      usage: '-e 启用/禁用，-d 保留天数，-m 每人最大记录数',
+      examples: ['antirecall-config -e true', 'antirecall-config -d 7 -m 100']
     })
       .alias('防撤回配置')
       .usage('配置群组防撤回功能\n选项：\n  -e <true/false> 启用/禁用\n  -d <days> 设置消息保留天数\n  -m <count> 设置每人最大记录数')
@@ -491,7 +495,8 @@ export class AntiRecallModule extends BaseModule {
       name: 'antirecall.status',
       desc: '查看防撤回功能状态',
       permNode: 'antirecall.status',
-      permDesc: '查看防撤回状态'
+      permDesc: '查看防撤回状态',
+      usage: '显示当前群防撤回配置和统计信息'
     })
       .action(async ({ session }) => {
         const status = this.getStatus(session.guildId)
@@ -531,7 +536,8 @@ export class AntiRecallModule extends BaseModule {
       name: 'antirecall.clear',
       desc: '清理所有撤回记录',
       permNode: 'antirecall.clear',
-      permDesc: '清理撤回记录（高危）'
+      permDesc: '清理撤回记录（高危）',
+      usage: '清除所有已保存的撤回消息记录'
     })
       .action(async ({ session }) => {
         this.clearAllRecords()

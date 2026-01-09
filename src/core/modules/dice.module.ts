@@ -28,7 +28,9 @@ export class DiceModule extends BaseModule {
       name: 'dice-config',
       desc: '掷骰子功能开关',
       permNode: 'dice-config',
-      permDesc: '配置掷骰子功能'
+      permDesc: '配置掷骰子功能',
+      usage: '-e true/false 启用禁用，-l 数字 设置结果长度限制',
+      examples: ['dice-config -e true', 'dice-config -l 500']
     })
       .option('e', '-e <enabled:string> 启用或禁用掷骰子功能')
       .option('l', '-l <length:number> 设置掷骰子结果长度限制')
@@ -76,7 +78,9 @@ export class DiceModule extends BaseModule {
       args: '<sides:number> [count:number]',
       permNode: 'dice',
       permDesc: '使用掷骰子功能',
-      skipAuth: true  // 掷骰子是普通功能，不需要权限
+      skipAuth: true,  // 掷骰子是普通功能，不需要权限
+      usage: '掷指定面数的骰子，支持 XdY 语法',
+      examples: ['dice 6', 'dice 20 3', '2d6']
     })
       .example('dice 6')
       .example('dice 20 3')

@@ -34,7 +34,8 @@ export class MessageManageModule extends BaseModule {
       name: 'delmsg',
       desc: '撤回消息',
       permNode: 'delmsg',
-      permDesc: '撤回群消息'
+      permDesc: '撤回群消息',
+      usage: '回复要撤回的消息后使用此命令'
     })
       .action(async ({ session }) => {
         if (!session.quote) return '喵喵！请回复要撤回的消息呀~'
@@ -59,7 +60,9 @@ export class MessageManageModule extends BaseModule {
       name: 'essence',
       desc: '精华消息管理',
       permNode: 'essence',
-      permDesc: '管理精华消息'
+      permDesc: '管理精华消息',
+      usage: '-s 设置精华消息，-r 取消精华消息',
+      examples: ['essence -s (回复消息)', 'essence -r (回复消息)']
     })
       .option('s', '-s 设置精华消息')
       .option('r', '-r 取消精华消息')
