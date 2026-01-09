@@ -438,6 +438,8 @@ export interface PermissionNode {
 export interface Role {
   id: string
   name: string
+  /** 角色别名（用于命令查找，没有时使用 name） */
+  alias?: string
   color?: string
   priority: number
   permissions: string[]

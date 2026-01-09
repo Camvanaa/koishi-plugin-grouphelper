@@ -36,20 +36,45 @@ export class AuthModule extends BaseModule {
   }
 
   /**
-   * 通过 ID 或名称查找角色
-   * @param roleIdentifier 角色 ID 或名称
-   * @returns 找到的角色，或 null
+   * 通过 ID、名称或别名查找角色
+   * @param roleIdentifier 角色 ID、名称或别名
+   * @returns { role, warning } 找到的角色和可能的警告信息
    */
-  private findRole(roleIdentifier: string) {
+  private findRole(roleIdentifier: string): { role: ReturnType<typeof this.ctx.groupHelper.auth.getRoles>[0] | null, warning?: string } {
     const allRoles = this.ctx.groupHelper.auth.getRoles()
+    const lowerIdentifier = roleIdentifier.toLowerCase()
+
     // 优先精确匹配 ID
     let role = allRoles.find(r => r.id === roleIdentifier)
-    if (!role) {
-      // 再尝试匹配名称（忽略大小写）
-      const lowerIdentifier = roleIdentifier.toLowerCase()
-      role = allRoles.find(r => r.name.toLowerCase() === lowerIdentifier)
+    if (role) {
+      return { role }
     }
-    return role || null
+
+    // 尝试匹配别名（忽略大小写）
+    const aliasMatches = allRoles.filter(r => r.alias && r.alias.toLowerCase() === lowerIdentifier)
+    if (aliasMatches.length > 1) {
+      return {
+        role: aliasMatches[0],
+        warning: `存在 ${aliasMatches.length} 个角色使用相同别名 "${roleIdentifier}"，已匹配第一个：${aliasMatches[0].name}`
+      }
+    }
+    if (aliasMatches.length === 1) {
+      return { role: aliasMatches[0] }
+    }
+
+    // 尝试匹配名称（忽略大小写）
+    const nameMatches = allRoles.filter(r => r.name.toLowerCase() === lowerIdentifier)
+    if (nameMatches.length > 1) {
+      return {
+        role: nameMatches[0],
+        warning: `存在 ${nameMatches.length} 个角色使用相同名称 "${roleIdentifier}"，已匹配第一个：${nameMatches[0].name} (${nameMatches[0].id})`
+      }
+    }
+    if (nameMatches.length === 1) {
+      return { role: nameMatches[0] }
+    }
+
+    return { role: null }
   }
 
   /**
@@ -150,7 +175,7 @@ export class AuthModule extends BaseModule {
         if (!userId) return '无法解析用户 ID'
 
         // 通过 ID 或名称查找角色
-        const role = this.findRole(roleIdentifier)
+        const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
           return `角色 "${roleIdentifier}" 不存在，使用 gauth.list 查看可用角色`
         }
@@ -162,7 +187,8 @@ export class AuthModule extends BaseModule {
 
         try {
           await this.ctx.groupHelper.auth.assignRole(userId, role.id)
-          return `已将用户 ${userId} 添加到角色 "${role.name}"`
+          const msg = `已将用户 ${userId} 添加到角色 "${role.name}"`
+          return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
           return `添加失败: ${e.message || e}`
         }
@@ -193,7 +219,7 @@ export class AuthModule extends BaseModule {
         if (!userId) return '无法解析用户 ID'
 
         // 通过 ID 或名称查找角色
-        const role = this.findRole(roleIdentifier)
+        const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
           return `角色 "${roleIdentifier}" 不存在`
         }
@@ -211,7 +237,8 @@ export class AuthModule extends BaseModule {
 
         try {
           await this.ctx.groupHelper.auth.revokeRole(userId, role.id)
-          return `已从用户 ${userId} 移除角色 "${role.name}"`
+          const msg = `已从用户 ${userId} 移除角色 "${role.name}"`
+          return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
           return `移除失败: ${e.message || e}`
         }

@@ -82,6 +82,12 @@
             <input type="text" v-model="editingRole.name" :disabled="currentRole.builtin" class="form-input">
           </div>
 
+          <div class="form-group" v-if="!currentRole.builtin">
+            <label>角色别名</label>
+            <input type="text" v-model="editingRole.alias" placeholder="用于命令查找的简短名称" class="form-input">
+            <div class="field-hint">命令示例：gauth.add @用户 {{ editingRole.alias || editingRole.name || '别名' }}</div>
+          </div>
+
           <div class="form-group">
             <label>角色颜色</label>
             <div class="color-picker-wrapper">
@@ -284,6 +290,7 @@ import { message } from '@koishijs/client'
 const createDefaultRole = (): Role => ({
   id: '',
   name: '',
+  alias: '',
   color: '#999999',
   priority: 0,
   permissions: [],
@@ -432,6 +439,7 @@ const hasChanges = computed(() => {
   // 使用更可靠的比较方式
   const original = JSON.stringify({
     name: currentRole.value.name,
+    alias: currentRole.value.alias || '',
     color: currentRole.value.color,
     priority: currentRole.value.priority,
     permissions: currentRole.value.permissions || [],
@@ -439,6 +447,7 @@ const hasChanges = computed(() => {
   })
   const current = JSON.stringify({
     name: editingRole.value.name,
+    alias: editingRole.value.alias || '',
     color: editingRole.value.color,
     priority: editingRole.value.priority,
     permissions: editingRole.value.permissions || [],
@@ -525,6 +534,7 @@ const createRole = async () => {
   const newRole: Role = {
     id: Date.now().toString(),
     name: '新角色',
+    alias: '',
     color: '#999999',
     priority: 1,
     permissions: [],
@@ -629,6 +639,7 @@ const cloneRole = async () => {
     ...currentRole.value,
     id: Date.now().toString() + Math.floor(Math.random() * 10000).toString(),
     name: newName,
+    alias: '', // 克隆时清空别名，避免冲突
     // 确保数组被复制，避免引用同一对象
     permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
     guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
