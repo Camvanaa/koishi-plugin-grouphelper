@@ -55,6 +55,7 @@ declare module '@koishijs/plugin-console' {
       totalWarns: number
       totalBlacklisted: number
       totalSubscriptions: number
+      version: string
       timestamp: number
     }>>
 

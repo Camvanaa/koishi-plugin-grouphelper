@@ -73,9 +73,17 @@ export const subscriptionApi = {
   update: (index: number, subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/update', { index, subscription }),
 }
 
+export interface ModuleStatus {
+  name: string
+  description: string
+  state: 'unloaded' | 'loading' | 'loaded' | 'error'
+  error?: string
+}
+
 // 统计 API
 export const statsApi = {
   dashboard: () => call<DashboardStats>('grouphelper/stats/dashboard'),
+  modules: () => call<ModuleStatus[]>('grouphelper/stats/modules'),
 }
 
 // 日志 API
