@@ -482,12 +482,6 @@
         </div>
 
         <div class="dialog-footer">
-          <div class="footer-left">
-            <k-button type="danger" @click="deleteConfig">
-              <template #icon><k-icon name="trash-2" /></template>
-              删除配置
-            </k-button>
-          </div>
           <div class="footer-right">
             <k-button @click="showEditDialog = false">取消</k-button>
             <k-button type="primary" @click="saveConfig" :loading="saving">保存</k-button>
@@ -1226,7 +1220,7 @@ onMounted(() => {
 
 .dialog-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--k-color-border);

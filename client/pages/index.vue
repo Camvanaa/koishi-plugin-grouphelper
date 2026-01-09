@@ -6,7 +6,7 @@
         <!-- Logo 区域 -->
         <div class="logo-area">
           <span class="logo-text">GROUP HELPER</span>
-          <span class="version-text">v0.3.7</span>
+          <span class="version-text">v{{ pkg.version }}</span>
         </div>
         <!-- 导航标签 -->
         <div class="nav-tabs">
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import pkg from '../../package.json'
 import DashboardView from '../components/DashboardView.vue'
 import ConfigView from '../components/ConfigView.vue'
 import WarnsView from '../components/WarnsView.vue'

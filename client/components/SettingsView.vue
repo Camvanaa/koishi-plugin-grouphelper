@@ -2,6 +2,12 @@
   <div class="settings-view">
     <div class="view-header">
       <h2 class="view-title">全局设置</h2>
+      <div class="header-actions">
+        <button class="reset-default-header-btn" @click="resetToDefault">
+          <k-icon name="rotate-ccw" />
+          恢复默认
+        </button>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -528,7 +534,6 @@
       <div class="save-bar" v-if="hasChanges">
         <span>检测到未保存的修改</span>
         <div class="save-actions">
-          <button class="reset-default-btn" @click="resetToDefault">恢复默认</button>
           <button class="reset-btn" @click="resetChanges">放弃更改</button>
           <button class="save-btn" @click="saveSettings">保存更改</button>
         </div>
@@ -883,6 +888,30 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.reset-default-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
+  color: var(--k-color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-default-header-btn:hover {
+  border-color: #f56c6c;
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.08);
+}
+
+.reset-default-header-btn .k-icon {
+  font-size: 14px;
+}
+
 .loading-state {
   display: flex;
   align-items: center;
@@ -1223,21 +1252,6 @@ onMounted(() => {
 .save-actions {
   display: flex;
   gap: 10px;
-}
-
-.reset-default-btn {
-  background: #f56c6c;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: bold;
-  transition: background 0.2s;
-}
-
-.reset-default-btn:hover {
-  background: #e04b4b;
 }
 
 .reset-btn {

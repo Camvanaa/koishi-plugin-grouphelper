@@ -3,6 +3,8 @@
     "rootDir": ".",
     "module": "esnext",
     "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "types": ["@koishijs/client/global"]
   },
   "include": ["."]
