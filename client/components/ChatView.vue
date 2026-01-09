@@ -1354,7 +1354,6 @@ const renderMessage = (msg: ChatMessage) => {
   max-height: 200px;
   border-radius: 4px;
   cursor: pointer;
-  vertical-align: middle;
   margin: 4px 0;
   display: block;
 }
