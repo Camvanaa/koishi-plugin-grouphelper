@@ -68,7 +68,7 @@ export class AuthModule extends BaseModule {
     this.registerCommand({
       name: 'gauth.list',
       desc: '列出所有可用角色',
-      permNode: 'gauth-list',
+      permNode: 'gauth.list',
       permDesc: '列出所有可用角色'
     })
       .action(async ({ session }) => {
@@ -92,7 +92,7 @@ export class AuthModule extends BaseModule {
       name: 'gauth.info',
       desc: '查看用户的角色',
       args: '<target:user>',
-      permNode: 'gauth-info',
+      permNode: 'gauth.info',
       permDesc: '查看用户的角色'
     })
       .example('gauth.info @可爱猫娘')
@@ -127,7 +127,7 @@ export class AuthModule extends BaseModule {
       name: 'gauth.add',
       desc: '给用户添加角色',
       args: '<target:user> <roleIdentifier:text>',
-      permNode: 'gauth-add',
+      permNode: 'gauth.add',
       permDesc: '给用户添加角色'
     })
       .example('gauth.add @可爱猫娘 admin')
@@ -167,7 +167,7 @@ export class AuthModule extends BaseModule {
       name: 'gauth.remove',
       desc: '从用户移除角色',
       args: '<target:user> <roleIdentifier:text>',
-      permNode: 'gauth-remove',
+      permNode: 'gauth.remove',
       permDesc: '从用户移除角色'
     })
       .alias('gauth.rm')
