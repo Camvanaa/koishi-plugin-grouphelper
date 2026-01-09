@@ -3,7 +3,8 @@ import type {} from '@koishijs/plugin-console'
 import { resolve } from 'path'
 
 import { GroupHelperService, registerWebSocketAPI } from './core'
-import { WarnModule, KeywordModule, BasicModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule, StatusModule } from './core/modules'
+import { WarnModule, KeywordModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule, StatusModule,
+  MemberManageModule, MessageManageModule, OrderManageModule, AntirepeatModule} from './core/modules'
 
 // 插件元信息
 export const name = 'grouphelper'
@@ -53,7 +54,10 @@ export function apply(ctx: Context) {
 
       const warnModule = new WarnModule(ctx, ctx.groupHelper.data, config)
       const keywordModule = new KeywordModule(ctx, ctx.groupHelper.data, config)
-      const basicModule = new BasicModule(ctx, ctx.groupHelper.data, config)
+      const memberManageModule = new MemberManageModule(ctx, ctx.groupHelper.data, config)
+      const messageManageModule = new MessageManageModule(ctx, ctx.groupHelper.data, config)
+      const orderManageModule = new OrderManageModule(ctx, ctx.groupHelper.data, config)
+      const antiRepeatModule = new AntirepeatModule(ctx, ctx.groupHelper.data, config)
       const welcomeModule = new WelcomeModule(ctx, ctx.groupHelper.data, config)
       const repeatModule = new RepeatModule(ctx, ctx.groupHelper.data, config)
       const diceModule = new DiceModule(ctx, ctx.groupHelper.data, config)
@@ -71,7 +75,10 @@ export function apply(ctx: Context) {
       const statusModule = new StatusModule(ctx, ctx.groupHelper.data, config)
       ctx.groupHelper.registerModule(warnModule)
       ctx.groupHelper.registerModule(keywordModule)
-      ctx.groupHelper.registerModule(basicModule)
+      ctx.groupHelper.registerModule(memberManageModule)
+      ctx.groupHelper.registerModule(messageManageModule)
+      ctx.groupHelper.registerModule(orderManageModule)
+      ctx.groupHelper.registerModule(antiRepeatModule)
       ctx.groupHelper.registerModule(welcomeModule)
       ctx.groupHelper.registerModule(repeatModule)
       ctx.groupHelper.registerModule(diceModule)
@@ -82,7 +89,7 @@ export function apply(ctx: Context) {
       ctx.groupHelper.registerModule(logModule)
       ctx.groupHelper.registerModule(subscriptionModule)
       ctx.groupHelper.registerModule(helpModule)
-      ctx.groupHelper.registerModule(reportModule)
+      ctx.groupHelper.registerModule(reportModule as any)
       ctx.groupHelper.registerModule(getAuthModule)
       ctx.groupHelper.registerModule(authModule)
       ctx.groupHelper.registerModule(eventModule)

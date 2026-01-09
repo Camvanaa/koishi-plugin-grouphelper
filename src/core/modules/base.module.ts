@@ -114,7 +114,6 @@ export abstract class BaseModule {
    */
   protected async log(session: Session, command: string, target: string, result: string, success?:boolean): Promise<void> {
     if(success === false){
-      console.log('Logging failed command')
       session['_commandFailed'] = true
     }
     await this.ctx.groupHelper.logCommand(session, command, target, result)
@@ -180,4 +179,10 @@ export abstract class BaseModule {
       this.meta.description
     )
   }
+
+  protected logCommand(session: any, command: string, target: string, result: string, success?: boolean): void {
+    // 使用 BaseModule 的 log 方法
+    this.log(session, command, target, result, success)
+  }
+  
 }
