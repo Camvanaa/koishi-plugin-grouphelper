@@ -487,23 +487,28 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     
     // 过滤
     logs = logs.filter((log: any) => {
-      const time = new Date(log.timestamp).getTime()
-      if (params.startTime && time < new Date(params.startTime).getTime()) return false
-      if (params.endTime && time > new Date(params.endTime).getTime()) return false
-      if (params.command && !log.command.toLowerCase().includes(params.command.toLowerCase())) return false
-      if (params.userId && log.userId !== params.userId) return false
-      if (params.username && (!log.username || !log.username.toLowerCase().includes(params.username.toLowerCase()))) return false
+      try {
+        const time = new Date(log.timestamp).getTime()
+        if (params.startTime && time < new Date(params.startTime).getTime()) return false
+        if (params.endTime && time > new Date(params.endTime).getTime()) return false
+        if (params.command && !String(log.command || '').toLowerCase().includes(params.command.toLowerCase())) return false
+      if (params.userId && String(log.userId) !== params.userId) return false
+      if (params.username && (!log.username || !String(log.username).toLowerCase().includes(params.username.toLowerCase()))) return false
       if (params.details) {
         const keyword = params.details.toLowerCase()
-        const matchResult = log.result?.toLowerCase().includes(keyword)
-        const matchError = log.error?.toLowerCase().includes(keyword)
-        const matchArgs = log.args?.some((arg: string) => arg.toLowerCase().includes(keyword))
+        const matchResult = String(log.result || '').toLowerCase().includes(keyword)
+        const matchError = String(log.error || '').toLowerCase().includes(keyword)
+        const matchArgs = log.args?.some((arg: any) => String(arg).toLowerCase().includes(keyword))
         const matchOptions = JSON.stringify(log.options || {}).toLowerCase().includes(keyword)
         
         if (!matchResult && !matchError && !matchArgs && !matchOptions) return false
       }
-      if (params.guildId && log.guildId !== params.guildId) return false
+      if (params.guildId && String(log.guildId) !== params.guildId) return false
       return true
+      } catch (e) {
+        // 如果单条日志处理出错，跳过该日志而不是导致整个请求失败
+        return false
+      }
     })
 
     // 分页
