@@ -81,28 +81,172 @@
         </div>
       </div>
 
+      <!-- Command Trend Chart -->
+      <div class="card chart-card trend-card">
+        <div class="card-header">
+          <k-icon name="trending-up" />
+          <h3>命令趋势</h3>
+          <span class="chart-subtitle">7 天</span>
+        </div>
+        <div class="chart-container">
+          <div v-if="chartLoading" class="chart-loading">
+            <k-icon name="loader" class="spin" />
+          </div>
+          <div v-else-if="chartData.trend.length === 0" class="chart-empty">
+            暂无数据
+          </div>
+          <div v-else class="bar-chart">
+            <div class="chart-bars">
+              <div
+                v-for="item in chartData.trend"
+                :key="item.date"
+                class="bar-wrapper"
+                :title="`${item.date}: ${item.count} 次`"
+              >
+                <div
+                  class="bar"
+                  :style="{ height: getBarHeight(item.count, maxTrendCount) + '%' }"
+                ></div>
+                <span class="bar-label">{{ item.date.slice(5) }}</span>
+              </div>
+            </div>
+            <div class="chart-total">
+              总计: {{ totalCommands }} 次
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Command Distribution Chart -->
+      <div class="card chart-card distribution-card">
+        <div class="card-header">
+          <k-icon name="bar-chart-2" />
+          <h3>命令排行</h3>
+          <span class="chart-subtitle">Top 10</span>
+        </div>
+        <div class="chart-container">
+          <div v-if="chartLoading" class="chart-loading">
+            <k-icon name="loader" class="spin" />
+          </div>
+          <div v-else-if="chartData.distribution.length === 0" class="chart-empty">
+            暂无数据
+          </div>
+          <div v-else class="horizontal-bar-chart">
+            <div
+              v-for="(item, index) in chartData.distribution"
+              :key="item.command"
+              class="h-bar-item"
+            >
+              <div class="h-bar-label">
+                <span class="h-bar-rank">{{ index + 1 }}</span>
+                <span class="h-bar-name">{{ item.command }}</span>
+              </div>
+              <div class="h-bar-track">
+                <div
+                  class="h-bar-fill"
+                  :style="{ width: getBarHeight(item.count, maxDistCount) + '%' }"
+                ></div>
+              </div>
+              <span class="h-bar-count">{{ item.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guild Rank Chart -->
+      <div class="card chart-card rank-card">
+        <div class="card-header">
+          <k-icon name="users" />
+          <h3>群聊排行</h3>
+          <span class="chart-subtitle">Top 10</span>
+        </div>
+        <div class="chart-container">
+          <div v-if="chartLoading" class="chart-loading">
+            <k-icon name="loader" class="spin" />
+          </div>
+          <div v-else-if="chartData.guildRank.length === 0" class="chart-empty">
+            暂无数据
+          </div>
+          <div v-else class="horizontal-bar-chart">
+            <div
+              v-for="(item, index) in chartData.guildRank"
+              :key="item.guildId"
+              class="h-bar-item"
+            >
+              <div class="h-bar-label">
+                <span class="h-bar-rank">{{ index + 1 }}</span>
+                <span class="h-bar-name" :title="item.guildId">{{ item.guildId }}</span>
+              </div>
+              <div class="h-bar-track">
+                <div
+                  class="h-bar-fill guild"
+                  :style="{ width: getBarHeight(item.count, maxGuildCount) + '%' }"
+                ></div>
+              </div>
+              <span class="h-bar-count">{{ item.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Rank Chart -->
+      <div class="card chart-card rank-card">
+        <div class="card-header">
+          <k-icon name="user" />
+          <h3>个人排行</h3>
+          <span class="chart-subtitle">Top 10</span>
+        </div>
+        <div class="chart-container">
+          <div v-if="chartLoading" class="chart-loading">
+            <k-icon name="loader" class="spin" />
+          </div>
+          <div v-else-if="chartData.userRank.length === 0" class="chart-empty">
+            暂无数据
+          </div>
+          <div v-else class="horizontal-bar-chart">
+            <div
+              v-for="(item, index) in chartData.userRank"
+              :key="item.userId"
+              class="h-bar-item"
+            >
+              <div class="h-bar-label">
+                <span class="h-bar-rank">{{ index + 1 }}</span>
+                <span class="h-bar-name" :title="item.userId">{{ item.name || item.userId }}</span>
+              </div>
+              <div class="h-bar-track">
+                <div
+                  class="h-bar-fill user"
+                  :style="{ width: getBarHeight(item.count, maxUserCount) + '%' }"
+                ></div>
+              </div>
+              <span class="h-bar-count">{{ item.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Version Info -->
       <div class="card version-card">
         <div class="card-header">
           <k-icon name="tag" />
           <h3>版本信息</h3>
         </div>
-        <div class="version-list">
-          <div class="version-row">
-            <span class="v-label"><k-icon name="box" /> 当前版本</span>
-            <k-tag type="primary">{{ stats.version || '...' }}</k-tag>
+        <div class="version-grid">
+          <div class="version-item">
+            <span class="version-label">当前</span>
+            <span class="version-value current">{{ stats.version || '...' }}</span>
           </div>
-          <div class="version-row">
-            <span class="v-label"><k-icon name="package" /> NPM 最新</span>
-            <k-tag :type="versions.npm ? 'success' : 'info'">{{ versions.npm || '加载中...' }}</k-tag>
+          <div class="version-item">
+            <span class="version-label">NPM</span>
+            <span class="version-value npm">{{ versions.npm || '...' }}</span>
           </div>
-          <div class="version-row">
-            <span class="v-label">GitHub Main</span>
-            <k-tag :type="versions.main ? 'warning' : 'info'">{{ versions.main || '加载中...' }}</k-tag>
+          <div class="version-item">
+            <span class="version-label">Main</span>
+            <span class="version-value main">{{ versions.main || '...' }}</span>
           </div>
-          <div class="version-row">
-            <span class="v-label"><k-icon name="git-branch" /> GitHub Dev</span>
-            <k-tag :type="versions.dev ? 'danger' : 'info'">{{ versions.dev || '加载中...' }}</k-tag>
+          <div class="version-item">
+            <span class="version-label">Dev</span>
+            <span class="version-value dev">{{ versions.dev || '...' }}</span>
           </div>
         </div>
       </div>
@@ -141,8 +285,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { statsApi } from '../api'
+import type { ChartData } from '../api'
 
 defineEmits(['change-view'])
 
@@ -160,6 +305,47 @@ const error = ref('')
 const notice = ref('')
 const commits = ref<any[]>([])
 const commitsError = ref('')
+
+// 图表相关
+const chartLoading = ref(false)
+const chartData = reactive<ChartData>({
+  trend: [],
+  distribution: [],
+  successRate: { success: 0, fail: 0 },
+  guildRank: [],
+  userRank: []
+})
+
+// 计算属性
+const maxTrendCount = computed(() => {
+  if (chartData.trend.length === 0) return 1
+  return Math.max(...chartData.trend.map(i => i.count), 1)
+})
+
+const maxDistCount = computed(() => {
+  if (chartData.distribution.length === 0) return 1
+  return Math.max(...chartData.distribution.map(i => i.count), 1)
+})
+
+const maxGuildCount = computed(() => {
+  if (chartData.guildRank.length === 0) return 1
+  return Math.max(...chartData.guildRank.map(i => i.count), 1)
+})
+
+const maxUserCount = computed(() => {
+  if (chartData.userRank.length === 0) return 1
+  return Math.max(...chartData.userRank.map(i => i.count), 1)
+})
+
+const totalCommands = computed(() => {
+  return chartData.trend.reduce((sum, item) => sum + item.count, 0)
+})
+
+// 计算柱状图高度百分比
+const getBarHeight = (count: number, max: number) => {
+  if (max === 0) return 0
+  return Math.max((count / max) * 100, 2) // 最小 2%
+}
 
 const stats = reactive<DashboardStats>({
   totalGroups: 0,
@@ -246,6 +432,22 @@ const loadStats = async () => {
   }
 }
 
+const loadCharts = async () => {
+  chartLoading.value = true
+  try {
+    const data = await statsApi.charts(7)
+    chartData.trend = data.trend
+    chartData.distribution = data.distribution
+    chartData.successRate = data.successRate
+    chartData.guildRank = data.guildRank || []
+    chartData.userRank = data.userRank || []
+  } catch (e: any) {
+    console.error('加载图表数据失败:', e)
+  } finally {
+    chartLoading.value = false
+  }
+}
+
 const formatTime = (timestamp: number) => {
   return new Date(timestamp).toLocaleString('zh-CN')
 }
@@ -267,11 +469,16 @@ const formatRelativeTime = (dateStr: string) => {
   return date.toLocaleDateString('zh-CN')
 }
 
+
 onMounted(() => {
   loadStats()
   loadNotice()
   loadVersions()
   loadCommits()
+  loadCharts()
+})
+
+onUnmounted(() => {
 })
 </script>
 
@@ -495,12 +702,24 @@ onMounted(() => {
 }
 
 /* Info Cards Layout */
-.version-card, .updates-card {
+.version-card {
+  grid-column: span 1;
+}
+
+.updates-card {
   grid-column: span 2;
-  grid-row: span 2;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  position: relative; /* 启用定位上下文 */
+  min-height: 240px; /* 确保最小高度 */
+}
+
+/* 让版本信息和最近更新同行等高 */
+.updates-card .commits-list {
+  position: absolute;
+  top: 76px; /* 预估 Header 高度 (header height + margin + padding) */
+  bottom: 1.5rem; /* 底部 padding */
+  left: 1.5rem; /* 左侧 padding */
+  right: 0.5rem; /* 右侧 padding (留出滚动条空间) */
+  overflow-y: auto;
 }
 
 .card-header {
@@ -514,36 +733,38 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* Version List - 更干净 */
-.version-list {
+/* Version Grid - 简洁紧凑 */
+.version-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.version-item {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--k-color-bg-2);
+  border-radius: 10px;
 }
 
-.version-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.875rem 1rem;
-  background: var(--k-bg-light);
-  border-radius: 12px;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
+.version-label {
+  font-size: 0.75rem;
+  color: var(--k-color-text-description);
+  font-weight: 500;
 }
 
-.version-row:hover {
-  border-color: var(--k-color-border);
-  transform: translateX(4px);
-}
-
-.v-label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--k-color-text);
+.version-value {
   font-size: 0.9rem;
+  font-weight: 600;
+  font-family: monospace;
 }
+
+.version-value.current { color: var(--k-color-primary); }
+.version-value.npm { color: #67c23a; }
+.version-value.main { color: #e6a23c; }
+.version-value.dev { color: #f56c6c; }
 
 /* Updates List - 时间轴样式 */
 .commits-list {
@@ -553,6 +774,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-height: 0;
 }
 
 .commit-item {
@@ -658,6 +880,10 @@ onMounted(() => {
   .notice-card {
     grid-column: span 2;
   }
+  .updates-card {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
 }
 
 @media (max-width: 768px) {
@@ -673,11 +899,14 @@ onMounted(() => {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  .card, .stat-card, .version-card, .updates-card, .notice-card {
+  .card, .stat-card, .version-card, .updates-card, .notice-card, .trend-card, .distribution-card {
     grid-column: span 1;
   }
   .commit-item::before {
     display: none; /* Hide timeline on mobile */
+  }
+  .version-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -704,4 +933,199 @@ onMounted(() => {
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Chart Cards */
+.chart-card {
+  grid-column: span 1;
+}
+
+.chart-card .card-header {
+  justify-content: flex-start;
+}
+
+.chart-subtitle {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--k-color-text-description);
+  background: var(--k-color-bg-2);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.chart-container {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-loading, .chart-empty {
+  color: var(--k-color-text-description);
+  font-size: 0.9rem;
+}
+
+/* Bar Chart (Vertical) */
+.bar-chart {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 140px;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bar {
+  width: 100%;
+  max-width: 40px;
+  background: var(--k-color-primary);
+  border-radius: 4px 4px 0 0;
+  transition: height 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  min-height: 2px;
+}
+
+.bar-wrapper:hover .bar {
+  opacity: 0.8;
+  box-shadow: 0 0 12px var(--k-color-primary-fade);
+}
+
+.bar-label {
+  font-size: 0.7rem;
+  color: var(--k-color-text-description);
+  white-space: nowrap;
+}
+
+.chart-total {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--k-color-text-description);
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--k-color-border);
+}
+
+/* Horizontal Bar Chart */
+.horizontal-bar-chart {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.h-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.h-bar-rank {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--k-color-bg-2);
+  color: var(--k-color-text-description);
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.h-bar-item:nth-child(1) .h-bar-rank {
+  background: #ffd700;
+  color: #000;
+}
+.h-bar-item:nth-child(2) .h-bar-rank {
+  background: #c0c0c0;
+  color: #000;
+}
+.h-bar-item:nth-child(3) .h-bar-rank {
+  background: #cd7f32;
+  color: #fff;
+}
+
+.h-bar-name {
+  font-size: 0.8rem;
+  color: var(--k-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70px;
+}
+
+.h-bar-track {
+  flex: 1;
+  height: 12px;
+  background: var(--k-color-bg-2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.h-bar-fill {
+  height: 100%;
+  background: var(--k-color-primary);
+  border-radius: 6px;
+  transition: width 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.h-bar-count {
+  min-width: 36px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--k-color-text-description);
+  text-align: right;
+}
+
+/* Chart cards layout */
+.trend-card {
+  grid-column: span 2;
+}
+
+.distribution-card {
+  grid-column: span 1;
+}
+
+.rank-card {
+  grid-column: span 1;
+}
+
+/* 不同排行的颜色 */
+.h-bar-fill.guild {
+  background: #67c23a;
+}
+
+.h-bar-fill.user {
+  background: #e6a23c;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .trend-card, .distribution-card, .rank-card {
+    grid-column: span 2;
+  }
+}
 </style>

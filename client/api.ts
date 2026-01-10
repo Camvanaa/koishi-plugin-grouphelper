@@ -80,10 +80,41 @@ export interface ModuleStatus {
   error?: string
 }
 
+// 图表数据类型
+export interface ChartTrendItem {
+  date: string
+  count: number
+}
+
+export interface ChartDistributionItem {
+  command: string
+  count: number
+}
+
+export interface ChartGuildRankItem {
+  guildId: string
+  count: number
+}
+
+export interface ChartUserRankItem {
+  userId: string
+  count: number
+  name: string
+}
+
+export interface ChartData {
+  trend: ChartTrendItem[]
+  distribution: ChartDistributionItem[]
+  successRate: { success: number; fail: number }
+  guildRank: ChartGuildRankItem[]
+  userRank: ChartUserRankItem[]
+}
+
 // 统计 API
 export const statsApi = {
   dashboard: () => call<DashboardStats>('grouphelper/stats/dashboard'),
   modules: () => call<ModuleStatus[]>('grouphelper/stats/modules'),
+  charts: (days?: number) => call<ChartData>('grouphelper/stats/charts', { days }),
 }
 
 // 日志 API
