@@ -562,11 +562,16 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       .slice(0, 10)
       .map(([command, count]) => ({ command, count }))
 
-    // 群组排行，取前10
+    // 群组排行，取前10（附带群名）
+    const cacheData = service.cache.getCachedData()
     const guildRank = Object.entries(guildStats)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
-      .map(([guildId, count]) => ({ guildId, count }))
+      .map(([guildId, count]) => ({
+        guildId,
+        count,
+        name: cacheData.guilds[guildId]?.name || ''
+      }))
 
     // 用户排行，取前10
     const userRank = Object.entries(userStats)

@@ -639,25 +639,42 @@ onMounted(() => {
   })
 })
 
-const handleIncomingMessage = (msg: ChatMessage) => {
+const handleIncomingMessage = async (msg: ChatMessage) => {
   // 确定会话ID (通常是 channelId)
   const sessionId = msg.channelId
-  
+
   let session = sessions.value.find(s => s.id === sessionId)
-  
+
   if (!session) {
-    // 新会话
+    // 新会话 - 先创建基础会话
+    const isGroup = !!msg.guildId
+    let displayName = msg.channelName || msg.guildName || (isGroup ? `群聊 ${sessionId}` : `私聊 ${msg.username}`)
+    let displayAvatar = isGroup ? msg.guildAvatar : msg.avatar
+
     session = {
       id: sessionId,
-      type: msg.guildId ? 'group' : 'private',
-      name: msg.channelName || msg.guildName || (msg.guildId ? `${sessionId}` : `私聊 ${msg.username}`),
+      type: isGroup ? 'group' : 'private',
+      name: displayName,
       platform: msg.platform,
       guildId: msg.guildId,
-      avatar: msg.guildId ? msg.guildAvatar : msg.avatar, // 群组用群头像，私聊用对方头像
+      avatar: displayAvatar,
       messages: [],
       unread: 0
     }
     sessions.value.unshift(session)
+
+    // 异步获取群名/用户名（不阻塞消息处理）
+    if (isGroup && msg.guildId && !msg.guildName) {
+      chatApi.getGuildInfo(msg.guildId).then(info => {
+        if (info?.name) session!.name = info.name
+        if (info?.avatar && !session!.avatar) session!.avatar = info.avatar
+      }).catch(() => {})
+    } else if (!isGroup && !msg.username) {
+      chatApi.getUserInfo(msg.userId).then(info => {
+        if (info?.name) session!.name = `私聊 ${info.name}`
+        if (info?.avatar && !session!.avatar) session!.avatar = info.avatar
+      }).catch(() => {})
+    }
   } else {
     // 移到顶部
     const index = sessions.value.indexOf(session)

@@ -94,6 +94,7 @@ export interface ChartDistributionItem {
 export interface ChartGuildRankItem {
   guildId: string
   count: number
+  name?: string
 }
 
 export interface ChartUserRankItem {

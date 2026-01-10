@@ -159,7 +159,7 @@ const menuItems = [
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  height: calc(100vh - 50px - 40px); /* 减去顶部导航和padding */
+  height: calc(100vh - 50px); /* 减去顶部导航 */
   overflow: hidden; /* 默认不滚动，让子组件自己管理滚动 */
   box-sizing: border-box;
 }
@@ -173,6 +173,11 @@ const menuItems = [
 </style>
 
 <style>
+/* 隐藏 Koishi 控制台自带的 layout-header */
+.grouphelper-app .layout-header {
+  display: none !important;
+}
+
 /* 全局滚动条样式美化 */
 ::-webkit-scrollbar {
   width: 8px;
