@@ -1,7 +1,7 @@
 <template>
   <div class="card notice-card" v-if="content">
     <div class="card-header">
-      <k-icon name="bell" />
+      <k-icon name="grouphelper:bell" />
       <h3>最新公告</h3>
     </div>
     <div class="notice-content">

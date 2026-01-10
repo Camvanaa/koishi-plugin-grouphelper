@@ -1,7 +1,7 @@
 <template>
   <div class="card stat-card" :class="type">
     <div class="stat-icon">
-      <k-icon :name="icon" />
+      <k-icon :name="resolvedIcon" />
     </div>
     <div class="stat-content">
       <div v-if="loading" class="skeleton skeleton-text"></div>
@@ -12,13 +12,22 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
   type: string
   icon: string
   value: number | string
   label: string
   loading?: boolean
 }>()
+
+// 自动添加 grouphelper 命名空间前缀
+const resolvedIcon = computed(() => {
+  if (!props.icon) return 'grouphelper:dashboard'
+  if (props.icon.includes(':')) return props.icon
+  return `grouphelper:${props.icon}`
+})
 </script>
 
 <style scoped>

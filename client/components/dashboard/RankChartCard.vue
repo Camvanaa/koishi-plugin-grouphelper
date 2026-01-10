@@ -1,7 +1,7 @@
 <template>
   <div class="card chart-card rank-card">
     <div class="card-header">
-      <k-icon :name="icon" />
+      <k-icon :name="resolvedIcon" />
       <h3>{{ title }}</h3>
       <span class="chart-subtitle">Top 10</span>
     </div>
@@ -46,6 +46,13 @@ const props = defineProps<{
   title: string
   icon: string
 }>()
+
+// 自动添加 grouphelper 命名空间前缀
+const resolvedIcon = computed(() => {
+  if (!props.icon) return 'grouphelper:users'
+  if (props.icon.includes(':')) return props.icon
+  return `grouphelper:${props.icon}`
+})
 
 const idKey = computed(() => props.type === 'guild' ? 'guildId' : 'userId')
 

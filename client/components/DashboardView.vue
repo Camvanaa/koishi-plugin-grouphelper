@@ -4,7 +4,7 @@
     <div class="hero-section">
       <div class="hero-content">
         <div class="hero-icon">
-          <k-icon name="activity" />
+          <k-icon name="grouphelper:logo" />
         </div>
         <div class="hero-text">
           <h1>GroupHelper</h1>
@@ -182,12 +182,13 @@ function saveLayout() {
 
 // 可用组件定义（StatCard 为内置组件，不可手动添加）
 const availableWidgets = [
-  { type: 'NoticeCard', name: '公告卡片', description: '显示公告内容', icon: 'bell', span: 4, defaultDynamicProps: { content: 'notice' } },
-  { type: 'TrendChartCard', name: '趋势图表', description: '显示命令使用趋势', icon: 'trending-up', span: 2, defaultDynamicProps: { data: 'chartData.trend', loading: 'chartLoading' } },
-  { type: 'DistChartCard', name: '命令排行', description: '显示命令使用分布', icon: 'bar-chart-2', span: 1, defaultDynamicProps: { data: 'chartData.distribution', loading: 'chartLoading' } },
-  { type: 'RankChartCard', name: '群聊排行', description: '显示群聊活跃排行', icon: 'users', span: 1, defaultProps: { type: 'guild', title: '群聊排行', icon: 'users' }, defaultDynamicProps: { data: 'chartData.guildRank', loading: 'chartLoading' } },
+  { type: 'NoticeCard', name: '公告卡片', description: '显示公告内容', icon: 'grouphelper:bell', span: 4, defaultDynamicProps: { content: 'notice' } },
+  { type: 'TrendChartCard', name: '趋势图表', description: '显示命令使用趋势', icon: 'grouphelper:trending-up', span: 2, defaultDynamicProps: { data: 'chartData.trend', loading: 'chartLoading' } },
+  { type: 'DistChartCard', name: '命令排行', description: '显示命令使用分布', icon: 'grouphelper:bar-chart-2', span: 1, defaultDynamicProps: { data: 'chartData.distribution', loading: 'chartLoading' } },
+  { type: 'RankChartCard', name: '群聊排行', description: '显示群聊活跃排行', icon: 'grouphelper:users', span: 1, defaultProps: { type: 'guild', title: '群聊排行', icon: 'users' }, defaultDynamicProps: { data: 'chartData.guildRank', loading: 'chartLoading' } },
+  { type: 'RankChartCard', name: '个人排行', description: '显示用户活跃排行', icon: 'grouphelper:user', span: 1, defaultProps: { type: 'user', title: '个人排行', icon: 'user' }, defaultDynamicProps: { data: 'chartData.userRank', loading: 'chartLoading' } },
   { type: 'VersionCard', name: '版本信息', description: '显示版本信息', icon: 'tag', span: 1, defaultDynamicProps: { stats: 'stats', versions: 'versions' } },
-  { type: 'UpdatesCard', name: '最近更新', description: '显示最近的代码提交', icon: 'clock', span: 2, defaultDynamicProps: { commits: 'commits', error: 'commitsError' } }
+  { type: 'UpdatesCard', name: '最近更新', description: '显示最近的代码提交', icon: 'grouphelper:clock', span: 2, defaultDynamicProps: { commits: 'commits', error: 'commitsError' } }
 ]
 
 // 属性解析
@@ -370,12 +371,14 @@ onMounted(() => {
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  background: var(--k-color-primary);
-  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+}
+
+.hero-icon :deep(svg) {
+  width: 56px;
+  height: 56px;
 }
 
 .hero-text h1 {

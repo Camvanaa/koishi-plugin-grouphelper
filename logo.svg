@@ -1,0 +1,53 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- GroupHelper Logo: 盾牌 + 群组 + 齿轮 -->
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#a5b4fc;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+
+  <!-- 盾牌外形 -->
+  <path
+    d="M32 4 L56 12 L56 28 C56 44 44 54 32 60 C20 54 8 44 8 28 L8 12 Z"
+    fill="url(#logoGradient)"
+    stroke="none"
+  />
+
+  <!-- 盾牌高光 -->
+  <path
+    d="M32 4 L56 12 L56 28 C56 44 44 54 32 60 C20 54 8 44 8 28 L8 12 Z"
+    fill="url(#shieldGlow)"
+    stroke="none"
+  />
+
+  <!-- 群组图标 - 三个人 -->
+  <g fill="white">
+    <!-- 中间的人（大） -->
+    <circle cx="32" cy="22" r="5" />
+    <path d="M24 38 C24 32 27 28 32 28 C37 28 40 32 40 38 L24 38 Z" />
+
+    <!-- 左边的人（小） -->
+    <circle cx="20" cy="26" r="3.5" />
+    <path d="M14 38 C14 34 16 31 20 31 C22 31 23 32 24 33 L24 38 L14 38 Z" />
+
+    <!-- 右边的人（小） -->
+    <circle cx="44" cy="26" r="3.5" />
+    <path d="M50 38 C50 34 48 31 44 31 C42 31 41 32 40 33 L40 38 L50 38 Z" />
+  </g>
+
+  <!-- 底部齿轮装饰 -->
+  <g fill="white" opacity="0.9">
+    <circle cx="32" cy="48" r="5" />
+    <circle cx="32" cy="48" r="2.5" fill="url(#logoGradient)" />
+    <!-- 齿轮齿 -->
+    <rect x="31" y="41" width="2" height="3" rx="0.5" />
+    <rect x="31" y="52" width="2" height="3" rx="0.5" />
+    <rect x="25" y="47" width="3" height="2" rx="0.5" />
+    <rect x="36" y="47" width="3" height="2" rx="0.5" />
+  </g>
+</svg>

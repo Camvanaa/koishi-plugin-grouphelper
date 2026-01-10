@@ -1,8 +1,18 @@
-# koishi-plugin-grouphelper
+<p align="center">
+  <img src="./logo.svg" width="128" height="128" alt="GroupHelper Logo">
+</p>
 
-[![npm](https://img.shields.io/npm/v/koishi-plugin-grouphelper?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-grouphelper)
+<h1 align="center">koishi-plugin-grouphelper</h1>
 
-> 全方位的群组管理解决方案，为 Koishi 机器人提供强大的群管理能力。
+<p align="center">
+  <a href="https://www.npmjs.com/package/koishi-plugin-grouphelper"><img src="https://img.shields.io/npm/v/koishi-plugin-grouphelper?style=flat-square" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/koishi-plugin-grouphelper"><img src="https://img.shields.io/npm/dm/koishi-plugin-grouphelper?style=flat-square" alt="npm downloads"></a>
+  <a href="https://github.com/camvanaa/koishi-plugin-grouphelper/blob/master/LICENSE"><img src="https://img.shields.io/github/license/camvanaa/koishi-plugin-grouphelper?style=flat-square" alt="license"></a>
+</p>
+
+<p align="center">全方位的群组管理解决方案，为 Koishi 机器人提供强大的群管理能力</p>
+
+---
 
 ## 特性亮点
 

@@ -2,10 +2,12 @@ import { Context, icons } from '@koishijs/client'
 
 import Index from './pages/index.vue'
 import GroupIcon from './icons/group.vue'
+import LogoIcon from './icons/logo.vue'
 import { icons as customIcons } from './icons'
 
 // 注册自定义图标
 icons.register('grouphelper', GroupIcon)
+icons.register('grouphelper:logo', LogoIcon)
 icons.register('grouphelper:dashboard', customIcons.dashboard)
 icons.register('grouphelper:config', customIcons.config)
 icons.register('grouphelper:warn', customIcons.warn)
@@ -19,6 +21,20 @@ icons.register('grouphelper:box', customIcons.box)
 icons.register('grouphelper:activity', customIcons.activity)
 icons.register('grouphelper:git-branch', customIcons.gitBranch)
 icons.register('grouphelper:roles', GroupIcon)
+// stat 组件常用图标
+icons.register('grouphelper:users', customIcons.users)
+icons.register('grouphelper:ban', customIcons.ban)
+icons.register('grouphelper:bell', customIcons.bell)
+icons.register('grouphelper:alert-triangle', customIcons.alertTriangle)
+icons.register('grouphelper:user-x', customIcons.userX)
+icons.register('grouphelper:user-minus', customIcons.userMinus)
+icons.register('grouphelper:shield', customIcons.shield)
+icons.register('grouphelper:shield-alert', customIcons.shieldAlert)
+icons.register('grouphelper:rss', customIcons.rss)
+icons.register('grouphelper:user', customIcons.user)
+icons.register('grouphelper:bar-chart-2', customIcons.barChart2)
+icons.register('grouphelper:trending-up', customIcons.trendingUp)
+icons.register('grouphelper:clock', customIcons.clock)
 
 export default (ctx: Context) => {
   ctx.page({
