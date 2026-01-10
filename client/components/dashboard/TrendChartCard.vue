@@ -61,46 +61,48 @@ const getBarHeight = (count: number, max: number) => {
 </script>
 
 <style scoped>
+/* GitHub Dimmed 风格趋势图表卡片 */
 .card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
-  padding: 1.5rem;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  height: 360px;
+  background: var(--bg2, var(--k-card-bg));
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  transition: border-color 0.15s ease;
+  height: 100%;
+  min-height: 320px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
-  border-color: var(--k-color-primary-fade);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
 
+/* 卡片头部 */
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  color: var(--k-color-text);
-  font-weight: 600;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--fg1, var(--k-color-text));
+  font-weight: 500;
 }
 
 .card-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.875rem;
 }
 
 .chart-subtitle {
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 400;
-  color: var(--k-color-text-description);
-  background: var(--k-color-bg-2);
-  padding: 2px 8px;
-  border-radius: 10px;
+  color: var(--fg3, var(--k-color-text-description));
+  background: var(--bg3, var(--k-color-bg-2));
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
 .chart-container {
@@ -115,8 +117,8 @@ const getBarHeight = (count: number, max: number) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
-  font-size: 0.9rem;
+  color: var(--fg3, var(--k-color-text-description));
+  font-size: 0.8rem;
 }
 
 .bar-chart {
@@ -124,7 +126,7 @@ const getBarHeight = (count: number, max: number) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .chart-bars {
@@ -132,8 +134,8 @@ const getBarHeight = (count: number, max: number) => {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 4px;
-  padding: 0 4px;
+  gap: 3px;
+  padding: 0 2px;
   min-height: 0;
 }
 
@@ -142,54 +144,61 @@ const getBarHeight = (count: number, max: number) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   height: 100%;
   justify-content: flex-end;
 }
 
+/* 柱状图 - 直角或微圆角 */
 .bar {
   width: 100%;
-  max-width: 40px;
-  background: var(--k-color-primary);
-  border-radius: 4px 4px 0 0;
-  transition: height 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  max-width: 36px;
+  background: var(--k-color-primary, #7459ff);
+  border-radius: 2px 2px 0 0;
+  transition: height 0.4s ease, opacity 0.15s ease;
   min-height: 2px;
 }
 
 .bar-wrapper:hover .bar {
   opacity: 0.8;
-  box-shadow: 0 0 12px var(--k-color-primary-fade);
 }
 
+/* 数值 - 等宽字体 */
 .bar-value {
-  font-size: 0.75rem;
-  color: var(--k-color-text-description);
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  color: var(--fg3, var(--k-color-text-description));
   margin-bottom: 2px;
-  font-weight: 600;
-  transition: all 0.3s;
+  transition: color 0.15s ease;
 }
 
 .bar-wrapper:hover .bar-value {
-  color: var(--k-color-primary);
-  transform: translateY(-2px);
+  color: var(--k-color-primary, #7459ff);
 }
 
+/* 标签 */
 .bar-label {
-  font-size: 0.7rem;
-  color: var(--k-color-text-description);
+  font-size: 0.6rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  color: var(--fg3, var(--k-color-text-description));
   white-space: nowrap;
 }
 
+/* 底部统计 */
 .chart-total {
   text-align: center;
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  color: var(--fg3, var(--k-color-text-description));
   padding-top: 0.5rem;
-  border-top: 1px dashed var(--k-color-border);
+  border-top: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .spin {
   animation: spin 1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>

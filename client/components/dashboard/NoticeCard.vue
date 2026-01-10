@@ -17,44 +17,75 @@ defineProps<{
 </script>
 
 <style scoped>
+/* GitHub Dimmed 风格公告卡片 */
 .card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
-  padding: 1.5rem;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  max-height: 360px;
+  background: var(--bg2, var(--k-card-bg));
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  transition: border-color 0.15s ease;
+  height: auto;
+  max-height: 200px;
   overflow-y: auto;
   box-sizing: border-box;
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
-  border-color: var(--k-color-primary-fade);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
 
+/* 左侧强调边框 - 直角 */
 .notice-card {
-  border-left: 4px solid var(--k-color-primary);
-  border-radius: 20px 20px 20px 16px;
+  border-left: 3px solid var(--k-color-primary, #7459ff);
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  color: var(--k-color-text);
-  font-weight: 600;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+  color: var(--fg1, var(--k-color-text));
+  font-weight: 500;
 }
 
 .card-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.875rem;
 }
 
 .notice-content {
-  color: var(--k-color-text);
-  line-height: 1.7;
+  color: var(--fg2, var(--k-color-text));
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+
+/* Markdown 内容样式覆盖 */
+.notice-content :deep(p) {
+  margin: 0.5rem 0;
+}
+
+.notice-content :deep(a) {
+  color: var(--k-color-primary, #7459ff);
+  text-decoration: none;
+}
+
+.notice-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.notice-content :deep(code) {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.8rem;
+  background: var(--bg3, var(--k-color-bg-2));
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+.notice-content :deep(pre) {
+  background: var(--bg1, var(--k-color-bg-1));
+  padding: 0.75rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.8rem;
 }
 </style>

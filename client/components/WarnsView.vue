@@ -1,51 +1,53 @@
 <template>
   <div class="warns-view">
+    <!-- Header -->
     <div class="view-header">
       <h2 class="view-title">警告记录</h2>
       <div class="header-actions">
         <div class="toggle-wrapper">
-          <label>解析名称</label>
-          <el-switch v-model="fetchNames" @change="refreshWarns" />
+          <span class="toggle-label">解析名称</span>
+          <el-switch v-model="fetchNames" @change="refreshWarns" size="small" />
         </div>
-        <k-button @click="showAddDialog = true">
-          <template #icon><k-icon name="plus" /></template>
-          添加警告
-        </k-button>
-        <k-button @click="reloadWarns" :loading="reloading" title="从文件重新加载警告数据">
-          <template #icon><k-icon name="database" /></template>
-          重载
-        </k-button>
-        <k-button type="primary" @click="refreshWarns">
-          <template #icon><k-icon name="refresh-cw" /></template>
-          刷新
-        </k-button>
+        <div class="btn-group">
+          <k-button @click="showAddDialog = true">
+            <template #icon><k-icon name="plus" /></template>
+            添加
+          </k-button>
+          <k-button @click="reloadWarns" :loading="reloading" title="从文件重新加载">
+            <template #icon><k-icon name="database" /></template>
+            重载
+          </k-button>
+          <k-button type="primary" @click="refreshWarns">
+            <template #icon><k-icon name="refresh-cw" /></template>
+            刷新
+          </k-button>
+        </div>
       </div>
     </div>
 
-    <!-- 加载状态 -->
+    <!-- Loading -->
     <div v-if="loading" class="loading-state">
       <k-icon name="loader" class="spin" />
-      <span>加载中...</span>
+      <span class="loading-text">加载中...</span>
     </div>
 
-    <!-- 主布局：左右分栏 -->
+    <!-- Main Layout -->
     <div v-else-if="Object.keys(groupedWarns).length > 0" class="warns-layout">
-      
-      <!-- 左侧：群组列表 -->
+      <!-- Sidebar -->
       <div class="sidebar">
         <div class="sidebar-header">
-          <span>群组列表 ({{ Object.keys(groupedWarns).length }})</span>
+          <span class="sidebar-title">群组</span>
+          <span class="sidebar-count">{{ Object.keys(groupedWarns).length }}</span>
         </div>
         <div class="sidebar-list">
           <div
-            v-for="(groupWarns, guildId, index) in groupedWarns"
+            v-for="(groupWarns, guildId) in groupedWarns"
             :key="guildId"
             class="sidebar-item"
             :class="{ active: selectedGuildId === guildId }"
-            :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
             @click="selectGuild(guildId as string)"
           >
-            <div class="item-icon">
+            <div class="item-avatar">
               <img
                 v-if="fetchNames && groupWarns[0].guildAvatar"
                 :src="groupWarns[0].guildAvatar"
@@ -54,38 +56,45 @@
               />
               <k-icon v-else name="users" />
             </div>
-            <div class="item-info">
+            <div class="item-content">
               <div class="item-name" :title="getGuildName(groupWarns[0])">
                 {{ getGuildName(groupWarns[0]) }}
               </div>
               <div class="item-meta">
-                {{ groupWarns.length }} 条记录
+                <span class="meta-count">{{ groupWarns.length }}</span> 条记录
               </div>
             </div>
-            <div class="active-indicator"></div>
           </div>
         </div>
       </div>
 
-      <!-- 右侧：详情列表 -->
+      <!-- Content -->
       <div class="content-area">
         <div v-if="selectedGuildId && groupedWarns[selectedGuildId]" class="group-detail">
           <div class="detail-header">
-            <div class="detail-title">
-              <h3>{{ getGuildName(groupedWarns[selectedGuildId][0]) }}</h3>
-              <span class="detail-subtitle">群号: {{ selectedGuildId }}</span>
+            <div class="detail-info">
+              <h3 class="detail-name">{{ getGuildName(groupedWarns[selectedGuildId][0]) }}</h3>
+              <code class="detail-id">{{ selectedGuildId }}</code>
+            </div>
+            <div class="detail-stats">
+              <span class="stat-value">{{ groupedWarns[selectedGuildId].length }}</span>
+              <span class="stat-label">条记录</span>
             </div>
           </div>
-          
+
           <div class="user-list">
+            <div class="list-header">
+              <span class="col-user">用户</span>
+              <span class="col-time">时间</span>
+              <span class="col-action">操作</span>
+            </div>
             <div
-              v-for="(item, index) in groupedWarns[selectedGuildId]"
+              v-for="item in groupedWarns[selectedGuildId]"
               :key="item.key"
               class="user-row"
-              :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
             >
               <div class="user-info">
-                <div class="avatar-placeholder">
+                <div class="user-avatar-wrap">
                   <img
                     v-if="fetchNames && item.userAvatar"
                     :src="item.userAvatar"
@@ -94,48 +103,47 @@
                   />
                   <k-icon v-else name="user" />
                 </div>
-                <div class="user-details">
-                  <div class="user-name">{{ item.userName !== 'Unknown' ? item.userName : '未知用户' }}</div>
-                  <div class="user-id">{{ item.userId }}</div>
-                </div>
-              </div>
-              
-              <div class="warn-stats">
-                <div class="warn-time">
-                  <k-icon name="clock" class="small-icon" />
-                  {{ formatTime(item.timestamp) }}
+                <div class="user-meta">
+                  <span class="user-name">{{ item.userName !== 'Unknown' ? item.userName : '未知用户' }}</span>
+                  <code class="user-id">{{ item.userId }}</code>
                 </div>
               </div>
 
+              <div class="warn-time">
+                <code>{{ formatTime(item.timestamp) }}</code>
+              </div>
+
               <div class="warn-control">
-                <el-input-number 
-                  v-model="item.count" 
-                  :min="0" 
+                <el-input-number
+                  v-model="item.count"
+                  :min="0"
                   size="small"
+                  controls-position="right"
                   @change="(val) => updateWarn(item, val)"
                 />
-                <k-button size="small" type="danger" @click="updateWarn(item, 0)" title="清除警告">
+                <k-button size="small" type="danger" @click="updateWarn(item, 0)" title="清除">
                   <template #icon><k-icon name="trash-2" /></template>
-                  清除
                 </k-button>
               </div>
             </div>
           </div>
         </div>
         <div v-else class="empty-selection">
-          <k-icon name="arrow-left" class="arrow-icon" />
-          <p>请选择左侧群组查看详情</p>
+          <k-icon name="chevron-left" />
+          <span>选择群组</span>
         </div>
       </div>
     </div>
 
-    <!-- 空状态 -->
+    <!-- Empty -->
     <div v-else class="empty-state">
-      <k-icon name="check-circle" class="empty-icon" />
-      <p>暂无警告记录</p>
+      <div class="empty-icon-wrap">
+        <k-icon name="check-circle" />
+      </div>
+      <p class="empty-text">暂无警告记录</p>
     </div>
 
-    <!-- 添加警告弹窗 -->
+    <!-- Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
       <div class="dialog-card">
         <div class="dialog-header">
@@ -146,20 +154,20 @@
         </div>
         <div class="dialog-body">
           <div class="form-group">
-            <label>群号</label>
+            <label class="form-label">群号</label>
             <input
               v-model="newWarn.guildId"
               type="text"
-              placeholder="输入群号..."
+              placeholder="输入群号"
               class="form-input"
             />
           </div>
           <div class="form-group">
-            <label>用户ID</label>
+            <label class="form-label">用户ID</label>
             <input
               v-model="newWarn.userId"
               type="text"
-              placeholder="输入用户ID..."
+              placeholder="输入用户ID"
               class="form-input"
             />
           </div>
@@ -310,187 +318,246 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ============================================
+   GitHub Dimmed Style - Professional & Minimal
+   ============================================ */
+
 .warns-view {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
 }
 
+/* Header */
 .view-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(82, 82, 89, 0.4);
   flex-shrink: 0;
+}
+
+.view-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 245, 0.9);
+  margin: 0;
+  letter-spacing: -0.25px;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .toggle-wrapper {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--k-color-text);
+  font-size: 0.75rem;
+  color: rgba(255, 255, 245, 0.4);
+  margin-right: 0.75rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid rgba(82, 82, 89, 0.4);
 }
 
-.view-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--k-color-text);
-  margin: 0;
+.toggle-label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
-/* 布局容器 */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Header Buttons Override */
+.header-actions :deep(.k-button) {
+  font-size: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 4px;
+  border: 1px solid rgba(82, 82, 89, 0.4);
+  background: #313136;
+  color: rgba(255, 255, 245, 0.6);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.header-actions :deep(.k-button:hover) {
+  background: #252529;
+  border-color: rgba(82, 82, 89, 0.68);
+  color: rgba(255, 255, 245, 0.9);
+}
+
+.header-actions :deep(.k-button.primary),
+.header-actions :deep(.k-button[type="primary"]) {
+  background: rgba(116, 89, 255, 0.15);
+  border-color: rgba(116, 89, 255, 0.3);
+  color: #7459ff;
+}
+
+.header-actions :deep(.k-button.primary:hover),
+.header-actions :deep(.k-button[type="primary"]:hover) {
+  background: rgba(116, 89, 255, 0.25);
+  border-color: rgba(116, 89, 255, 0.5);
+}
+
+.header-actions :deep(.k-icon) {
+  font-size: 14px;
+}
+
+/* El-Switch Override */
+.toggle-wrapper :deep(.el-switch) {
+  --el-switch-on-color: #7459ff;
+  --el-switch-off-color: #313136;
+  --el-switch-border-color: rgba(82, 82, 89, 0.68);
+  height: 18px;
+}
+
+.toggle-wrapper :deep(.el-switch__core) {
+  min-width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  border: 1px solid rgba(82, 82, 89, 0.68);
+}
+
+.toggle-wrapper :deep(.el-switch__core .el-switch__action) {
+  width: 14px;
+  height: 14px;
+}
+
+/* Main Layout */
 .warns-layout {
   display: flex;
   flex: 1;
-  border: 1px solid var(--k-color-border);
-  border-radius: 20px;
-  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  border-radius: 6px;
+  background: var(--bg2, #252529);
   overflow: hidden;
-  height: 0; /* 关键：触发 flex 高度计算 */
-  animation: fadeInUp 0.4s ease-out backwards;
+  height: 0;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 左侧边栏 */
+/* Sidebar */
 .sidebar {
-  width: 280px;
+  width: 260px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-1);
+  border-right: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  background: var(--bg1, #1e1e20);
 }
 
 .sidebar-header {
-  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+}
+
+.sidebar-title {
+  font-size: 12px;
   font-weight: 600;
-  color: var(--k-color-text-description);
-  border-bottom: 1px solid var(--k-color-border);
-  font-size: 0.9rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-count {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  background: var(--bg3, #313136);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .sidebar-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 4px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 12px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  position: relative;
-  margin-bottom: 2px;
-  animation: item-enter 0.4s ease-out backwards;
-}
-
-@keyframes item-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  transition: background-color 0.15s ease;
+  margin-bottom: 1px;
+  border: 1px solid transparent;
 }
 
 .sidebar-item:hover {
-  background: var(--k-color-bg-2);
-  transform: translateX(4px);
+  background: var(--bg3, #313136);
 }
 
 .sidebar-item.active {
-  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
+  border-color: var(--k-color-primary, #7459ff);
 }
 
-.item-icon {
-  color: var(--k-color-text-description);
+.item-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg3, #313136);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .guild-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   object-fit: cover;
 }
 
-.sidebar-item.active .item-icon {
-  color: var(--k-color-active);
-}
-
-.item-info {
+.item-content {
   flex: 1;
-  min-width: 0; /* 文本截断需要 */
+  min-width: 0;
 }
 
 .item-name {
+  font-size: 13px;
   font-weight: 500;
-  color: var(--k-color-text);
+  color: var(--fg1, rgba(255, 255, 245, .9));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.95rem;
 }
 
 .sidebar-item.active .item-name {
-  color: var(--k-color-active);
+  color: var(--k-color-primary-tint, rgb(129.9, 105.6, 255));
 }
 
 .item-meta {
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
-  margin-top: 2px;
+  font-size: 11px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  margin-top: 1px;
 }
 
-.active-indicator {
-  width: 3px;
-  height: 0;
-  background: var(--k-color-active);
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  border-radius: 3px 0 0 3px;
-  transition: height 0.2s;
+.meta-count {
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--fg2, rgba(255, 255, 245, .6));
 }
 
-.sidebar-item.active .active-indicator {
-  height: 60%;
-}
-
-/* 右侧内容区 */
+/* Content Area */
 .content-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--k-card-bg);
+  background: var(--bg2, #252529);
   min-width: 0;
 }
 
@@ -501,72 +568,114 @@ onMounted(() => {
 }
 
 .detail-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  background: var(--bg1, #1e1e20);
 }
 
-.detail-title h3 {
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-name {
   margin: 0;
-  font-size: 1.25rem;
-  color: var(--k-color-text);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
-.detail-subtitle {
-  font-size: 0.9rem;
-  color: var(--k-color-text-description);
-  margin-top: 0.25rem;
-  display: block;
-  font-family: monospace;
+.detail-id {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  background: transparent;
 }
 
+.detail-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-weight: 600;
+  color: var(--fg1, rgba(255, 255, 245, .9));
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+}
+
+/* User List */
 .user-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  background: var(--bg1, #1e1e20);
+  position: sticky;
+  top: 0;
+}
+
+.col-user {
+  width: 220px;
+}
+
+.col-time {
+  flex: 1;
+}
+
+.col-action {
+  width: 160px;
+  text-align: right;
 }
 
 .user-row {
   display: flex;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  animation: row-enter 0.4s ease-out backwards;
-}
-
-@keyframes row-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  transition: background-color 0.15s ease;
 }
 
 .user-row:hover {
-  background-color: var(--k-color-bg-1);
-  transform: translateX(6px);
-  box-shadow: -4px 0 0 var(--k-color-active);
+  background: var(--bg3, #313136);
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  width: 250px;
+  gap: 10px;
+  width: 220px;
 }
 
-.avatar-placeholder {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--k-color-bg-2);
+.user-avatar-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg3, #313136);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
+  color: var(--fg3, rgba(255, 255, 245, .4));
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -575,51 +684,52 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 6px;
 }
 
-.user-details {
+.user-meta {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 1px;
 }
 
 .user-name {
-  font-weight: 600;
-  color: var(--k-color-text);
-  font-size: 0.95rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg1, rgba(255, 255, 245, .9));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-id {
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
-}
-
-.warn-stats {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  color: var(--k-color-text-description);
-  font-size: 0.9rem;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  background: transparent;
 }
 
 .warn-time {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  flex: 1;
 }
 
-.small-icon {
-  font-size: 0.9rem;
+.warn-time code {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  background: transparent;
 }
 
 .warn-control {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8px;
+  width: 160px;
+  justify-content: flex-end;
 }
 
-/* 滚动条美化 */
+/* Scrollbar */
 .sidebar-list::-webkit-scrollbar,
 .user-list::-webkit-scrollbar {
   width: 6px;
@@ -632,17 +742,39 @@ onMounted(() => {
 
 .sidebar-list::-webkit-scrollbar-thumb,
 .user-list::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--bg3, #313136);
   border-radius: 3px;
 }
 
 .sidebar-list::-webkit-scrollbar-thumb:hover,
 .user-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
+  background-color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
-/* 状态相关 */
-.loading-state,
+/* States */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+}
+
+.loading-text {
+  font-size: 13px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .empty-state,
 .empty-selection {
   display: flex;
@@ -650,45 +782,40 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--k-color-text-description);
-  gap: 1rem;
+  gap: 8px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
-.empty-icon {
-  font-size: 48px;
-  opacity: 0.5;
-  color: #67c23a;
+.empty-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--k-color-success-fade, rgba(59, 165, 94, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-color-success, #3ba55e);
 }
 
-.arrow-icon {
-  font-size: 32px;
-  opacity: 0.5;
-  transform: translateX(-10px);
-  animation: bounce-left 2s infinite;
+.empty-text {
+  font-size: 13px;
+  margin: 0;
 }
 
-@keyframes bounce-left {
-  0%, 100% { transform: translateX(-10px); }
-  50% { transform: translateX(-15px); }
+.empty-selection {
+  flex-direction: row;
+  gap: 6px;
+  font-size: 13px;
 }
 
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* 弹窗样式 */
+/* Dialog */
 .dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -696,28 +823,29 @@ onMounted(() => {
 }
 
 .dialog-card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
+  background: var(--bg2, #252529);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  border-radius: 8px;
   width: 90%;
-  max-width: 400px;
+  max-width: 380px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: fadeInUp 0.3s ease-out;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
 .dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  background: var(--bg1, #1e1e20);
 }
 
 .dialog-header h3 {
   margin: 0;
-  font-size: 1.125rem;
-  color: var(--k-color-text);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .close-btn {
@@ -725,56 +853,66 @@ onMounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: var(--k-color-text-description);
+  color: var(--fg3, rgba(255, 255, 245, .4));
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  color: var(--k-color-text);
+  color: var(--fg1, rgba(255, 255, 245, .9));
+  background: var(--bg3, #313136);
 }
 
 .dialog-body {
-  padding: 1.5rem;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
-.form-group label {
+.form-label {
+  font-size: 12px;
   font-weight: 500;
-  color: var(--k-color-text);
+  color: var(--fg2, rgba(255, 255, 245, .6));
 }
 
 .form-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  padding: 8px 10px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  border-radius: 6px;
+  background: var(--bg1, #1e1e20);
+  color: var(--fg1, rgba(255, 255, 245, .9));
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: 13px;
   box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.form-input::placeholder {
+  color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--k-color-active);
+  border-color: var(--k-color-primary, #7459ff);
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--k-color-border);
+  padding: 12px 16px;
+  border-top: 1px solid var(--k-color-divider, rgba(82, 82, 89, .5));
+  background: var(--bg1, #1e1e20);
 }
 </style>

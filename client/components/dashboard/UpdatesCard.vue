@@ -54,76 +54,73 @@ const formatRelativeTime = (dateStr: string) => {
 </script>
 
 <style scoped>
+/* GitHub Dimmed 风格更新卡片 */
 .card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
-  padding: 1.5rem;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  height: 360px;
+  background: var(--bg2, var(--k-card-bg));
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  transition: border-color 0.15s ease;
+  height: 100%;
+  min-height: 320px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
-  border-color: var(--k-color-primary-fade);
-}
-
-.updates-card {
-  position: relative;
-}
-
-.commits-list {
-  position: absolute;
-  top: 76px;
-  bottom: 1.5rem;
-  left: 1.5rem;
-  right: 0.5rem;
-  overflow-y: auto;
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--k-color-border);
-  color: var(--k-color-text);
-  font-weight: 600;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  color: var(--fg1, var(--k-color-text));
+  font-weight: 500;
 }
 
 .card-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.875rem;
 }
 
+.commits-list {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem;
+}
+
+/* 提交项 - hover 效果 */
 .commit-item {
   display: flex;
-  gap: 1rem;
-  padding: 0.875rem 0.75rem;
+  gap: 0.75rem;
+  padding: 0.625rem 0.5rem;
   position: relative;
   text-decoration: none;
   color: inherit;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  margin-left: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+  margin-left: 0.375rem;
 }
 
 .commit-item:hover {
-  background: var(--k-bg-light);
-  transform: translateX(4px);
+  background: var(--bg3, var(--k-hover-bg));
 }
 
+/* 时间轴线 */
 .commit-item::before {
   content: '';
   position: absolute;
-  left: 20px;
-  top: 3rem;
+  left: 16px;
+  top: 2.25rem;
   bottom: -0.25rem;
-  width: 2px;
-  background: var(--k-color-border);
+  width: 1px;
+  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
   z-index: 0;
 }
 
@@ -134,32 +131,27 @@ const formatRelativeTime = (dateStr: string) => {
 .commit-avatar {
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 .commit-avatar img {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 3px solid var(--k-card-bg);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  transition: transform 0.2s;
-}
-
-.commit-item:hover .commit-avatar img {
-  transform: scale(1.1);
+  border: 2px solid var(--bg2, var(--k-card-bg));
 }
 
 .commit-info {
   flex: 1;
   min-width: 0;
-  padding-top: 0.25rem;
+  padding-top: 0.125rem;
 }
 
 .commit-msg {
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-  color: var(--k-color-text);
-  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: var(--fg1, var(--k-color-text));
+  font-size: 0.8rem;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -169,18 +161,19 @@ const formatRelativeTime = (dateStr: string) => {
 }
 
 .commit-meta {
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  font-size: 0.7rem;
+  color: var(--fg3, var(--k-color-text-description));
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
 .commit-meta span:first-child {
   font-weight: 500;
-  color: var(--k-color-primary);
+  color: var(--k-color-primary, #7459ff);
 }
 
+/* 滚动条 */
 .commits-list::-webkit-scrollbar {
   width: 4px;
 }
@@ -188,18 +181,26 @@ const formatRelativeTime = (dateStr: string) => {
   background: transparent;
 }
 .commits-list::-webkit-scrollbar-thumb {
-  background: var(--k-color-border);
+  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
   border-radius: 2px;
 }
 
 .loading-text, .error-text {
   text-align: center;
-  padding: 2rem;
-  color: var(--k-color-text-description);
+  padding: 1.5rem;
+  color: var(--fg3, var(--k-color-text-description));
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .spin {
   animation: spin 1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>

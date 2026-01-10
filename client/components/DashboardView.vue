@@ -348,144 +348,167 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========================================
+   GitHub Dimmed / Vercel 风格 Dashboard
+   去 AI 味，硬核专业高信噪比
+   ======================================== */
+
 .dashboard-container {
-  padding: 1.5rem;
+  padding: 1.25rem;
   max-width: 1600px;
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
 }
 
+/* Hero Section - 更紧凑的顶部区域 */
 .hero-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0.5rem;
+  padding: 0 0.25rem;
 }
 
 .hero-content {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .hero-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .hero-icon :deep(svg) {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
 }
 
 .hero-text h1 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: var(--k-color-text);
+  margin: 0 0 0.125rem 0;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.25px;
+  color: var(--fg1, var(--k-color-text));
 }
 
 .hero-meta {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  color: var(--k-color-text-description);
-  font-size: 0.85rem;
+  gap: 0.75rem;
+  color: var(--fg2, var(--k-color-text-description));
+  font-size: 0.8rem;
 }
 
+/* 状态指示器 - 实心小圆点，无发光效果 */
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--k-color-success);
-  font-weight: 600;
-  font-size: 0.8rem;
-  background: var(--k-color-success-fade);
-  padding: 2px 10px;
-  border-radius: 12px;
+  gap: 5px;
+  color: #3ba55e;
+  font-weight: 500;
+  font-size: 0.75rem;
+  background: rgba(59, 165, 94, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(59, 165, 94, 0.2);
 }
 
+/* 克制的实心圆点，无高斯模糊 */
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 8px currentColor;
+  background: #3ba55e;
 }
 
+/* 版本标签 - 等宽字体 */
 .version-tag {
-  background: var(--k-bg-light);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 0.8rem;
-  border: 1px solid var(--k-color-border);
+  background: var(--bg3, var(--k-bg-light));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--fg2, var(--k-color-text-description));
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
+/* 按钮 - GitHub 风格次要按钮 */
 .button {
   cursor: pointer;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  display: flex;
+  padding: 0.375rem 0.625rem;
+  border-radius: 4px;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  gap: 0.375rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
   user-select: none;
+  background: var(--bg3, #313136);
+  color: var(--fg2, rgba(255, 255, 245, 0.9));
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+}
+
+.button:hover {
+  background: var(--bg2, #252529);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
+  color: var(--fg1, #fff);
 }
 
 .button.is-primary {
-  background: var(--k-color-primary);
-  color: white;
+  background: rgba(59, 185, 80, 0.15);
+  color: #3fb950;
+  border-color: rgba(59, 185, 80, 0.3);
 }
 
 .button.is-primary:hover {
-  opacity: 0.9;
+  background: rgba(59, 185, 80, 0.25);
+  border-color: rgba(59, 185, 80, 0.5);
 }
 
-/* Grid Layout */
+/* Grid Layout - 更紧凑的间距 */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: minmax(160px, auto);
-  gap: 1.25rem;
-  padding-bottom: 2rem;
+  grid-auto-rows: auto;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
 }
 
 .grid-item {
   position: relative;
-  transition: transform 0.2s, opacity 0.2s;
-  animation: card-enter 0.5s ease-out backwards;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  animation: card-enter 0.35s ease-out backwards;
 }
 
 @keyframes card-enter {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 .bento-grid.is-editing .grid-item {
-  border: 1px dashed var(--k-color-border);
-  border-radius: 20px;
+  border: 1px dashed var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 8px;
   cursor: move;
 }
 
 .bento-grid.is-editing .grid-item:hover {
-  border-color: var(--k-color-primary);
+  border-color: var(--k-color-primary, #7459ff);
 }
 
 /* Edit Overlay */
@@ -496,13 +519,13 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s ease;
 }
 
 .grid-item:hover .edit-overlay {
@@ -511,151 +534,163 @@ onMounted(() => {
 
 .remove-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  background: #f56c6c;
-  color: white;
-  border-radius: 50%;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: #ff595a;
+  color: #fff;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.4);
-  transform: scale(0.8);
-  transition: transform 0.2s;
+  transition: background 0.15s ease;
 }
 
 .remove-btn:hover {
-  transform: scale(1.1);
+  background: #ff3d3e;
 }
 
 .drag-handle {
-  color: var(--k-color-primary);
-  font-size: 2rem;
-  opacity: 0.5;
+  color: var(--fg1, #fff);
+  font-size: 1.5rem;
+  opacity: 0.7;
 }
 
-/* Add Placeholder */
+/* Add Placeholder - 统一圆角 */
 .add-widget-placeholder {
   grid-column: span 1;
-  border: 2px dashed var(--k-color-border) !important;
-  border-radius: 20px;
+  border: 1px dashed var(--k-color-divider, rgba(82, 82, 89, 0.5)) !important;
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
+  color: var(--fg3, var(--k-color-text-description));
   cursor: pointer !important;
-  transition: all 0.2s;
-  min-height: 160px;
+  transition: all 0.15s ease;
+  min-height: 140px;
+  background: transparent;
 }
 
 .add-widget-placeholder:hover {
-  border-color: var(--k-color-primary) !important;
-  color: var(--k-color-primary);
-  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary, #7459ff) !important;
+  color: var(--k-color-primary, #7459ff);
+  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
 }
 
 .add-widget-placeholder .k-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  margin-bottom: 0.375rem;
 }
 
-/* Modal */
+/* Modal - GitHub 风格弹窗 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(2px);
 }
 
 .modal-content {
-  background: var(--k-card-bg);
-  width: 500px;
+  background: var(--bg2, var(--k-card-bg));
+  width: 440px;
   max-width: 90vw;
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg1, var(--k-color-text));
 }
 
 .close-btn {
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: background 0.2s;
+  padding: 0.375rem;
+  border-radius: 4px;
+  color: var(--fg3, var(--k-color-text-description));
+  transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  background: var(--k-color-bg-2);
+  background: var(--bg3, var(--k-color-bg-2));
+  color: var(--fg1, var(--k-color-text));
 }
 
 .widget-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-height: 60vh;
+  gap: 0.5rem;
+  max-height: 55vh;
   overflow-y: auto;
 }
 
 .widget-option {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  gap: 0.875rem;
+  padding: 0.75rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
+  background: transparent;
 }
 
 .widget-option:hover {
-  border-color: var(--k-color-primary);
-  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary, #7459ff);
+  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
 }
 
 .widget-preview {
-  width: 40px;
-  height: 40px;
-  background: var(--k-color-bg-2);
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  background: var(--bg3, var(--k-color-bg-2));
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
-  color: var(--k-color-text);
+  font-size: 1rem;
+  color: var(--fg2, var(--k-color-text));
+  flex-shrink: 0;
 }
 
 .widget-info h4 {
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.125rem 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--fg1, var(--k-color-text));
 }
 
 .widget-info p {
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-size: 0.75rem;
+  color: var(--fg3, var(--k-color-text-description));
 }
 
+/* 响应式布局 */
 @media (max-width: 1200px) {
   .bento-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -665,6 +700,16 @@ onMounted(() => {
 @media (max-width: 768px) {
   .bento-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hero-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .hero-actions {
+    align-self: flex-end;
   }
 }
 </style>

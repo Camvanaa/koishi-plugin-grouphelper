@@ -876,22 +876,28 @@ const copyRoleId = async () => {
 </script>
 
 <style scoped>
+/* ========================================
+   GitHub Dimmed / Vercel 风格 RolesView
+   硬核专业高信噪比
+   ======================================== */
+
 .roles-view-container {
   display: flex;
   height: 100%;
   max-height: 100%;
-  background-color: var(--k-card-bg);
-  color: var(--k-color-text);
+  background: var(--bg2, #252529);
+  color: var(--fg1, rgba(255, 255, 245, .9));
   overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid var(--k-color-border);
-  animation: fadeInUp 0.4s ease-out backwards;
+  border-radius: 8px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  animation: fadeInUp 0.35s ease-out backwards;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
 }
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -899,17 +905,18 @@ const copyRoleId = async () => {
   }
 }
 
+/* 侧边栏 */
 .sidebar {
-  width: 240px;
-  background-color: var(--k-color-bg-2);
-  border-right: 1px solid var(--k-color-border);
+  width: 220px;
+  background: var(--bg1, #1e1e20);
+  border-right: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   display: flex;
   flex-direction: column;
 }
 
 .sidebar-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -917,20 +924,22 @@ const copyRoleId = async () => {
 
 .sidebar-header h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
 .role-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 0.375rem;
 }
 
-/* 角色列表 Koishi 风格滚动条 */
+/* 滚动条 - 细微克制 */
 .role-list::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
 }
 
 .role-list::-webkit-scrollbar-track {
@@ -938,34 +947,30 @@ const copyRoleId = async () => {
 }
 
 .role-list::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-  border-radius: 3px;
-  transition: background-color 0.3s;
+  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 2px;
 }
 
 .role-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
+  background: var(--fg3, rgba(255, 255, 245, .4));
 }
 
-.role-list::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
+/* 角色项 */
 .role-item {
   display: flex;
   align-items: center;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 2px;
-  border-radius: 12px;
+  padding: 0.5rem 0.625rem;
+  margin-bottom: 1px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  animation: item-enter 0.4s ease-out backwards;
+  transition: background 0.15s ease;
+  animation: item-enter 0.3s ease-out backwards;
 }
 
 @keyframes item-enter {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(-8px);
   }
   to {
     opacity: 1;
@@ -974,20 +979,22 @@ const copyRoleId = async () => {
 }
 
 .role-item:hover {
-  background-color: var(--k-color-bg-1);
-  transform: translateX(4px);
+  background: var(--bg3, #313136);
 }
 
 .role-item.active {
-  background-color: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
+  border-left: 2px solid var(--k-color-primary, #7459ff);
+  margin-left: -2px;
 }
 
+/* 角色颜色指示器 - 实心小圆点 */
 .role-color {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  margin-right: 10px;
-  border: 1px solid rgba(0,0,0,0.1);
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .role-name {
@@ -995,39 +1002,45 @@ const copyRoleId = async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 0.8rem;
   font-weight: 500;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+}
+
+.role-item.active .role-name {
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .builtin-icon {
-  color: var(--k-color-text-description);
-  font-size: 12px;
-  opacity: 0.6;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 10px;
 }
 
 .drag-handle {
-  color: var(--k-color-text-description);
+  color: var(--fg3, rgba(255, 255, 245, .4));
   cursor: grab;
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s ease;
 }
 
 .role-item:hover .drag-handle {
   opacity: 1;
 }
 
+/* 主内容区 */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background: var(--k-card-bg);
+  background: var(--bg2, #252529);
 }
 
 .content-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1035,79 +1048,84 @@ const copyRoleId = async () => {
 
 .content-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .builtin-badge {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  background: var(--k-color-border);
-  color: var(--k-color-text-description);
-  border-radius: 4px;
-  font-weight: normal;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  background: var(--bg3, #313136);
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  border-radius: 3px;
+  font-weight: 500;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .builtin-notice {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--k-color-bg-1);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  color: var(--k-color-text);
-  font-size: 0.9rem;
+  gap: 8px;
+  padding: 0.75rem 1rem;
+  background: var(--bg3, #313136);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
 .builtin-notice k-icon {
-  color: var(--k-color-active);
-  font-size: 16px;
-  margin-top: 2px;
+  color: var(--k-color-primary, #7459ff);
+  font-size: 14px;
+  margin-top: 1px;
   flex-shrink: 0;
 }
 
+/* Tab 导航 */
 .tabs {
   display: flex;
-  padding: 0 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
-  background-color: var(--k-color-bg-1);
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  background: var(--bg1, #1e1e20);
 }
 
 .tab-item {
-  padding: 12px 20px;
+  padding: 0.625rem 1rem;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-  color: var(--k-color-text-description);
+  transition: all 0.15s ease;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
 .tab-item:hover {
-  color: var(--k-color-text);
+  color: var(--fg2, rgba(255, 255, 245, .6));
 }
 
 .tab-item.active {
-  border-bottom-color: var(--k-color-active);
-  color: var(--k-color-active);
+  border-bottom-color: var(--k-color-primary, #7459ff);
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .tab-content {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1.25rem;
   overflow-y: auto;
-  padding-bottom: 80px; /* Space for save bar */
+  padding-bottom: 80px;
 }
 
-/* Koishi 风格滚动条 */
+/* Tab 内容滚动条 */
 .tab-content::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
 }
 
 .tab-content::-webkit-scrollbar-track {
@@ -1115,64 +1133,67 @@ const copyRoleId = async () => {
 }
 
 .tab-content::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-  border-radius: 3px;
-  transition: background-color 0.3s;
+  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 2px;
 }
 
 .tab-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
+  background: var(--fg3, rgba(255, 255, 245, .4));
 }
 
-.tab-content::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* permission-groups 不再需要独立滚动，由 tab-content 统一管理 */
-
+/* 表单组件 */
 .form-group {
-  margin-bottom: 1.5rem;
-  max-width: 600px;
+  margin-bottom: 1.25rem;
+  max-width: 480px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
   font-weight: 500;
-  color: var(--k-color-text-description);
-  font-size: 0.9rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 4px;
+  background: var(--bg1, #1e1e20);
+  color: var(--fg1, rgba(255, 255, 245, .9));
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  transition: border-color 0.15s ease;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--k-color-active);
+  border-color: var(--k-color-primary, #7459ff);
 }
 
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 颜色选择器 */
 .color-picker-wrapper {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  background: var(--k-color-bg-1);
-  padding: 8px;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
+  gap: 0.75rem;
+  background: var(--bg1, #1e1e20);
+  padding: 6px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 4px;
   width: fit-content;
 }
 
 .color-input {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   background: none;
@@ -1184,14 +1205,16 @@ const copyRoleId = async () => {
   border: none !important;
   background: transparent !important;
   padding: 0 !important;
-  width: 100px;
-  font-family: monospace;
+  width: 80px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.75rem;
 }
 
+/* 范围选项 */
 .scope-options {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .radio-label {
@@ -1199,60 +1222,61 @@ const copyRoleId = async () => {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  color: var(--k-color-text);
-  font-size: 0.9rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  font-size: 0.8rem;
 }
 
 .radio-label input[type="radio"] {
   margin: 0;
+  accent-color: var(--k-color-primary, #7459ff);
 }
 
 .scope-readonly {
-  padding: 0.75rem;
-  background: var(--k-color-bg-1);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg1, #1e1e20);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 4px;
 }
 
 .scope-badge {
-  font-size: 0.9rem;
-  color: var(--k-color-text-description);
+  font-size: 0.8rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
-  font-family: monospace;
-  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 4px;
+  background: var(--bg1, #1e1e20);
+  color: var(--fg1, rgba(255, 255, 245, .9));
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.75rem;
   resize: vertical;
-  min-height: 80px;
+  min-height: 72px;
 }
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--k-color-active);
+  border-color: var(--k-color-primary, #7459ff);
 }
 
 /* 角色 ID 显示 */
 .id-display {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0.5rem 0.75rem;
-  background: var(--k-color-bg-1);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
+  gap: 6px;
+  padding: 0.375rem 0.625rem;
+  background: var(--bg1, #1e1e20);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 4px;
   width: fit-content;
 }
 
 .role-id-code {
-  font-family: monospace;
-  font-size: 0.9rem;
-  color: var(--k-color-active);
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--k-color-primary, #7459ff);
   background: transparent;
   padding: 0;
   user-select: all;
@@ -1262,10 +1286,10 @@ const copyRoleId = async () => {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
-  font-size: 14px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
+  padding: 2px;
+  font-size: 12px;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
 }
 
 .copy-btn:hover {
@@ -1273,67 +1297,69 @@ const copyRoleId = async () => {
 }
 
 .field-hint {
-  margin-top: 6px;
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
-  font-family: monospace;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
 /* 当前已选权限显示 */
 .current-perms {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding: 12px;
-  background: var(--k-color-bg-1);
-  border-radius: 6px;
-  border: 1px solid var(--k-color-border);
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--bg1, #1e1e20);
+  border-radius: 4px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .perms-label {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
-  margin-right: 8px;
+  font-size: 0.7rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .perm-tag {
-  padding: 4px 10px;
-  background: #67c23a;
-  color: white;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-family: monospace;
+  padding: 2px 8px;
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  border: 1px solid rgba(63, 185, 80, 0.3);
 }
 
-/* 权限列表 */
+/* 权限列表搜索栏 */
 .search-bar {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .search-input {
   flex: 1;
 }
 
+/* 权限布局 */
 .permissions-layout {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.25rem;
   height: 100%;
 }
 
 .permissions-main {
   flex: 1;
   overflow-y: auto;
-  padding-right: 1rem;
+  padding-right: 0.75rem;
 }
 
-/* permissions-main 滚动条 */
 .permissions-main::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
 }
 
 .permissions-main::-webkit-scrollbar-track {
@@ -1341,18 +1367,13 @@ const copyRoleId = async () => {
 }
 
 .permissions-main::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-  border-radius: 3px;
-  transition: background-color 0.3s;
-}
-
-.permissions-main::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
+  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 2px;
 }
 
 /* 快速导航 */
 .permissions-nav {
-  width: 180px;
+  width: 160px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -1362,53 +1383,53 @@ const copyRoleId = async () => {
 }
 
 .nav-title {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--k-color-text-description);
-  margin-bottom: 0.75rem;
-  padding-left: 12px;
+  letter-spacing: 0.5px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  margin-bottom: 0.5rem;
+  padding-left: 10px;
 }
 
 .nav-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: var(--k-color-text-description);
-  font-size: 0.85rem;
+  transition: all 0.15s ease;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 0.75rem;
 }
 
 .nav-item:hover {
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  background: var(--bg3, #313136);
+  color: var(--fg2, rgba(255, 255, 245, .6));
 }
 
 .nav-item.active {
-  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
-  color: var(--k-color-active);
+  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
+  color: var(--k-color-primary, #7459ff);
 }
 
 .nav-dot {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--k-color-border);
+  background: var(--fg3, rgba(255, 255, 245, .4));
   flex-shrink: 0;
-  transition: background 0.2s;
 }
 
 .nav-item.active .nav-dot {
-  background: var(--k-color-active);
+  background: var(--k-color-primary, #7459ff);
 }
 
 .nav-name {
@@ -1419,86 +1440,89 @@ const copyRoleId = async () => {
 }
 
 .nav-count {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  background: var(--k-color-bg-2);
-  border-radius: 10px;
-  color: var(--k-color-text-description);
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  padding: 1px 5px;
+  background: var(--bg3, #313136);
+  border-radius: 8px;
+  color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
 .nav-item.active .nav-count {
-  background: var(--k-color-active);
-  color: white;
+  background: var(--k-color-primary, #7459ff);
+  color: #fff;
 }
 
-/* 响应式：小屏幕隐藏导航 */
 @media (max-width: 900px) {
   .permissions-nav {
     display: none;
   }
-  
   .permissions-main {
     padding-right: 0;
   }
 }
 
+/* 权限分组 */
 .permission-groups {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 .group-header {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--k-color-text-description);
+  color: var(--fg3, rgba(255, 255, 245, .4));
   text-transform: uppercase;
-  margin-bottom: 0.75rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--k-color-border);
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
+/* 权限项 - hover 效果 */
 .permission-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background-color: var(--k-color-bg-1);
-  border-radius: 12px;
-  border: 1px solid var(--k-color-border);
-  margin-bottom: 0.5rem;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  padding: 0.75rem;
+  background: var(--bg1, #1e1e20);
+  border-radius: 6px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  margin-bottom: 0.375rem;
+  transition: all 0.15s ease;
 }
 
 .permission-item:hover {
-  transform: translateX(4px);
-  border-color: var(--k-color-active);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
+  background: var(--bg3, #313136);
 }
 
 .perm-info .perm-name {
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .perm-id {
-  font-family: monospace;
-  color: var(--k-color-text-description);
-  font-size: 0.8rem;
-  margin-top: 4px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 0.7rem;
+  margin-top: 3px;
 }
 
 .perm-desc {
-  font-size: 0.9rem;
-  color: var(--k-color-text);
-  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  margin-top: 3px;
 }
 
-/* 开关样式 */
+/* Toggle 开关 - 更简洁 */
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 44px;
-  height: 24px;
+  width: 36px;
+  height: 20px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -1510,118 +1534,117 @@ const copyRoleId = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--k-color-border, #ccc);
-  transition: .3s;
-  border-radius: 34px;
+  background: var(--bg3, #313136);
+  transition: all 0.15s ease;
+  border-radius: 10px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .toggle-switch .slider:before {
   position: absolute;
   content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--fg3, rgba(255, 255, 245, .4));
+  transition: all 0.15s ease;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .toggle-switch.active .slider {
-  background-color: #67c23a; /* Green */
+  background: rgba(63, 185, 80, 0.2);
+  border-color: rgba(63, 185, 80, 0.4);
 }
 
 .toggle-switch.active .slider:before {
-  transform: translateX(20px);
+  transform: translateX(16px);
+  background: #3fb950;
 }
 
 .toggle-switch:hover .slider {
-  opacity: 0.9;
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
 
-/* 锁定状态（被通配符覆盖） */
+/* 锁定状态 */
 .toggle-switch.locked {
   cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.toggle-switch.locked:hover .slider {
-  opacity: 1;
+  opacity: 0.6;
 }
 
 .toggle-switch .lock-icon {
   position: absolute;
-  right: -20px;
+  right: -18px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .permission-item.covered {
-  opacity: 0.75;
-  background-color: var(--k-color-bg-2);
+  opacity: 0.6;
 }
 
 .covered-hint {
-  color: #67c23a;
-  font-size: 0.75rem;
-  margin-left: 8px;
-  font-weight: normal;
+  color: #3fb950;
+  font-size: 0.65rem;
+  margin-left: 6px;
+  font-weight: 400;
 }
 
-/* 成员列表 */
+/* 成员管理 */
 .add-member {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  max-width: 500px;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  max-width: 400px;
 }
 
 .member-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
 }
 
+/* 成员项 - hover 效果 */
 .member-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem;
-  background: var(--k-color-bg-1);
-  border-radius: 12px;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  padding: 0.625rem 0.75rem;
+  background: var(--bg1, #1e1e20);
+  border-radius: 6px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  transition: all 0.15s ease;
 }
 
 .member-item:hover {
-  transform: translateX(4px);
-  border-color: var(--k-color-active);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
+  background: var(--bg3, #313136);
 }
 
 .member-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .member-avatar {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   object-fit: cover;
 }
 
 .member-icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--k-color-bg-3);
+  background: var(--bg3, #313136);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 12px;
 }
 
 .member-text {
@@ -1631,66 +1654,77 @@ const copyRoleId = async () => {
 
 .member-name {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .member-id-sub {
-  font-size: 0.75rem;
-  color: var(--k-color-text-description);
-  font-family: monospace;
+  font-size: 0.65rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
-/* 保存浮动条 */
+/* 保存浮动条 - GitHub 风格 */
 .save-bar {
   position: absolute;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: #202225; /* Dark background like discord */
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
+  background: var(--bg1, #1e1e20);
+  color: var(--fg1, rgba(255, 255, 245, .9));
+  padding: 0.625rem 1rem;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  gap: 1rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 100;
-  width: 80%;
-  max-width: 600px;
+  width: 75%;
+  max-width: 500px;
   justify-content: space-between;
+  font-size: 0.8rem;
 }
 
 .save-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .reset-btn {
   background: transparent;
   border: none;
-  color: white;
+  color: var(--fg2, rgba(255, 255, 245, .6));
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  transition: color 0.15s ease;
+}
+
+.reset-btn:hover {
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .save-btn {
-  background: #43b581; /* Discord Green */
-  border: none;
-  color: white;
-  padding: 8px 24px;
+  background: rgba(63, 185, 80, 0.15);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  color: #3fb950;
+  padding: 6px 16px;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 
 .save-btn:hover {
-  background: #3ca374;
+  background: rgba(63, 185, 80, 0.25);
+  border-color: rgba(63, 185, 80, 0.5);
 }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .slide-up-enter-from,
@@ -1705,30 +1739,30 @@ const copyRoleId = async () => {
   justify-content: center;
   align-items: center;
   height: 100%;
-  color: var(--k-color-text-description);
-  font-size: 1.1rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+  font-size: 0.85rem;
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 1rem;
+  font-size: 48px;
+  margin-bottom: 0.75rem;
   opacity: 0.3;
 }
 
-/* 通用按钮样式 */
+/* 通用按钮 - GitHub 风格 */
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 4px;
-  background: var(--k-color-active, #409eff);
-  color: white;
-  font-size: 16px;
+  background: var(--k-color-primary, #7459ff);
+  color: #fff;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s ease;
 }
 
 .icon-btn:hover {
@@ -1736,79 +1770,81 @@ const copyRoleId = async () => {
 }
 
 .primary-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  background: var(--k-color-active, #409eff);
-  color: white;
-  font-size: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--k-color-primary, #7459ff);
+  border-radius: 4px;
+  background: rgba(116, 89, 255, 0.15);
+  color: var(--k-color-primary, #7459ff);
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .primary-btn:hover {
-  opacity: 0.85;
+  background: rgba(116, 89, 255, 0.25);
 }
 
 .secondary-btn {
   padding: 6px 12px;
-  border: 1px solid var(--k-color-border, #dcdfe6);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   border-radius: 4px;
   background: transparent;
-  color: var(--k-color-text, #303133);
-  font-size: 13px;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .secondary-btn:hover {
-  border-color: var(--k-color-active, #409eff);
-  color: var(--k-color-active, #409eff);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .danger-btn {
   padding: 6px 12px;
-  border: none;
+  border: 1px solid rgba(248, 81, 73, 0.3);
   border-radius: 4px;
-  background: #f56c6c;
-  color: white;
-  font-size: 13px;
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .danger-btn:hover {
-  opacity: 0.85;
+  background: rgba(248, 81, 73, 0.25);
+  border-color: rgba(248, 81, 73, 0.5);
 }
 
 .clone-btn {
   padding: 6px 12px;
-  border: none;
+  border: 1px solid rgba(88, 166, 255, 0.3);
   border-radius: 4px;
-  background: #22b8ee;
-  color: white;
-  font-size: 13px;
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .clone-btn:hover {
-  opacity: 0.85;
+  background: rgba(88, 166, 255, 0.25);
+  border-color: rgba(88, 166, 255, 0.5);
 }
 
-/* 自定义确认对话框样式 */
+/* 模态框 - GitHub 风格 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1816,64 +1852,67 @@ const copyRoleId = async () => {
 }
 
 .modal-dialog {
-  background: var(--k-card-bg, white);
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  min-width: 320px;
-  max-width: 480px;
+  background: var(--bg2, #252529);
+  border-radius: 8px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  min-width: 300px;
+  max-width: 420px;
   overflow: hidden;
-  animation: fadeInUp 0.3s ease-out;
+  animation: modal-enter 0.2s ease-out;
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .modal-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 1rem;
+  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--k-color-text);
+  color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 1rem;
 }
 
 .modal-body p {
   margin: 0;
-  color: var(--k-color-text);
+  color: var(--fg2, rgba(255, 255, 245, .6));
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 
 .modal-footer {
-  padding: 12px 20px;
+  padding: 0.75rem 1rem;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  border-top: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-1);
+  gap: 8px;
+  border-top: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  background: var(--bg1, #1e1e20);
 }
 
 /* 淡入淡出动画 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-.fade-enter-active .modal-dialog,
-.fade-leave-active .modal-dialog {
-  transition: transform 0.2s ease;
-}
-
-.fade-enter-from .modal-dialog,
-.fade-leave-to .modal-dialog {
-  transform: scale(0.95);
 }
 </style>

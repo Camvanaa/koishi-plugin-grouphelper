@@ -31,15 +31,17 @@ const resolvedIcon = computed(() => {
 </script>
 
 <style scoped>
+/* GitHub Dimmed 风格统计卡片 */
 .card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
-  padding: 1.5rem;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: var(--bg2, var(--k-card-bg));
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  transition: border-color 0.15s ease;
   position: relative;
   overflow: hidden;
-  height: 100%;
+  height: auto;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -47,75 +49,85 @@ const resolvedIcon = computed(() => {
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
-  border-color: var(--k-color-primary-fade);
+  border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
 
+/* 底部指示条 - 直角风格 */
 .stat-card::after {
   content: '';
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 2px;
   background: var(--stat-color);
-  opacity: 0.8;
-  transition: opacity 0.3s;
+  opacity: 0.7;
 }
 
-.stat-card:hover::after {
-  opacity: 1;
-}
-
+/* 图标 - 更小更紧凑 */
 .stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  margin-bottom: 1.25rem;
+  font-size: 16px;
+  margin-bottom: 0.875rem;
   background: var(--stat-color-fade);
   color: var(--stat-color);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.stat-card:hover .stat-icon {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px var(--stat-color-fade);
-}
-
+/* 数值 - 等宽字体，更克制的颜色 */
 .stat-value {
-  font-size: 2.75rem;
-  font-weight: 800;
-  color: var(--stat-color);
+  font-size: 2rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  color: var(--fg1, var(--k-color-text));
   line-height: 1;
-  margin-bottom: 0.5rem;
-  letter-spacing: -2px;
+  margin-bottom: 0.375rem;
+  letter-spacing: -1px;
 }
 
+/* 标签 - 次要文字颜色 */
 .stat-label {
-  color: var(--k-color-text-description);
-  font-size: 0.9rem;
+  color: var(--fg3, var(--k-color-text-description));
+  font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.stat-card.blue { --stat-color: #409eff; --stat-color-fade: rgba(64, 158, 255, 0.1); }
-.stat-card.orange { --stat-color: #e6a23c; --stat-color-fade: rgba(230, 162, 60, 0.1); }
-.stat-card.red { --stat-color: #f56c6c; --stat-color-fade: rgba(245, 108, 108, 0.1); }
-.stat-card.green { --stat-color: #67c23a; --stat-color-fade: rgba(103, 194, 58, 0.1); }
+/* 克制的颜色方案 - 暗色调 */
+.stat-card.blue {
+  --stat-color: #58a6ff;
+  --stat-color-fade: rgba(88, 166, 255, 0.1);
+}
+.stat-card.orange {
+  --stat-color: #d29922;
+  --stat-color-fade: rgba(210, 153, 34, 0.1);
+}
+.stat-card.red {
+  --stat-color: #f85149;
+  --stat-color-fade: rgba(248, 81, 73, 0.1);
+}
+.stat-card.green {
+  --stat-color: #3fb950;
+  --stat-color-fade: rgba(63, 185, 80, 0.1);
+}
 
+/* 骨架屏 */
 .skeleton {
-  height: 44px;
-  width: 80%;
-  background: linear-gradient(90deg, var(--k-color-bg-2) 25%, var(--k-color-bg-1) 50%, var(--k-color-bg-2) 75%);
+  height: 32px;
+  width: 60%;
+  background: linear-gradient(90deg,
+    var(--bg3, #313136) 25%,
+    var(--bg2, #252529) 50%,
+    var(--bg3, #313136) 75%
+  );
   background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
-  border-radius: 6px;
+  animation: skeleton-loading 1.2s infinite;
+  border-radius: 4px;
 }
 
 @keyframes skeleton-loading {

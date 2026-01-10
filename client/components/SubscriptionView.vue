@@ -1,34 +1,37 @@
 <template>
   <div class="subscription-view">
-    <div class="view-header">
+    <!-- Header -->
+    <header class="view-header">
       <h2 class="view-title">订阅管理</h2>
       <div class="header-actions">
-        <div class="toggle-wrapper">
-          <label>解析名称</label>
-          <el-switch v-model="fetchNames" @change="refreshSubscriptions" />
+        <label class="toggle-wrapper">
+          <span class="toggle-label">解析名称</span>
+          <el-switch v-model="fetchNames" @change="refreshSubscriptions" size="small" />
+        </label>
+        <div class="btn-group">
+          <button class="action-btn" @click="showAddDialog = true">
+            <k-icon name="plus" class="btn-icon" />
+            <span>添加</span>
+          </button>
+          <button class="action-btn" @click="refreshSubscriptions">
+            <k-icon name="refresh-cw" class="btn-icon" :class="{ spin: loading }" />
+            <span>刷新</span>
+          </button>
         </div>
-        <k-button @click="showAddDialog = true">
-          <template #icon><k-icon name="plus" /></template>
-          添加订阅
-        </k-button>
-        <k-button type="primary" @click="refreshSubscriptions">
-          <template #icon><k-icon name="refresh-cw" /></template>
-          刷新
-        </k-button>
       </div>
-    </div>
+    </header>
 
-    <!-- 加载状态 -->
+    <!-- Loading -->
     <div v-if="loading" class="loading-state">
       <k-icon name="loader" class="spin" />
-      <span>加载中...</span>
+      <span class="loading-text">Loading...</span>
     </div>
 
-    <!-- 订阅列表 -->
+    <!-- Subscription List -->
     <div v-else class="sub-list">
       <div v-if="subscriptions.length === 0" class="empty-state">
         <k-icon name="bell-off" class="empty-icon" />
-        <p>暂无订阅</p>
+        <p class="empty-text">暂无订阅</p>
       </div>
 
       <div
@@ -48,104 +51,108 @@
               />
               <k-icon v-else :name="sub.type === 'group' ? 'users' : 'user'" class="sub-icon" />
             </div>
-            <span class="sub-id">{{ sub.name ? `${sub.name} (${sub.id})` : sub.id }}</span>
-            <span class="sub-tag">{{ sub.type === 'group' ? '群组' : '私聊' }}</span>
+            <div class="sub-meta">
+              <span class="sub-id">{{ sub.name || sub.id }}</span>
+              <span v-if="sub.name" class="sub-id-suffix">#{{ sub.id }}</span>
+            </div>
           </div>
-          <div class="card-actions">
-            <k-button size="small" @click.stop="editSubscription(sub, index)">
-              <k-icon name="edit-2" />
-            </k-button>
-          </div>
+          <span class="sub-tag" :class="sub.type">{{ sub.type === 'group' ? 'GROUP' : 'DM' }}</span>
         </div>
         <div class="card-body">
           <div class="features-grid">
             <div class="feature-item" :class="{ active: sub.features.log }">
-              <span class="dot"></span>
-              日志推送
+              <span class="status-dot"></span>
+              <span class="feature-name">日志推送</span>
             </div>
             <div class="feature-item" :class="{ active: sub.features.warning }">
-              <span class="dot"></span>
-              警告通知
+              <span class="status-dot"></span>
+              <span class="feature-name">警告通知</span>
             </div>
             <div class="feature-item" :class="{ active: sub.features.blacklist }">
-              <span class="dot"></span>
-              黑名单变动
+              <span class="status-dot"></span>
+              <span class="feature-name">黑名单</span>
             </div>
             <div class="feature-item" :class="{ active: sub.features.muteExpire }">
-              <span class="dot"></span>
-              禁言解除
+              <span class="status-dot"></span>
+              <span class="feature-name">禁言解除</span>
             </div>
             <div class="feature-item" :class="{ active: sub.features.memberChange }">
-              <span class="dot"></span>
-              成员变动
+              <span class="status-dot"></span>
+              <span class="feature-name">成员变动</span>
             </div>
             <div class="feature-item" :class="{ active: sub.features.antiRecall }">
-              <span class="dot"></span>
-              防撤回推送
+              <span class="status-dot"></span>
+              <span class="feature-name">防撤回</span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 添加/编辑订阅弹窗 -->
+    <!-- Add/Edit Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
       <div class="dialog-card">
         <div class="dialog-header">
-          <h3>{{ editMode ? '编辑订阅' : '添加订阅' }}</h3>
+          <h3 class="dialog-title">{{ editMode ? '编辑订阅' : '添加订阅' }}</h3>
           <button class="close-btn" @click="showAddDialog = false">
             <k-icon name="x" />
           </button>
         </div>
         <div class="dialog-body">
           <div class="form-group">
-            <label>类型</label>
+            <label class="form-label">类型</label>
             <div class="radio-group">
-              <label class="radio-label">
+              <label class="radio-item" :class="{ active: newSub.type === 'group' }">
                 <input type="radio" v-model="newSub.type" value="group" />
-                群组
+                <span class="radio-text">GROUP</span>
               </label>
-              <label class="radio-label">
+              <label class="radio-item" :class="{ active: newSub.type === 'private' }">
                 <input type="radio" v-model="newSub.type" value="private" />
-                私聊
+                <span class="radio-text">DM</span>
               </label>
             </div>
           </div>
           <div class="form-group">
-            <label>目标ID</label>
+            <label class="form-label">目标 ID</label>
             <input
               v-model="newSub.id"
               type="text"
-              placeholder="输入群号或QQ号..."
-              class="form-input"
+              placeholder="e.g. 123456789"
+              class="form-input mono"
             />
           </div>
           <div class="form-group">
-            <label>订阅功能</label>
+            <label class="form-label">订阅功能</label>
             <div class="checkbox-grid">
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.log }">
                 <input type="checkbox" v-model="newSub.features.log" />
-                日志推送
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">日志推送</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.warning }">
                 <input type="checkbox" v-model="newSub.features.warning" />
-                警告通知
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">警告通知</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.blacklist }">
                 <input type="checkbox" v-model="newSub.features.blacklist" />
-                黑名单变动
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">黑名单</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.muteExpire }">
                 <input type="checkbox" v-model="newSub.features.muteExpire" />
-                禁言解除
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">禁言解除</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.memberChange }">
                 <input type="checkbox" v-model="newSub.features.memberChange" />
-                成员变动
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">成员变动</span>
               </label>
-              <label class="checkbox-label">
+              <label class="checkbox-item" :class="{ checked: newSub.features.antiRecall }">
                 <input type="checkbox" v-model="newSub.features.antiRecall" />
-                防撤回推送
+                <span class="checkbox-indicator"></span>
+                <span class="checkbox-text">防撤回</span>
               </label>
             </div>
           </div>
@@ -162,36 +169,38 @@
       </div>
     </div>
 
-    <!-- 删除确认弹窗 -->
+    <!-- Delete Confirm Dialog -->
     <div v-if="showDeleteDialog" class="dialog-overlay" style="z-index: 1100" @click.self="showDeleteDialog = false">
-      <div class="dialog-card">
+      <div class="dialog-card dialog-sm">
         <div class="dialog-header">
-          <h3>删除订阅</h3>
+          <h3 class="dialog-title danger">删除订阅</h3>
           <button class="close-btn" @click="showDeleteDialog = false">
             <k-icon name="x" />
           </button>
         </div>
         <div class="dialog-body">
-          <p class="warning-text">警告：此操作不可撤销！</p>
-          <p class="info-text">
-            请输入目标ID
-            <code class="code-highlight" @click="copySubId">{{ newSub.id }}</code>
+          <div class="warning-box">
+            <k-icon name="alert-triangle" class="warning-icon" />
+            <span>此操作不可撤销</span>
+          </div>
+          <p class="confirm-text">
+            请输入目标 ID
+            <code class="code-inline" @click="copySubId">{{ newSub.id }}</code>
             以确认删除
           </p>
           <div class="form-group">
-            <label>确认目标ID</label>
             <input
               v-model="deleteConfirmId"
               type="text"
-              :placeholder="'请输入 ' + newSub.id"
-              class="form-input"
+              :placeholder="newSub.id"
+              class="form-input mono"
               @keyup.enter="confirmRemove"
             />
           </div>
         </div>
         <div class="dialog-footer">
           <k-button @click="showDeleteDialog = false">取消</k-button>
-          <k-button type="danger" @click="confirmRemove" :loading="deleting" :disabled="deleteConfirmId !== newSub.id">删除</k-button>
+          <k-button type="danger" @click="confirmRemove" :loading="deleting" :disabled="deleteConfirmId !== newSub.id">确认删除</k-button>
         </div>
       </div>
     </div>
@@ -337,47 +346,106 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========================================
+   GitHub Dimmed / Vercel Style
+   ======================================== */
+
 .subscription-view {
   height: 100%;
   display: flex;
   flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
 }
 
+/* Header */
 .view-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--k-color-divider);
+}
+
+.view-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg1);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
 }
 
 .toggle-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--k-color-text);
+  gap: 8px;
 }
 
-.view-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--k-color-text);
-  margin: 0;
+.toggle-label {
+  font-size: 12px;
+  color: var(--fg3);
 }
 
+.btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+/* Action Buttons */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--fg2);
+  background: var(--bg2);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  color: var(--fg1);
+  background: var(--bg3);
+  border-color: var(--fg3);
+}
+
+.action-btn:active {
+  background: var(--bg1);
+}
+
+.btn-icon {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.action-btn:hover .btn-icon {
+  opacity: 1;
+}
+
+/* Loading State */
 .loading-state {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 3rem;
-  color: var(--k-color-text-description);
+  padding: 48px;
+  color: var(--fg3);
+}
+
+.loading-text {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Consolas', monospace;
 }
 
 .spin {
@@ -388,86 +456,80 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-.sub-list {
-  flex: 1;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-  align-content: start;
-}
-
+/* Empty State */
 .empty-state {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
-  color: var(--k-color-text-description);
+  padding: 48px;
+  color: var(--fg3);
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.4;
 }
 
+.empty-text {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Subscription List */
+.sub-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+/* Subscription Card */
 .sub-card {
-  background: var(--k-card-bg);
+  background: var(--bg2);
   border: 1px solid var(--k-color-border);
-  border-radius: 20px;
+  border-radius: 6px;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: pointer;
-  animation: fadeInUp 0.4s ease-out backwards;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .sub-card:hover {
-  border-color: var(--k-color-active);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  transform: translateY(-6px);
+  border-color: var(--fg3);
+  background: var(--bg3);
 }
 
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
-  border-bottom: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--k-color-divider);
 }
 
 .sub-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
-  margin-right: 12px;
 }
 
 .sub-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
   overflow: hidden;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--k-color-bg-2);
+  background: var(--bg3);
+  border: 1px solid var(--k-color-divider);
 }
 
 .avatar-img {
@@ -477,59 +539,98 @@ onMounted(() => {
 }
 
 .sub-icon {
-  color: var(--k-color-active);
+  font-size: 14px;
+  color: var(--fg3);
+}
+
+.sub-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
 }
 
 .sub-id {
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sub-tag {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--k-color-bg-3);
-  color: var(--k-color-text-description);
+.sub-id-suffix {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: var(--fg3);
   flex-shrink: 0;
 }
 
-.card-body {
-  padding: 1rem;
+.sub-tag {
+  font-size: 10px;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg3);
+  color: var(--fg3);
+  border: 1px solid var(--k-color-divider);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
+.sub-tag.group {
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.2);
+}
+
+.sub-tag.private {
+  color: #a371f7;
+  background: rgba(163, 113, 247, 0.1);
+  border-color: rgba(163, 113, 247, 0.2);
+}
+
+.card-body {
+  padding: 10px 12px;
+}
+
+/* Feature Grid */
 .features-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 8px;
 }
 
 .feature-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.875rem;
-  color: var(--k-color-text-description);
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fg3);
   opacity: 0.5;
 }
 
 .feature-item.active {
   opacity: 1;
-  color: var(--k-color-text);
+  color: var(--fg2);
 }
 
-.dot {
-  width: 6px;
-  height: 6px;
+.status-dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: var(--k-color-border);
+  background: var(--k-color-divider);
+  flex-shrink: 0;
 }
 
-.feature-item.active .dot {
-  background: #67c23a;
+.feature-item.active .status-dot {
+  background: #347d39;
+}
+
+.feature-name {
+  white-space: nowrap;
 }
 
 /* Dialog Styles */
@@ -539,8 +640,8 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -548,28 +649,39 @@ onMounted(() => {
 }
 
 .dialog-card {
-  background: var(--k-card-bg);
-  border-radius: 20px;
+  background: var(--bg1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 8px;
   width: 90%;
-  max-width: 500px;
+  max-width: 440px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: fadeInUp 0.3s ease-out;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.dialog-card.dialog-sm {
+  max-width: 380px;
 }
 
 .dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--k-color-divider);
+  background: var(--bg2);
 }
 
-.dialog-header h3 {
+.dialog-title {
   margin: 0;
-  font-size: 1.125rem;
-  color: var(--k-color-text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg1);
+}
+
+.dialog-title.danger {
+  color: var(--k-color-danger);
 }
 
 .close-btn {
@@ -577,86 +689,33 @@ onMounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: var(--k-color-text-description);
+  color: var(--fg3);
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
 }
 
 .close-btn:hover {
-  color: var(--k-color-text);
+  background: var(--bg3);
+  color: var(--fg1);
 }
 
 .dialog-body {
-  padding: 1.5rem;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.warning-text {
-  color: #f56c6c;
-  margin-bottom: 1rem;
-  font-weight: 500;
-}
-
-.info-text {
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: var(--k-color-text);
-}
-
-.code-highlight {
-  background: var(--k-color-bg-2);
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: all;
-  border: 1px solid var(--k-color-border);
-  margin: 0 4px;
-}
-
-.code-highlight:hover {
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--k-color-text);
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
-  font-family: inherit;
-  font-size: 0.875rem;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--k-color-active);
+  gap: 14px;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--k-color-border);
+  padding: 12px 16px;
+  border-top: 1px solid var(--k-color-divider);
+  background: var(--bg2);
 }
 
 .footer-left {
@@ -670,45 +729,212 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* Form Elements */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background: var(--bg0);
+  color: var(--fg1);
+  font-family: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.form-input::placeholder {
+  color: var(--fg3);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--k-color-primary);
+}
+
+.form-input.mono {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  letter-spacing: 0.02em;
+}
+
+/* Radio Group */
 .radio-group {
   display: flex;
-  gap: 1.5rem;
+  gap: 8px;
 }
 
-.radio-label {
+.radio-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 6px;
   cursor: pointer;
+  padding: 6px 10px;
+  border: 1px solid var(--k-color-border);
+  border-radius: 4px;
+  background: var(--bg0);
+  transition: all 0.15s ease;
 }
 
+.radio-item input {
+  display: none;
+}
+
+.radio-item.active {
+  border-color: var(--k-color-primary);
+  background: var(--k-color-primary-fade);
+}
+
+.radio-text {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: var(--fg2);
+  text-transform: uppercase;
+}
+
+.radio-item.active .radio-text {
+  color: var(--k-color-primary-tint);
+}
+
+/* Checkbox Grid */
 .checkbox-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
-.checkbox-label {
+.checkbox-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg0);
+  border: 1px solid var(--k-color-divider);
+  transition: all 0.15s ease;
 }
 
-/* 滚动条样式 */
+.checkbox-item:hover {
+  border-color: var(--k-color-border);
+}
+
+.checkbox-item input {
+  display: none;
+}
+
+.checkbox-indicator {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--k-color-border);
+  border-radius: 3px;
+  background: var(--bg0);
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.checkbox-item.checked .checkbox-indicator {
+  background: var(--k-color-primary);
+  border-color: var(--k-color-primary);
+}
+
+.checkbox-item.checked .checkbox-indicator::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 4px;
+  height: 7px;
+  border: solid var(--fg0);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-text {
+  font-size: 12px;
+  color: var(--fg2);
+}
+
+.checkbox-item.checked .checkbox-text {
+  color: var(--fg1);
+}
+
+/* Warning Box */
+.warning-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--k-color-danger-fade);
+  border: 1px solid rgba(255, 89, 90, 0.2);
+  border-radius: 6px;
+  color: var(--k-color-danger);
+  font-size: 12px;
+}
+
+.warning-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.confirm-text {
+  font-size: 13px;
+  color: var(--fg2);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.code-inline {
+  background: var(--bg3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: all;
+  border: 1px solid var(--k-color-divider);
+  margin: 0 2px;
+  color: var(--fg1);
+  transition: border-color 0.15s ease;
+}
+
+.code-inline:hover {
+  border-color: var(--k-color-primary);
+  color: var(--k-color-primary-tint);
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--k-color-divider);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--k-color-text-description);
+  background-color: var(--fg3);
 }
 </style>
