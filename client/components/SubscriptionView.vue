@@ -207,7 +207,7 @@ import type { Subscription } from '../types'
 const loading = ref(false)
 const adding = ref(false)
 const deleting = ref(false)
-const fetchNames = ref(false)
+const fetchNames = ref(true)
 const showAddDialog = ref(false)
 const showDeleteDialog = ref(false)
 const deleteConfirmId = ref('')
@@ -540,6 +540,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

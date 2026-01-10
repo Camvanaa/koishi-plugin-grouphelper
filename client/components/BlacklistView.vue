@@ -34,9 +34,10 @@
           <div class="col-actions">操作</div>
         </div>
         <div
-          v-for="(record, userId) in blacklist"
+          v-for="(record, userId, index) in blacklist"
           :key="userId"
           class="table-row"
+          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
         >
           <div class="col-user">
             <k-icon name="user-x" class="user-icon" />
@@ -262,6 +263,18 @@ onMounted(() => {
   align-items: center;
   border-bottom: 1px solid var(--k-color-border);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: row-enter 0.4s ease-out backwards;
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .table-row:last-child {
@@ -296,6 +309,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

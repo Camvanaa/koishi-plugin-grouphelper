@@ -21,10 +21,11 @@
           等待消息...
         </div>
         <div
-          v-for="session in sessions"
+          v-for="(session, index) in sessions"
           :key="session.id"
           class="session-item"
           :class="{ active: currentSessionId === session.id }"
+          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
           @click="selectSession(session.id)"
         >
           <div class="session-icon">
@@ -1094,6 +1095,18 @@ const renderMessage = (msg: ChatMessage) => {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   border-left: 3px solid transparent;
+  animation: item-enter 0.4s ease-out backwards;
+}
+
+@keyframes item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .session-item:hover {
@@ -1607,6 +1620,7 @@ const renderMessage = (msg: ChatMessage) => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

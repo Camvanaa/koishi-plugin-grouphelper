@@ -9,10 +9,11 @@
       
       <div class="role-list">
         <div
-          v-for="role in roles"
+          v-for="(role, index) in roles"
           :key="role.id"
           class="role-item"
           :class="{ active: currentRole?.id === role.id }"
+          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
           @click="selectRole(role)"
           draggable="true"
           @dragstart="onDragStart($event, role)"
@@ -958,6 +959,18 @@ const copyRoleId = async () => {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: item-enter 0.4s ease-out backwards;
+}
+
+@keyframes item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .role-item:hover {
@@ -1795,6 +1808,7 @@ const copyRoleId = async () => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

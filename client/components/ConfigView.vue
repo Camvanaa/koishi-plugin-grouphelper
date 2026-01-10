@@ -36,9 +36,10 @@
       </div>
 
       <div
-        v-for="(config, guildId) in configs"
+        v-for="(config, guildId, index) in configs"
         :key="guildId"
         class="config-card"
+        :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
         @click="editConfig(guildId as string)"
       >
         <div class="card-header">
@@ -537,7 +538,7 @@ const saving = ref(false)
 const creating = ref(false)
 const deleting = ref(false)
 const reloading = ref(false)
-const fetchNames = ref(false)
+const fetchNames = ref(true)
 const configs = ref<Record<string, GroupConfig>>({})
 const showEditDialog = ref(false)
 const showCreateDialog = ref(false)
@@ -934,6 +935,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

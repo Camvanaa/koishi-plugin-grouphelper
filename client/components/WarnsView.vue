@@ -38,10 +38,11 @@
         </div>
         <div class="sidebar-list">
           <div
-            v-for="(groupWarns, guildId) in groupedWarns"
+            v-for="(groupWarns, guildId, index) in groupedWarns"
             :key="guildId"
             class="sidebar-item"
             :class="{ active: selectedGuildId === guildId }"
+            :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
             @click="selectGuild(guildId as string)"
           >
             <div class="item-icon">
@@ -78,9 +79,10 @@
           
           <div class="user-list">
             <div
-              v-for="item in groupedWarns[selectedGuildId]"
+              v-for="(item, index) in groupedWarns[selectedGuildId]"
               :key="item.key"
               class="user-row"
+              :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
             >
               <div class="user-info">
                 <div class="avatar-placeholder">
@@ -180,7 +182,7 @@ import type { WarnRecord } from '../types'
 const loading = ref(false)
 const adding = ref(false)
 const reloading = ref(false)
-const fetchNames = ref(false)
+const fetchNames = ref(true)
 const showAddDialog = ref(false)
 const selectedGuildId = ref<string>('')
 
@@ -400,6 +402,18 @@ onMounted(() => {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   margin-bottom: 2px;
+  animation: item-enter 0.4s ease-out backwards;
+}
+
+@keyframes item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .sidebar-item:hover {
@@ -517,6 +531,18 @@ onMounted(() => {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--k-color-border);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: row-enter 0.4s ease-out backwards;
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .user-row:hover {
@@ -662,6 +688,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

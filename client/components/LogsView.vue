@@ -70,9 +70,10 @@
           <div class="col-detail">详情</div>
         </div>
         <div
-          v-for="log in logs"
+          v-for="(log, index) in logs"
           :key="log.id"
           class="table-row"
+          :style="{ animationDelay: `${Math.min(index * 0.02, 0.3)}s` }"
         >
           <div class="col-time">{{ formatTime(log.timestamp) }}</div>
           <div class="col-cmd"><code>{{ log.command }}</code></div>
@@ -282,6 +283,18 @@ onMounted(() => {
   align-items: center;
   font-size: 0.9rem;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: row-enter 0.3s ease-out backwards;
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .table-row:last-child {
