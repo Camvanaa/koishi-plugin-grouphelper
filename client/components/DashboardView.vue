@@ -97,18 +97,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { statsApi } from '../api'
 import type { ChartData } from '../api'
 
-// 异步引入组件以优化性能
-const StatCard = defineAsyncComponent(() => import('./dashboard/StatCard.vue'))
-const NoticeCard = defineAsyncComponent(() => import('./dashboard/NoticeCard.vue'))
-const TrendChartCard = defineAsyncComponent(() => import('./dashboard/TrendChartCard.vue'))
-const DistChartCard = defineAsyncComponent(() => import('./dashboard/DistChartCard.vue'))
-const RankChartCard = defineAsyncComponent(() => import('./dashboard/RankChartCard.vue'))
-const VersionCard = defineAsyncComponent(() => import('./dashboard/VersionCard.vue'))
-const UpdatesCard = defineAsyncComponent(() => import('./dashboard/UpdatesCard.vue'))
+// 同步引入组件（修复生产构建问题）
+import StatCard from './dashboard/StatCard.vue'
+import NoticeCard from './dashboard/NoticeCard.vue'
+import TrendChartCard from './dashboard/TrendChartCard.vue'
+import DistChartCard from './dashboard/DistChartCard.vue'
+import RankChartCard from './dashboard/RankChartCard.vue'
+import VersionCard from './dashboard/VersionCard.vue'
+import UpdatesCard from './dashboard/UpdatesCard.vue'
 
 const componentMap: Record<string, any> = {
   StatCard,
