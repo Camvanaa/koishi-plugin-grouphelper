@@ -158,8 +158,12 @@ const isEditing = ref(false)
 const showAddModal = ref(false)
 const dragIndex = ref<number | null>(null)
 
-// 默认布局 - 新安装时只显示公告
+// 默认布局 - 包含四个统计卡片和公告
 const defaultLayout: WidgetConfig[] = [
+  { id: 'stat-groups', type: 'StatCard', span: 1, props: { type: 'blue', icon: 'users', label: '已配置群组' }, dynamicProps: { value: 'stats.totalGroups', loading: 'loading' } },
+  { id: 'stat-warns', type: 'StatCard', span: 1, props: { type: 'orange', icon: 'alert-triangle', label: '警告记录' }, dynamicProps: { value: 'stats.totalWarns', loading: 'loading' } },
+  { id: 'stat-blacklist', type: 'StatCard', span: 1, props: { type: 'red', icon: 'user-x', label: '黑名单用户' }, dynamicProps: { value: 'stats.totalBlacklisted', loading: 'loading' } },
+  { id: 'stat-subscriptions', type: 'StatCard', span: 1, props: { type: 'green', icon: 'rss', label: '活跃订阅' }, dynamicProps: { value: 'stats.totalSubscriptions', loading: 'loading' } },
   { id: 'notice', type: 'NoticeCard', span: 4, dynamicProps: { content: 'notice' } }
 ]
 
