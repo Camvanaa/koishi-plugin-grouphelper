@@ -212,17 +212,71 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 export class SettingsManager {
   private store: JsonDataStore<Partial<PluginSettings>>
   private _settings: PluginSettings
+  private settingsPath: string
+  private watcher: fs.FSWatcher | null = null
+  private lastModified: number = 0
+  private reloadTimeout: NodeJS.Timeout | null = null
 
   constructor(dataPath: string) {
-    const settingsPath = path.resolve(dataPath, 'settings.json')
-    
+    this.settingsPath = path.resolve(dataPath, 'settings.json')
+
     // 确保数据目录存在
     if (!fs.existsSync(dataPath)) {
       fs.mkdirSync(dataPath, { recursive: true })
     }
 
-    this.store = new JsonDataStore(settingsPath, {})
+    this.store = new JsonDataStore(this.settingsPath, {})
     this._settings = this.loadSettings()
+
+    // 启动文件监视器
+    this.startWatcher()
+  }
+
+  /**
+   * 启动文件监视器
+   */
+  private startWatcher(): void {
+    try {
+      // 记录初始修改时间
+      if (fs.existsSync(this.settingsPath)) {
+        this.lastModified = fs.statSync(this.settingsPath).mtimeMs
+      }
+
+      this.watcher = fs.watch(this.settingsPath, (eventType) => {
+        if (eventType === 'change') {
+          // 防抖：避免频繁重新加载
+          if (this.reloadTimeout) {
+            clearTimeout(this.reloadTimeout)
+          }
+          this.reloadTimeout = setTimeout(() => {
+            this.checkAndReload()
+          }, 100)
+        }
+      })
+    } catch (e) {
+      console.error('[SettingsManager] 启动文件监视器失败:', e)
+    }
+  }
+
+  /**
+   * 检查文件变化并重新加载
+   */
+  private checkAndReload(): void {
+    try {
+      if (!fs.existsSync(this.settingsPath)) return
+
+      const stat = fs.statSync(this.settingsPath)
+      // 只有当文件真正被修改时才重新加载
+      if (stat.mtimeMs > this.lastModified) {
+        this.lastModified = stat.mtimeMs
+        // 重新加载 store 的数据
+        this.store.reload()
+        this._settings = this.loadSettings()
+        console.log('[SettingsManager] 检测到配置文件变化，已重新加载')
+      }
+    } catch (e) {
+      console.error('[SettingsManager] 重新加载配置失败:', e)
+    }
   }
 
   /**
@@ -348,6 +402,15 @@ export class SettingsManager {
    * 释放资源
    */
   dispose(): void {
+    // 关闭文件监视器
+    if (this.watcher) {
+      this.watcher.close()
+      this.watcher = null
+    }
+    if (this.reloadTimeout) {
+      clearTimeout(this.reloadTimeout)
+      this.reloadTimeout = null
+    }
     this.store.dispose()
   }
 }

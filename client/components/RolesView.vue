@@ -1639,72 +1639,72 @@ const copyRoleId = async () => {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
-/* 保存浮动条 - GitHub 风格 */
+/* 保存浮动条 - Discord 风格 */
 .save-bar {
-  position: absolute;
-  bottom: 16px;
+  position: fixed;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--bg1, #1e1e20);
+  width: calc(100% - 48px);
+  max-width: 560px;
+  background: #111214;
   color: var(--fg1, rgba(255, 255, 245, .9));
-  padding: 0.625rem 1rem;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  width: 75%;
-  max-width: 500px;
   justify-content: space-between;
-  font-size: 0.8rem;
+  gap: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  font-size: 0.8125rem;
 }
 
 .save-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  align-items: center;
 }
 
 .reset-btn {
   background: transparent;
   border: none;
-  color: var(--fg2, rgba(255, 255, 245, .6));
+  color: #b5bac1;
   cursor: pointer;
-  padding: 6px 12px;
-  font-size: 0.75rem;
-  transition: color 0.15s ease;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: text-decoration 0.1s ease;
 }
 
 .reset-btn:hover {
-  color: var(--fg1, rgba(255, 255, 245, .9));
+  text-decoration: underline;
 }
 
 .save-btn {
-  background: rgba(63, 185, 80, 0.15);
-  border: 1px solid rgba(63, 185, 80, 0.3);
-  color: #3fb950;
-  padding: 6px 16px;
-  border-radius: 4px;
+  background: #248046;
+  border: none;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .save-btn:hover {
-  background: rgba(63, 185, 80, 0.25);
-  border-color: rgba(63, 185, 80, 0.5);
+  background: #1a6334;
 }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .slide-up-enter-from,
 .slide-up-leave-to {
-  transform: translate(-50%, 100%);
+  transform: translate(-50%, 20px);
   opacity: 0;
 }
 

@@ -1434,40 +1434,43 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
-/* Save Bar */
+/* Save Bar - Discord 风格 */
 .save-bar {
   position: fixed;
-  bottom: 16px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--bg1);
-  border: 1px solid var(--k-color-border);
-  padding: 10px 16px;
-  border-radius: 8px;
+  width: calc(100% - 48px);
+  max-width: 560px;
+  background: #111214;
+  padding: 10px 12px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   z-index: 100;
-  max-width: 500px;
 }
 
 .save-bar-text {
-  font-size: 12px;
-  color: var(--fg2);
+  font-size: 0.8125rem;
+  color: #b5bac1;
+  font-weight: 400;
 }
 
 .save-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  align-items: center;
 }
 
 .save-bar-btn {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
   font-weight: 500;
   font-family: inherit;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1475,31 +1478,31 @@ onMounted(() => {
 .save-bar-btn.secondary {
   background: transparent;
   border: none;
-  color: var(--fg3);
+  color: #b5bac1;
 }
 
 .save-bar-btn.secondary:hover {
-  color: var(--fg1);
+  text-decoration: underline;
 }
 
 .save-bar-btn.primary {
-  background: var(--k-color-success);
+  background: #248046;
   border: none;
-  color: var(--fg0);
+  color: #fff;
 }
 
 .save-bar-btn.primary:hover {
-  background: var(--k-color-success-shade);
+  background: #1a6334;
 }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .slide-up-enter-from,
 .slide-up-leave-to {
-  transform: translate(-50%, 100%);
+  transform: translate(-50%, 20px);
   opacity: 0;
 }
 

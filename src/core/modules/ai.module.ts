@@ -191,6 +191,8 @@ export class AIModule extends BaseModule {
     }
 
     try {
+      this.data.writeLog(`[ai] 调用 API: ${endpoint}, model: ${model}`)
+
       const response = await this.ctx.http.post(endpoint, requestBody, {
         headers: {
           'Content-Type': 'application/json',
@@ -198,9 +200,15 @@ export class AIModule extends BaseModule {
         }
       })
 
+      this.data.writeLog(`[ai] API 响应: ${JSON.stringify(response).substring(0, 200)}...`)
+
       return response as ChatCompletionResponse
-    } catch (error) {
-      this.data.writeLog(`[ai] OpenAI API 调用出错: ${error}`)
+    } catch (error: any) {
+      // 提取更详细的错误信息
+      const errorDetail = error.response?.data
+        ? JSON.stringify(error.response.data).substring(0, 500)
+        : error.message
+      this.data.writeLog(`[ai] OpenAI API 调用出错: ${errorDetail}`)
       throw error
     }
   }
@@ -350,6 +358,10 @@ export class AIModule extends BaseModule {
       throw new Error('AI功能当前已禁用')
     }
 
+    if (!config.apiKey) {
+      throw new Error('未配置 API Key')
+    }
+
     try {
       const messages: ChatMessage[] = [
         { role: 'user', content: prompt }
@@ -359,12 +371,28 @@ export class AIModule extends BaseModule {
         messages,
         config.model || 'gpt-3.5-turbo',
         0.3,
-        2048,
+        config.maxTokens || 4096,
         config.apiKey,
         config.apiUrl || 'https://api.openai.com/v1'
       )
 
-      return response.choices[0].message.content
+      // 验证响应格式
+      if (!response) {
+        throw new Error('API 返回空响应')
+      }
+
+      if (!response.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
+        this.data.writeLog(`[ai] API 响应格式异常: ${JSON.stringify(response)}`)
+        throw new Error('API 响应格式异常，缺少 choices 字段')
+      }
+
+      const choice = response.choices[0]
+      if (!choice.message || !choice.message.content) {
+        this.data.writeLog(`[ai] API 响应缺少内容: ${JSON.stringify(choice)}`)
+        throw new Error('API 响应缺少 message.content')
+      }
+
+      return choice.message.content
     } catch (error: any) {
       this.data.writeLog(`[ai] AI内容审核失败: ${error}`)
       throw new Error(`内容审核失败: ${error.message}`)

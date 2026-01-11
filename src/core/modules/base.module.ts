@@ -52,8 +52,25 @@ export abstract class BaseModule {
   constructor(
     protected ctx: Context,
     protected data: DataManager,
-    protected config: Config
+    private _config: Config  // 改为私有，通过 getter 访问
   ) {}
+
+  /**
+   * 获取配置（动态获取，支持实时更新）
+   * 模块应通过此 getter 访问配置，而非直接使用 _config
+   */
+  protected get config(): Config {
+    // 优先从 groupHelper 服务获取最新配置
+    // 这样当 UI 保存设置后，模块可以立即看到更新
+    try {
+      if (this.ctx.groupHelper?.pluginConfig) {
+        return this.ctx.groupHelper.pluginConfig
+      }
+    } catch {
+      // 服务未就绪时使用构造函数传入的配置
+    }
+    return this._config
+  }
 
   /** 获取模块状态 */
   get state(): ModuleState {

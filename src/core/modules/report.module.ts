@@ -24,6 +24,12 @@ interface ViolationInfo {
   level: ViolationLevel
   reason: string
   action: ViolationAction[]
+  // AI 对举报者的判断
+  reporterPenalty?: {
+    shouldLimit: boolean      // 是否限制举报者
+    duration?: number         // 限制时长（分钟）
+    reason?: string           // 限制原因
+  }
 }
 
 /**
@@ -86,7 +92,12 @@ export class ReportModule extends BaseModule {
     { "type": "warn", "count": 数字 },	// 警告（次数）
     { "type": "kick" },	// 踢出
     { "type": "kick_blacklist" }	// 踢出并拉黑
-  ]
+  ],
+  "reporterPenalty": {	// 对举报者的处理（可选）
+    "shouldLimit": 布尔值,	// 是否限制举报者使用举报功能
+    "duration": 数字,	// 限制时长（分钟），仅当shouldLimit为true时需要
+    "reason": "字符串"	// 限制原因
+  }
 }
 
 "action"字段操作类型说明：
@@ -95,6 +106,13 @@ export class ReportModule extends BaseModule {
 - kick：踢出群聊
 - kick_blacklist：踢出群聊并加入黑名单
 - 支持同时进行多个操作（如禁言1800秒并警告1次、警告5次并踢出），无操作时返回空数组：[]
+
+"reporterPenalty"字段说明（对举报者的处理）：
+- 当被举报内容明显不违规(level=0)，且举报者有滥用举报功能的嫌疑时，应设置shouldLimit为true
+- 滥用举报的判断依据：举报正常对话、恶意举报他人等
+- duration为限制时长（分钟），建议范围：轻微滥用30-60分钟，明显滥用60-180分钟，恶意滥用180-1440分钟
+- 如果被举报内容确实违规(level>0)，则不应限制举报者，shouldLimit应为false
+- 如果被举报内容模糊不清但并非明显滥用，也不应限制举报者
 
 违规等级判定标准与对应操作建议 (必须严格遵守)：
 请极其严格地按照以下标准，结合自己的发散思考和自主判断，判定违规等级，并在"reason"字段中给出判断理由，在"action"字段中给出处罚建议：
@@ -137,7 +155,12 @@ export class ReportModule extends BaseModule {
     { "type": "warn", "count": 数字 },	// 警告（次数）
     { "type": "kick" },	// 踢出
     { "type": "kick_blacklist" }	// 踢出并拉黑
-  ]
+  ],
+  "reporterPenalty": {	// 对举报者的处理（可选）
+    "shouldLimit": 布尔值,	// 是否限制举报者使用举报功能
+    "duration": 数字,	// 限制时长（分钟），仅当shouldLimit为true时需要
+    "reason": "字符串"	// 限制原因
+  }
 }
 
 "action"字段操作类型说明：
@@ -146,6 +169,13 @@ export class ReportModule extends BaseModule {
 - kick：踢出群聊
 - kick_blacklist：踢出群聊并加入黑名单
 - 支持同时进行多个操作（如禁言1800秒并警告1次、警告5次并踢出），无操作时返回空数组：[]
+
+"reporterPenalty"字段说明（对举报者的处理）：
+- 当被举报内容明显不违规(level=0)，且举报者有滥用举报功能的嫌疑时，应设置shouldLimit为true
+- 滥用举报的判断依据：举报正常对话、举报自嘲内容、举报网络用语、恶意举报他人等
+- duration为限制时长（分钟），建议范围：轻微滥用30-60分钟，明显滥用60-180分钟，恶意滥用180-1440分钟
+- 如果被举报内容确实违规(level>0)，则不应限制举报者，shouldLimit应为false
+- 如果被举报内容模糊不清但并非明显滥用，也不应限制举报者
 
 违规等级判定标准与对应操作建议 (必须严格遵守)：
 请极其严格地按照以下标准，结合自己的发散思考和自主判断，判定违规等级，并在"reason"字段中给出判断理由（含上下文分析），在"action"字段中给出处罚建议：
@@ -251,7 +281,7 @@ export class ReportModule extends BaseModule {
       skipAuth: true,  // 举报是普通功能，不需要权限（有单独的冷却机制）
       usage: '回复违规消息使用，AI自动审核处理'
     })
-      .option('verbose', '-v 显示详细判断结果')
+      .option('verbose', '-v 显示详细判断结果', { fallback: true })
       .action(async ({ session, options }) => {
         if (!this.config.report?.enabled) {
           return h.quote(session.messageId) + '举报功能已被禁用'
@@ -451,20 +481,21 @@ export class ReportModule extends BaseModule {
               '未违规'
           }
 
-          // 未违规时限制举报
-          if (violationInfo.level === ViolationLevel.NONE && userAuthority < minUnlimitedAuthority) {
+          // 根据 AI 判断处理举报者限制
+          if (violationInfo.reporterPenalty?.shouldLimit && userAuthority < minUnlimitedAuthority) {
             const banKey = `${session.userId}:${session.guildId}`
+            const duration = (violationInfo.reporterPenalty.duration || 60) * 60 * 1000
             this.reportBans[banKey] = {
               userId: session.userId,
               guildId: session.guildId,
               timestamp: Date.now(),
-              expireTime: Date.now() + this.getReportCooldownDuration()
+              expireTime: Date.now() + duration
             }
 
-            await this.logCommand(session, 'report-banned', session.userId, '举报内容未违规，已限制使用')
+            const reason = violationInfo.reporterPenalty.reason || '滥用举报功能'
+            await this.logCommand(session, 'report-banned', session.userId, `AI判定: ${reason}，限制${violationInfo.reporterPenalty.duration}分钟`)
 
-            const cooldownMinutes = this.config.report?.maxReportCooldown || 60
-            return h.quote(session.messageId) + result + `\n您因举报内容未被判定为违规，已被暂时限制举报功能${cooldownMinutes}分钟。`
+            return h.quote(session.messageId) + result + `\n您因${reason}，已被暂时限制举报功能${violationInfo.reporterPenalty.duration}分钟。`
           }
 
           return h.quote(session.messageId) + result
@@ -513,15 +544,18 @@ export class ReportModule extends BaseModule {
         let hasChanges = false
         const configMsg = []
 
+        // 获取当前配置的副本用于更新
+        const currentReport = { ...this.config.report }
+
         if (isGuildSpecific) {
           configMsg.push(`群 ${guildId} 的举报功能配置：`)
 
-          if (!this.config.report.guildConfigs) {
-            this.config.report.guildConfigs = {}
+          if (!currentReport.guildConfigs) {
+            currentReport.guildConfigs = {}
           }
 
-          if (!this.config.report.guildConfigs[guildId]) {
-            this.config.report.guildConfigs[guildId] = {
+          if (!currentReport.guildConfigs[guildId]) {
+            currentReport.guildConfigs[guildId] = {
               enabled: true,
               includeContext: false,
               contextSize: 5,
@@ -529,7 +563,7 @@ export class ReportModule extends BaseModule {
             }
           }
 
-          const guildConfig = this.config.report.guildConfigs[guildId]
+          const guildConfig = currentReport.guildConfigs[guildId]
 
           if (options.enabled !== undefined) {
             guildConfig.enabled = options.enabled
@@ -563,26 +597,28 @@ export class ReportModule extends BaseModule {
           configMsg.push('全局举报功能配置：')
 
           if (options.enabled !== undefined) {
-            this.config.report.enabled = options.enabled
+            currentReport.enabled = options.enabled
             hasChanges = true
           }
 
           if (options.auto !== undefined) {
-            this.config.report.autoProcess = options.auto
+            currentReport.autoProcess = options.auto
             hasChanges = true
           }
 
           if (options.authority !== undefined && !isNaN(options.authority)) {
-            this.config.report.authority = options.authority
+            currentReport.authority = options.authority
             hasChanges = true
           }
 
-          configMsg.push(`全局状态: ${this.config.report.enabled ? '已启用' : '已禁用'}`)
-          configMsg.push(`全局自动处理: ${this.config.report.autoProcess ? '已启用' : '已禁用'}`)
-          configMsg.push(`权限等级: ${this.config.report.authority}`)
+          configMsg.push(`全局状态: ${currentReport.enabled ? '已启用' : '已禁用'}`)
+          configMsg.push(`全局自动处理: ${currentReport.autoProcess ? '已启用' : '已禁用'}`)
+          configMsg.push(`权限等级: ${currentReport.authority}`)
         }
 
         if (hasChanges) {
+          // 通过 SettingsManager 持久化配置
+          await this.ctx.groupHelper.settings.update({ report: currentReport })
           await this.logCommand(session, 'report-config', isGuildSpecific ? guildId : 'global', '已更新举报功能配置')
           return `举报功能配置已更新\n${configMsg.join('\n')}`
         }
@@ -595,17 +631,15 @@ export class ReportModule extends BaseModule {
    * 调用 AI 进行内容审核
    */
   private async callModeration(prompt: string): Promise<string> {
-    // 这里需要调用 AI 服务，暂时使用简化实现
-    // 实际应该使用 AIService 或 chatluna
     try {
-      // 尝试使用 chatluna
-      if (this.ctx['chatluna']) {
-        const response = await this.ctx['chatluna'].chat(prompt)
-        return response
+      // 使用内置的 AIModule 进行内容审核
+      const aiModule = this.ctx.groupHelper.getModule<import('./ai.module').AIModule>('ai')
+
+      if (!aiModule) {
+        throw new Error('AI 模块未加载')
       }
-      
-      // 降级处理
-      throw new Error('AI 服务不可用')
+
+      return await aiModule.callModeration(prompt)
     } catch (e) {
       logger.error('调用 AI 审核失败:', e)
       throw e
