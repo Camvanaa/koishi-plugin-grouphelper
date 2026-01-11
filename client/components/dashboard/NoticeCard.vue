@@ -1,7 +1,7 @@
 <template>
   <div class="card notice-card" v-if="content">
     <div class="card-header">
-      <k-icon name="grouphelper:bell" />
+      <k-icon name="grouphelper:octicons.megaphone" />
       <h3>最新公告</h3>
     </div>
     <div class="notice-content">
@@ -24,10 +24,12 @@ defineProps<{
   padding: 1rem 1.25rem;
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   transition: border-color 0.15s ease;
-  height: auto;
-  max-height: 200px;
+  height: 100%;
+  min-height: 320px;
   overflow-y: auto;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .card:hover {
@@ -57,6 +59,8 @@ defineProps<{
   color: var(--fg2, var(--k-color-text));
   line-height: 1.6;
   font-size: 0.85rem;
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Markdown 内容样式覆盖 */

@@ -64,15 +64,15 @@ const activeComponent = computed(() => {
 })
 
 const menuItems = [
-  { id: 'dashboard', label: '仪表盘', icon: 'grouphelper:dashboard' },
-  { id: 'config', label: '群组配置', icon: 'grouphelper:config' },
-  { id: 'warns', label: '警告记录', icon: 'grouphelper:warn' },
-  { id: 'blacklist', label: '黑名单', icon: 'grouphelper:blacklist' },
-  { id: 'roles', label: '角色权限', icon: 'grouphelper:roles' },
-  { id: 'logs', label: '日志检索', icon: 'grouphelper:log' },
-  { id: 'chat', label: '实时聊天', icon: 'grouphelper:chat' },
-  { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:subscription' },
-  { id: 'settings', label: '设置', icon: 'grouphelper:settings' },
+  { id: 'dashboard', label: '仪表盘', icon: 'grouphelper:octicons.apps' },
+  { id: 'config', label: '群组配置', icon: 'grouphelper:octicons.tools' },
+  { id: 'warns', label: '警告记录', icon: 'grouphelper:octicons.warning' },
+  { id: 'blacklist', label: '黑名单', icon: 'grouphelper:octicons.personadd' },
+  { id: 'roles', label: '角色权限', icon: 'grouphelper:octicons.people' },
+  { id: 'logs', label: '日志检索', icon: 'grouphelper:octicons.log' },
+  { id: 'chat', label: '实时聊天', icon: 'grouphelper:octicons.discussion' },
+  { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:octicons.sub' },
+  { id: 'settings', label: '设置', icon: 'grouphelper:octicons.gear' },
 ]
 </script>
 

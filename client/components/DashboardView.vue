@@ -160,11 +160,11 @@ const dragIndex = ref<number | null>(null)
 
 // 默认布局 - 包含四个统计卡片和公告
 const defaultLayout: WidgetConfig[] = [
-  { id: 'stat-groups', type: 'StatCard', span: 1, props: { type: 'blue', icon: 'users', label: '已配置群组' }, dynamicProps: { value: 'stats.totalGroups', loading: 'loading' } },
-  { id: 'stat-warns', type: 'StatCard', span: 1, props: { type: 'orange', icon: 'alert-triangle', label: '警告记录' }, dynamicProps: { value: 'stats.totalWarns', loading: 'loading' } },
-  { id: 'stat-blacklist', type: 'StatCard', span: 1, props: { type: 'red', icon: 'user-x', label: '黑名单用户' }, dynamicProps: { value: 'stats.totalBlacklisted', loading: 'loading' } },
-  { id: 'stat-subscriptions', type: 'StatCard', span: 1, props: { type: 'green', icon: 'rss', label: '活跃订阅' }, dynamicProps: { value: 'stats.totalSubscriptions', loading: 'loading' } },
-  { id: 'notice', type: 'NoticeCard', span: 4, dynamicProps: { content: 'notice' } }
+  { id: 'stat-groups', type: 'StatCard', span: 1, props: { type: 'blue', icon: 'octicons.people', label: '已配置群组' }, dynamicProps: { value: 'stats.totalGroups', loading: 'loading' } },
+  { id: 'stat-warns', type: 'StatCard', span: 1, props: { type: 'orange', icon: 'octicons.alert', label: '警告记录' }, dynamicProps: { value: 'stats.totalWarns', loading: 'loading' } },
+  { id: 'stat-blacklist', type: 'StatCard', span: 1, props: { type: 'red', icon: 'octicons.blocked', label: '黑名单用户' }, dynamicProps: { value: 'stats.totalBlacklisted', loading: 'loading' } },
+  { id: 'stat-subscriptions', type: 'StatCard', span: 1, props: { type: 'green', icon: 'octicons.broadcast', label: '活跃订阅' }, dynamicProps: { value: 'stats.totalSubscriptions', loading: 'loading' } },
+  { id: 'notice', type: 'NoticeCard', span: 2, dynamicProps: { content: 'notice' } }
 ]
 
 const layout = ref<WidgetConfig[]>(loadLayout())
@@ -174,7 +174,24 @@ function loadLayout() {
   if (saved) {
     try {
       // 合并默认配置，防止组件改名后丢失
-      return JSON.parse(saved)
+      const parsed = JSON.parse(saved)
+      // 迁移：将 NoticeCard 的 span 从 4 改为 2，并迁移图标到 Octicons
+      const iconMigration: Record<string, string> = {
+        'users': 'octicons.people',
+        'alert-triangle': 'octicons.alert',
+        'user-x': 'octicons.blocked',
+        'rss': 'octicons.broadcast'
+      }
+      for (const item of parsed) {
+        if (item.type === 'NoticeCard' && item.span === 4) {
+          item.span = 2
+        }
+        // 迁移 StatCard 图标
+        if (item.type === 'StatCard' && item.props?.icon && iconMigration[item.props.icon]) {
+          item.props.icon = iconMigration[item.props.icon]
+        }
+      }
+      return parsed
     } catch (e) { console.error(e) }
   }
   return JSON.parse(JSON.stringify(defaultLayout))
@@ -186,13 +203,13 @@ function saveLayout() {
 
 // 可用组件定义（StatCard 为内置组件，不可手动添加）
 const availableWidgets = [
-  { type: 'NoticeCard', name: '公告卡片', description: '显示公告内容', icon: 'grouphelper:bell', span: 4, defaultDynamicProps: { content: 'notice' } },
-  { type: 'TrendChartCard', name: '趋势图表', description: '显示命令使用趋势', icon: 'grouphelper:trending-up', span: 2, defaultDynamicProps: { data: 'chartData.trend', loading: 'chartLoading' } },
-  { type: 'DistChartCard', name: '命令排行', description: '显示命令使用分布', icon: 'grouphelper:bar-chart-2', span: 1, defaultDynamicProps: { data: 'chartData.distribution', loading: 'chartLoading' } },
-  { type: 'RankChartCard', name: '群聊排行', description: '显示群聊活跃排行', icon: 'grouphelper:users', span: 1, defaultProps: { type: 'guild', title: '群聊排行', icon: 'users' }, defaultDynamicProps: { data: 'chartData.guildRank', loading: 'chartLoading' } },
-  { type: 'RankChartCard', name: '个人排行', description: '显示用户活跃排行', icon: 'grouphelper:user', span: 1, defaultProps: { type: 'user', title: '个人排行', icon: 'user' }, defaultDynamicProps: { data: 'chartData.userRank', loading: 'chartLoading' } },
-  { type: 'VersionCard', name: '版本信息', description: '显示版本信息', icon: 'tag', span: 1, defaultDynamicProps: { stats: 'stats', versions: 'versions' } },
-  { type: 'UpdatesCard', name: '最近更新', description: '显示最近的代码提交', icon: 'grouphelper:clock', span: 2, defaultDynamicProps: { commits: 'commits', error: 'commitsError' } }
+  { type: 'NoticeCard', name: '公告卡片', description: '显示公告内容', icon: 'grouphelper:octicons.megaphone', span: 2, defaultDynamicProps: { content: 'notice' } },
+  { type: 'TrendChartCard', name: '趋势图表', description: '显示命令使用趋势', icon: 'grouphelper:octicons.graph', span: 2, defaultDynamicProps: { data: 'chartData.trend', loading: 'chartLoading' } },
+  { type: 'DistChartCard', name: '命令排行', description: '显示命令使用分布', icon: 'grouphelper:octicons.bar-chart', span: 1, defaultDynamicProps: { data: 'chartData.distribution', loading: 'chartLoading' } },
+  { type: 'RankChartCard', name: '群聊排行', description: '显示群聊活跃排行', icon: 'grouphelper:octicons.people', span: 1, defaultProps: { type: 'guild', title: '群聊排行', icon: 'octicons.people' }, defaultDynamicProps: { data: 'chartData.guildRank', loading: 'chartLoading' } },
+  { type: 'RankChartCard', name: '个人排行', description: '显示用户活跃排行', icon: 'grouphelper:octicons.person', span: 1, defaultProps: { type: 'user', title: '个人排行', icon: 'octicons.person' }, defaultDynamicProps: { data: 'chartData.userRank', loading: 'chartLoading' } },
+  { type: 'VersionCard', name: '版本信息', description: '显示版本信息', icon: 'grouphelper:octicons.tag', span: 1, defaultDynamicProps: { stats: 'stats', versions: 'versions' } },
+  { type: 'UpdatesCard', name: '最近更新', description: '显示最近的代码提交', icon: 'grouphelper:octicons.history', span: 2, defaultDynamicProps: { commits: 'commits', error: 'commitsError' } }
 ]
 
 // 属性解析

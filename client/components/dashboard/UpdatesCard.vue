@@ -1,7 +1,7 @@
 <template>
   <div class="card updates-card">
     <div class="card-header">
-      <k-icon name="grouphelper:clock" />
+      <k-icon name="grouphelper:octicons.history" />
       <h3>最近更新 (Dev)</h3>
     </div>
     <div class="commits-list">

@@ -1,7 +1,7 @@
 <template>
   <div class="card chart-card distribution-card">
     <div class="card-header">
-      <k-icon name="grouphelper:bar-chart-2" />
+      <k-icon name="grouphelper:octicons.bar-chart" />
       <h3>命令排行</h3>
       <span class="chart-subtitle">Top 10</span>
     </div>

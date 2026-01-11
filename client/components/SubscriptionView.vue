@@ -522,7 +522,7 @@ onMounted(() => {
 .sub-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
   display: flex;

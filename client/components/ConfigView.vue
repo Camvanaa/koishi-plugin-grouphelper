@@ -1032,7 +1032,7 @@ onMounted(() => {
 .guild-avatar {
   width: 28px;
   height: 28px;
-  border-radius: var(--cv-radius);
+  border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
 }

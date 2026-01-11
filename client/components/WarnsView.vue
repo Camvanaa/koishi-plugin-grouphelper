@@ -506,7 +506,7 @@ onMounted(() => {
 .item-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 50%;
   background: var(--bg3, #313136);
   display: flex;
   align-items: center;
@@ -519,7 +519,7 @@ onMounted(() => {
 .guild-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -670,7 +670,7 @@ onMounted(() => {
 .user-avatar-wrap {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 50%;
   background: var(--bg3, #313136);
   display: flex;
   align-items: center;
@@ -684,7 +684,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 50%;
 }
 
 .user-meta {

@@ -28,7 +28,7 @@
           :class="{ active: activeSection === section.id }"
           @click="activeSection = section.id"
         >
-          <k-icon :name="section.icon" class="sidebar-icon" />
+          <k-icon :name="section" class="sidebar-icon" />
           <span class="sidebar-label">{{ section.label }}</span>
         </div>
       </nav>
@@ -851,20 +851,20 @@ const friendKeywordsText = computed({
 })
 
 const sections = [
-  { id: 'warn', label: '警告设置', icon: 'alert-triangle' },
-  { id: 'forbidden', label: '禁言关键词', icon: 'slash' },
-  { id: 'keywords', label: '入群审核', icon: 'user-check' },
-  { id: 'dice', label: '掷骰子', icon: 'dice' },
-  { id: 'banme', label: 'Banme', icon: 'ban' },
-  { id: 'friendRequest', label: '好友申请', icon: 'user-plus' },
-  { id: 'guildRequest', label: '入群邀请', icon: 'users' },
-  { id: 'essence', label: '精华消息', icon: 'star' },
-  { id: 'title', label: '头衔设置', icon: 'award' },
-  { id: 'antiRepeat', label: '反复读', icon: 'repeat' },
-  { id: 'antiRecall', label: '防撤回', icon: 'eye' },
-  { id: 'openai', label: 'AI功能', icon: 'cpu' },
-  { id: 'report', label: '举报功能', icon: 'flag' },
-  { id: 'cache', label: '缓存管理', icon: 'database' },
+  { id: 'warn', label: '警告设置'},
+  { id: 'forbidden', label: '禁言关键词'},
+  { id: 'keywords', label: '入群审核'},
+  { id: 'dice', label: '掷骰子'},
+  { id: 'banme', label: '自我禁言'},
+  { id: 'friendRequest', label: '好友申请'},
+  { id: 'guildRequest', label: '入群邀请'},
+  { id: 'essence', label: '精华消息'},
+  { id: 'title', label: '头衔设置'},
+  { id: 'antiRepeat', label: '反复读'},
+  { id: 'antiRecall', label: '防撤回'},
+  { id: 'openai', label: 'AI功能'},
+  { id: 'report', label: '举报功能'},
+  { id: 'cache', label: '缓存管理'}
 ]
 
 // 深度合并对象

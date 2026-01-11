@@ -1,4 +1,4 @@
-你现在是一位拥有10年经验的高级前端工程师和UI设计师，擅长打造类似于 GitHub Dark Mode 或 Vercel 风格的开发者工具界面。请帮我重构当前的仪表盘（Dashboard）代码。
+你现在是一位拥有10年经验的高级前端工程师和UI设计师，擅长打造类似于 GitHub Dark Mode 或 Vercel 风格的开发者工具界面。请帮我重构当前的代码。
 
 Design Philosophy (去“AI味”的核心): 目前的界面看起来太像通用的模板，我要它变得“硬核”、“专业”且“高信噪比”。请遵循以下设计规范：
 
@@ -75,6 +75,8 @@ Status Indicators: 不要用那种发光的高斯模糊圆点。使用实心的�
 Charts: 线条要细（1px-2px），去掉复杂的背景网格，坐标轴颜色要淡。
 
 Lists (Top 10): 每一行增加轻微的 hover 效果（颜色变亮），进度条/Bar 不要用圆头，用直角或微圆角。
+
+image: 头像等用圆形裁剪
 
 Tech Stack:  Vue 3 + Tailwind CSS
 

@@ -1,7 +1,7 @@
 <template>
   <div class="card version-card">
     <div class="card-header">
-      <k-icon name="tag" />
+      <k-icon name="grouphelper:octicons.tag" />
       <h3>版本信息</h3>
     </div>
     <div class="version-grid">

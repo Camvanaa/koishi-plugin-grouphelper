@@ -1,7 +1,7 @@
 <template>
   <div class="card chart-card trend-card">
     <div class="card-header">
-      <k-icon name="grouphelper:trending-up" />
+      <k-icon name="grouphelper:octicons.graph" />
       <h3>命令趋势</h3>
       <span class="chart-subtitle">7 天</span>
     </div>

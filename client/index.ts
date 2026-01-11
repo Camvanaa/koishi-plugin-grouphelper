@@ -3,7 +3,7 @@ import { Context, icons } from '@koishijs/client'
 import Index from './pages/index.vue'
 import GroupIcon from './icons/group.vue'
 import LogoIcon from './icons/logo.vue'
-import { icons as customIcons } from './icons'
+import { icons as customIcons, Octicons } from './icons'
 
 // 注册自定义图标
 icons.register('grouphelper', GroupIcon)
@@ -35,6 +35,15 @@ icons.register('grouphelper:user', customIcons.user)
 icons.register('grouphelper:bar-chart-2', customIcons.barChart2)
 icons.register('grouphelper:trending-up', customIcons.trendingUp)
 icons.register('grouphelper:clock', customIcons.clock)
+
+// 注册所有 GitHub Octicons 图标
+// 使用方式: <k-icon name="grouphelper:octicons.tag" />
+for (const [name, component] of Object.entries(Octicons.getAll())) {
+  icons.register(`grouphelper:octicons.${name}`, component)
+}
+
+// 为了兼容，mark 现在指向 octicons.tag
+icons.register('grouphelper:mark', Octicons.create('tag'))
 
 export default (ctx: Context) => {
   ctx.page({

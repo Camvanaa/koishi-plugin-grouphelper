@@ -1134,7 +1134,7 @@ const renderMessage = (msg: ChatMessage) => {
 .session-icon {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: var(--bg3, #313136);
   display: flex;
   align-items: center;
@@ -1266,7 +1266,7 @@ const renderMessage = (msg: ChatMessage) => {
 .header-icon {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: var(--bg3, #313136);
   display: flex;
   align-items: center;
@@ -1338,7 +1338,7 @@ const renderMessage = (msg: ChatMessage) => {
 .message-avatar img {
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--k-color-divider);
 }
@@ -1346,7 +1346,7 @@ const renderMessage = (msg: ChatMessage) => {
 .avatar-placeholder {
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: var(--k-color-primary, #7459ff);
   color: #fff;
   display: flex;
@@ -1995,7 +1995,7 @@ const renderMessage = (msg: ChatMessage) => {
 .member-avatar {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg3, #313136);
