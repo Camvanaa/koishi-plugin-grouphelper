@@ -34,10 +34,9 @@
           <div class="col-actions">操作</div>
         </div>
         <div
-          v-for="(record, userId, index) in blacklist"
+          v-for="(record, userId) in blacklist"
           :key="userId"
           class="table-row"
-          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
         >
           <div class="col-user">
             <k-icon name="user-x" class="user-icon" />
@@ -161,12 +160,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ========== GitHub Dimmed Dark Theme ========== */
+/* ========== 使用 Koishi 全局 CSS 变量 ========== */
 .blacklist-view {
   height: 100%;
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'PingFang SC', sans-serif;
+  font-family: var(--font-family);
 }
 
 /* Header */
@@ -176,13 +175,13 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(82, 82, 89, 0.4);
+  border-bottom: 1px solid var(--k-color-divider);
 }
 
 .view-title {
   font-size: 1rem;
   font-weight: 600;
-  color: rgba(255, 255, 245, 0.9);
+  color: var(--fg1);
   margin: 0;
   letter-spacing: -0.25px;
 }
@@ -198,24 +197,24 @@ onMounted(() => {
   font-size: 0.75rem;
   padding: 0.375rem 0.625rem;
   border-radius: 4px;
-  border: 1px solid rgba(82, 82, 89, 0.4);
-  background: #313136;
-  color: rgba(255, 255, 245, 0.6);
+  border: 1px solid var(--k-color-divider);
+  background: var(--bg3);
+  color: var(--fg2);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .header-actions :deep(.k-button:hover) {
-  background: #252529;
-  border-color: rgba(82, 82, 89, 0.68);
-  color: rgba(255, 255, 245, 0.9);
+  background: var(--k-card-bg);
+  border-color: var(--k-color-border);
+  color: var(--fg1);
 }
 
 .header-actions :deep(.k-button.primary),
 .header-actions :deep(.k-button[type="primary"]) {
-  background: rgba(116, 89, 255, 0.15);
-  border-color: rgba(116, 89, 255, 0.3);
-  color: #7459ff;
+  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary-tint);
+  color: var(--k-color-primary);
 }
 
 .header-actions :deep(.k-button.primary:hover),
@@ -235,7 +234,7 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 2.5rem;
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
   font-size: 0.875rem;
 }
 
@@ -258,7 +257,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 2.5rem;
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
   font-size: 0.875rem;
 }
 
@@ -266,13 +265,13 @@ onMounted(() => {
   font-size: 40px;
   margin-bottom: 0.75rem;
   opacity: 0.4;
-  color: #3ba55e;
+  color: var(--k-color-success);
 }
 
 /* Table */
 .blacklist-table {
-  background: #252529;
-  border: 1px solid rgba(82, 82, 89, 0.68);
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -282,11 +281,11 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr auto;
   gap: 1rem;
   padding: 0.625rem 1rem;
-  background: #1e1e20;
-  border-bottom: 1px solid rgba(82, 82, 89, 0.68);
+  background: var(--bg1);
+  border-bottom: 1px solid var(--k-color-border);
   font-size: 0.6875rem;
   font-weight: 600;
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -297,7 +296,7 @@ onMounted(() => {
   gap: 1rem;
   padding: 0.625rem 1rem;
   align-items: center;
-  border-bottom: 1px solid rgba(82, 82, 89, 0.4);
+  border-bottom: 1px solid var(--k-color-divider);
   transition: background-color 0.15s ease;
 }
 
@@ -306,27 +305,27 @@ onMounted(() => {
 }
 
 .table-row:hover {
-  background: #313136;
+  background: var(--bg3);
 }
 
 .col-user {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
-  color: rgba(255, 255, 245, 0.9);
+  color: var(--fg1);
 }
 
 .user-icon {
-  color: #f85149;
+  color: var(--k-color-danger);
   font-size: 14px;
 }
 
 .col-time {
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
   font-size: 0.75rem;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-family: var(--font-family-code);
 }
 
 /* Row Buttons Override */
@@ -336,14 +335,14 @@ onMounted(() => {
   border-radius: 4px;
   border: 1px solid transparent;
   background: transparent;
-  color: #f85149;
+  color: var(--k-color-danger);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .col-actions :deep(.k-button:hover) {
-  background: rgba(248, 81, 73, 0.15);
-  border-color: #f85149;
+  background: var(--k-color-danger-fade);
+  border-color: var(--k-color-danger);
 }
 
 .col-actions :deep(.k-icon) {
@@ -365,8 +364,8 @@ onMounted(() => {
 }
 
 .add-dialog {
-  background: #252529;
-  border: 1px solid rgba(82, 82, 89, 0.68);
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
   border-radius: 4px;
   width: 90%;
   max-width: 380px;
@@ -378,15 +377,15 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(82, 82, 89, 0.68);
-  background: #1e1e20;
+  border-bottom: 1px solid var(--k-color-border);
+  background: var(--bg1);
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: rgba(255, 255, 245, 0.9);
+  color: var(--fg1);
 }
 
 .close-btn {
@@ -394,7 +393,7 @@ onMounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -403,8 +402,8 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  color: rgba(255, 255, 245, 0.9);
-  background: #313136;
+  color: var(--fg1);
+  background: var(--bg3);
 }
 
 .add-form {
@@ -423,17 +422,17 @@ onMounted(() => {
 .form-group label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: rgba(255, 255, 245, 0.6);
+  color: var(--fg2);
 }
 
 .form-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(82, 82, 89, 0.68);
+  border: 1px solid var(--k-color-border);
   border-radius: 4px;
-  background: #1e1e20;
-  color: rgba(255, 255, 245, 0.9);
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  background: var(--bg1);
+  color: var(--fg1);
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
   box-sizing: border-box;
   transition: border-color 0.15s ease;
@@ -441,11 +440,11 @@ onMounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: #7459ff;
+  border-color: var(--k-color-primary);
 }
 
 .form-input::placeholder {
-  color: rgba(255, 255, 245, 0.4);
+  color: var(--fg3);
 }
 
 .dialog-footer {
@@ -453,8 +452,8 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-top: 1px solid rgba(82, 82, 89, 0.68);
-  background: #1e1e20;
+  border-top: 1px solid var(--k-color-border);
+  background: var(--bg1);
 }
 
 /* Dialog Footer Buttons Override */
@@ -462,23 +461,23 @@ onMounted(() => {
   font-size: 0.75rem;
   padding: 0.375rem 0.75rem;
   border-radius: 4px;
-  border: 1px solid rgba(82, 82, 89, 0.4);
-  background: #313136;
-  color: rgba(255, 255, 245, 0.6);
+  border: 1px solid var(--k-color-divider);
+  background: var(--bg3);
+  color: var(--fg2);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .dialog-footer :deep(.k-button:hover) {
-  background: #252529;
-  border-color: rgba(82, 82, 89, 0.68);
-  color: rgba(255, 255, 245, 0.9);
+  background: var(--k-card-bg);
+  border-color: var(--k-color-border);
+  color: var(--fg1);
 }
 
 .dialog-footer :deep(.k-button[type="primary"]) {
-  background: rgba(116, 89, 255, 0.15);
-  border-color: rgba(116, 89, 255, 0.3);
-  color: #7459ff;
+  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary-tint);
+  color: var(--k-color-primary);
 }
 
 .dialog-footer :deep(.k-button[type="primary"]:hover) {

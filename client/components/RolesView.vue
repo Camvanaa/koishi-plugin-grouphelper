@@ -9,11 +9,10 @@
       
       <div class="role-list">
         <div
-          v-for="(role, index) in roles"
+          v-for="role in roles"
           :key="role.id"
           class="role-item"
           :class="{ active: currentRole?.id === role.id }"
-          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
           @click="selectRole(role)"
           draggable="true"
           @dragstart="onDragStart($event, role)"
@@ -890,19 +889,7 @@ const copyRoleId = async () => {
   overflow: hidden;
   border-radius: 8px;
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  animation: fadeInUp 0.35s ease-out backwards;
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* 侧边栏 */
@@ -964,18 +951,6 @@ const copyRoleId = async () => {
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease;
-  animation: item-enter 0.3s ease-out backwards;
-}
-
-@keyframes item-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .role-item:hover {

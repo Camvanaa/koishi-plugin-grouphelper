@@ -47,10 +47,9 @@
       </div>
 
       <div
-        v-for="(config, guildId, index) in filteredConfigs"
+        v-for="(config, guildId) in filteredConfigs"
         :key="guildId"
         class="config-card"
-        :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
         @click="editConfig(guildId as string)"
       >
         <div class="card-header">
@@ -743,31 +742,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ========== GitHub Dimmed Dark Theme ========== */
+/* ========== 使用 Koishi 全局 CSS 变量 ========== */
 .config-view {
-  --cv-bg-0: #000000;
-  --cv-bg-1: #1e1e20;
-  --cv-bg-2: #252529;
-  --cv-bg-3: #313136;
-  --cv-fg-1: rgba(255, 255, 245, 0.9);
-  --cv-fg-2: rgba(255, 255, 245, 0.6);
-  --cv-fg-3: rgba(255, 255, 245, 0.4);
-  --cv-border: rgba(82, 82, 89, 0.68);
-  --cv-border-subtle: rgba(82, 82, 89, 0.4);
-  --cv-primary: #7459ff;
-  --cv-primary-bg: rgba(116, 89, 255, 0.15);
-  --cv-primary-border: rgba(116, 89, 255, 0.3);
-  --cv-success: #3ba55e;
-  --cv-warning: #d29922;
-  --cv-danger: #f85149;
-  --cv-radius: 4px;
-  --cv-font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-  --cv-font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Heiti SC', sans-serif;
-
   height: 100%;
   display: flex;
   flex-direction: column;
-  font-family: var(--cv-font-sans);
+  font-family: var(--font-family);
 }
 
 /* ========== Header ========== */
@@ -777,7 +757,7 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--cv-border-subtle);
+  border-bottom: 1px solid var(--k-color-divider);
 }
 
 .header-actions {
@@ -791,10 +771,10 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   margin-right: 0.75rem;
   padding-right: 0.75rem;
-  border-right: 1px solid var(--cv-border-subtle);
+  border-right: 1px solid var(--k-color-divider);
 }
 
 .toggle-wrapper label {
@@ -805,7 +785,7 @@ onMounted(() => {
 .view-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--cv-fg-1);
+  color: var(--fg1);
   margin: 0;
   letter-spacing: -0.25px;
 }
@@ -821,20 +801,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--cv-bg-1);
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  background: var(--bg1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   padding: 0.25rem 0.5rem;
   margin-top: 10px;
   transition: border-color 0.15s ease;
 }
 
 .search-wrapper:focus-within {
-  border-color: var(--cv-primary);
+  border-color: var(--k-color-primary);
 }
 
 .search-icon {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   font-size: 14px;
   flex-shrink: 0;
 }
@@ -842,40 +822,40 @@ onMounted(() => {
 .search-input {
   border: none;
   background: transparent;
-  color: var(--cv-fg-1);
+  color: var(--fg1);
   font-size: 0.75rem;
   width: 140px;
   outline: none;
-  font-family: var(--cv-font-sans);
+  font-family: var(--font-family);
 }
 
 .search-input::placeholder {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 /* ========== Header Buttons Override ========== */
 .header-actions :deep(.k-button) {
   font-size: 0.75rem;
   padding: 0.375rem 0.625rem;
-  border-radius: var(--cv-radius);
-  border: 1px solid var(--cv-border-subtle);
-  background: var(--cv-bg-3);
-  color: var(--cv-fg-2);
+  border-radius: 6px;
+  border: 1px solid var(--k-color-divider);
+  background: var(--bg3);
+  color: var(--fg2);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .header-actions :deep(.k-button:hover) {
-  background: var(--cv-bg-2);
-  border-color: var(--cv-border);
-  color: var(--cv-fg-1);
+  background: var(--k-card-bg);
+  border-color: var(--k-color-border);
+  color: var(--fg1);
 }
 
 .header-actions :deep(.k-button.primary),
 .header-actions :deep(.k-button[type="primary"]) {
-  background: var(--cv-primary-bg);
-  border-color: var(--cv-primary-border);
-  color: var(--cv-primary);
+  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary-tint);
+  color: var(--k-color-primary);
 }
 
 .header-actions :deep(.k-button.primary:hover),
@@ -890,9 +870,9 @@ onMounted(() => {
 
 /* ========== El-Switch Override ========== */
 .toggle-wrapper :deep(.el-switch) {
-  --el-switch-on-color: var(--cv-primary);
-  --el-switch-off-color: var(--cv-bg-3);
-  --el-switch-border-color: var(--cv-border);
+  --el-switch-on-color: var(--k-color-primary);
+  --el-switch-off-color: var(--bg3);
+  --el-switch-border-color: var(--k-color-border);
   height: 18px;
 }
 
@@ -900,7 +880,7 @@ onMounted(() => {
   min-width: 32px;
   height: 18px;
   border-radius: 9px;
-  border: 1px solid var(--cv-border);
+  border: 1px solid var(--k-color-border);
 }
 
 .toggle-wrapper :deep(.el-switch__core .el-switch__action) {
@@ -914,7 +894,7 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 2.5rem;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   font-size: 0.875rem;
 }
 
@@ -942,7 +922,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 2.5rem;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   font-size: 0.875rem;
 }
 
@@ -954,9 +934,9 @@ onMounted(() => {
 
 /* ========== Config Card ========== */
 .config-card {
-  background: var(--cv-bg-2);
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
   animation: fadeIn 0.2s ease-out backwards;
@@ -968,8 +948,8 @@ onMounted(() => {
 }
 
 .config-card:hover {
-  border-color: var(--cv-fg-3);
-  background: var(--cv-bg-3);
+  border-color: var(--fg3);
+  background: var(--bg3);
 }
 
 .card-header {
@@ -977,7 +957,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--cv-border-subtle);
+  border-bottom: 1px solid var(--k-color-divider);
 }
 
 .card-footer {
@@ -985,8 +965,8 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 6px;
   padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--cv-border-subtle);
-  background: var(--cv-bg-1);
+  border-top: 1px solid var(--k-color-divider);
+  background: var(--bg1);
 }
 
 /* Card Footer Button Override */
@@ -994,27 +974,27 @@ onMounted(() => {
   font-size: 0.6875rem;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  border: 1px solid var(--cv-border);
+  border: 1px solid var(--k-color-border);
   background: transparent;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .card-footer :deep(.k-button:hover) {
-  border-color: var(--cv-fg-3);
-  color: var(--cv-fg-1);
-  background: var(--cv-bg-3);
+  border-color: var(--fg3);
+  color: var(--fg1);
+  background: var(--bg3);
 }
 
 .card-footer :deep(.k-button[type="danger"]) {
-  color: var(--cv-danger);
+  color: var(--k-color-danger);
   border-color: transparent;
 }
 
 .card-footer :deep(.k-button[type="danger"]:hover) {
   background: rgba(248, 81, 73, 0.15);
-  border-color: var(--cv-danger);
+  border-color: var(--k-color-danger);
 }
 
 .card-footer :deep(.k-icon) {
@@ -1038,14 +1018,14 @@ onMounted(() => {
 }
 
 .guild-icon {
-  color: var(--cv-fg-2);
+  color: var(--fg2);
   font-size: 20px;
 }
 
 .guild-id {
   font-weight: 500;
   font-size: 0.875rem;
-  color: var(--cv-fg-1);
+  color: var(--fg1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1069,24 +1049,24 @@ onMounted(() => {
   align-items: center;
   gap: 5px;
   font-size: 0.75rem;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   padding: 2px 0;
 }
 
 .feature-item.active {
-  color: var(--cv-fg-2);
+  color: var(--fg2);
 }
 
 .dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--cv-border);
+  background: var(--k-color-border);
   flex-shrink: 0;
 }
 
 .feature-item.active .dot {
-  background: var(--cv-success);
+  background: var(--k-color-success);
 }
 
 .stats-row {
@@ -1099,21 +1079,21 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   font-size: 0.6875rem;
-  background: var(--cv-bg-1);
-  border: 1px solid var(--cv-border-subtle);
+  background: var(--bg1);
+  border: 1px solid var(--k-color-divider);
   border-radius: 3px;
   padding: 2px 6px;
   gap: 4px;
 }
 
 .stat-label {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 .stat-value {
   font-weight: 600;
-  color: var(--cv-fg-1);
-  font-family: var(--cv-font-mono);
+  color: var(--fg1);
+  font-family: var(--font-family-code);
 }
 
 /* ========== Dialog & Overlay ========== */
@@ -1132,9 +1112,9 @@ onMounted(() => {
 }
 
 .edit-dialog {
-  background: var(--cv-bg-2);
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
@@ -1144,9 +1124,9 @@ onMounted(() => {
 }
 
 .dialog-card {
-  background: var(--cv-bg-2);
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   width: 90%;
   max-width: 380px;
   overflow: hidden;
@@ -1162,11 +1142,11 @@ onMounted(() => {
 .form-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
-  background: var(--cv-bg-1);
-  color: var(--cv-fg-1);
-  font-family: var(--cv-font-mono);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background: var(--bg1);
+  color: var(--fg1);
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
   box-sizing: border-box;
   transition: border-color 0.15s ease;
@@ -1174,11 +1154,11 @@ onMounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--cv-primary);
+  border-color: var(--k-color-primary);
 }
 
 .form-input::placeholder {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 .edit-dialog.large {
@@ -1193,15 +1173,15 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--cv-border);
-  background: var(--cv-bg-1);
+  border-bottom: 1px solid var(--k-color-border);
+  background: var(--bg1);
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--cv-fg-1);
+  color: var(--fg1);
 }
 
 .close-btn {
@@ -1209,17 +1189,17 @@ onMounted(() => {
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--cv-radius);
+  border-radius: 6px;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .close-btn:hover {
-  color: var(--cv-fg-1);
-  background: var(--cv-bg-3);
+  color: var(--fg1);
+  background: var(--bg3);
 }
 
 /* ========== Edit Layout ========== */
@@ -1231,12 +1211,12 @@ onMounted(() => {
 
 .edit-sidebar {
   width: 140px;
-  border-right: 1px solid var(--cv-border);
+  border-right: 1px solid var(--k-color-border);
   padding: 0.75rem 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--cv-bg-1);
+  background: var(--bg1);
 }
 
 .sidebar-item {
@@ -1244,23 +1224,23 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--cv-radius);
+  border-radius: 6px;
   cursor: pointer;
-  color: var(--cv-fg-2);
+  color: var(--fg2);
   font-size: 0.8125rem;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .sidebar-item:hover {
-  background: var(--cv-bg-3);
-  color: var(--cv-fg-1);
+  background: var(--bg3);
+  color: var(--fg1);
 }
 
 .sidebar-item.active {
-  background: var(--cv-bg-3);
-  color: var(--cv-primary);
+  background: var(--bg3);
+  color: var(--k-color-primary);
   font-weight: 500;
-  border-left: 2px solid var(--cv-primary);
+  border-left: 2px solid var(--k-color-primary);
   margin-left: -2px;
   padding-left: calc(0.75rem - 2px);
 }
@@ -1269,7 +1249,7 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 1rem 1.25rem;
-  background: var(--cv-bg-2);
+  background: var(--k-card-bg);
 }
 
 .config-section {
@@ -1281,31 +1261,31 @@ onMounted(() => {
 .section-title {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--cv-fg-2);
+  color: var(--fg2);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.25rem;
   padding-left: 0.5rem;
-  border-left: 2px solid var(--cv-success);
+  border-left: 2px solid var(--k-color-success);
 }
 
 .divider {
   height: 1px;
-  background: var(--cv-border-subtle);
+  background: var(--k-color-divider);
   margin: 0.75rem 0;
 }
 
 /* ========== Plugin Card ========== */
 .plugin-card {
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   overflow: hidden;
-  background: var(--cv-bg-2);
+  background: var(--k-card-bg);
   transition: border-color 0.15s ease;
 }
 
 .plugin-card:hover {
-  border-color: var(--cv-fg-3);
+  border-color: var(--fg3);
 }
 
 .plugin-header {
@@ -1313,14 +1293,14 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
-  background: var(--cv-bg-1);
+  background: var(--bg1);
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s ease;
 }
 
 .plugin-header:hover {
-  background: var(--cv-bg-3);
+  background: var(--bg3);
 }
 
 .plugin-title {
@@ -1329,20 +1309,20 @@ onMounted(() => {
   gap: 0.5rem;
   font-weight: 500;
   font-size: 0.8125rem;
-  color: var(--cv-fg-1);
+  color: var(--fg1);
 }
 
 .plugin-status {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 .plugin-body {
   padding: 0.75rem;
-  border-top: 1px solid var(--cv-border-subtle);
-  background: var(--cv-bg-2);
+  border-top: 1px solid var(--k-color-divider);
+  background: var(--k-card-bg);
 }
 
 /* ========== Form Elements ========== */
@@ -1359,17 +1339,17 @@ onMounted(() => {
   flex-shrink: 0;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--cv-fg-2);
+  color: var(--fg2);
 }
 
 .form-textarea {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
-  background: var(--cv-bg-1);
-  color: var(--cv-fg-1);
-  font-family: var(--cv-font-mono);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background: var(--bg1);
+  color: var(--fg1);
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
   resize: vertical;
   transition: border-color 0.15s ease;
@@ -1377,11 +1357,11 @@ onMounted(() => {
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--cv-primary);
+  border-color: var(--k-color-primary);
 }
 
 .form-textarea::placeholder {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 /* ========== El-Input Override ========== */
@@ -1389,9 +1369,9 @@ onMounted(() => {
 .config-section :deep(.el-input-number),
 .plugin-body :deep(.el-input__wrapper),
 .plugin-body :deep(.el-input-number) {
-  background: var(--cv-bg-1);
-  border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  background: var(--bg1);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
   box-shadow: none;
   transition: border-color 0.15s ease;
 }
@@ -1400,40 +1380,40 @@ onMounted(() => {
 .config-section :deep(.el-input-number:hover),
 .plugin-body :deep(.el-input__wrapper:hover),
 .plugin-body :deep(.el-input-number:hover) {
-  border-color: var(--cv-fg-3);
+  border-color: var(--fg3);
 }
 
 .config-section :deep(.el-input__wrapper.is-focus),
 .plugin-body :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--cv-primary) !important;
+  border-color: var(--k-color-primary) !important;
 }
 
 .config-section :deep(.el-input__inner),
 .plugin-body :deep(.el-input__inner) {
-  color: var(--cv-fg-1);
-  font-family: var(--cv-font-mono);
+  color: var(--fg1);
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
 }
 
 .config-section :deep(.el-input__inner::placeholder),
 .plugin-body :deep(.el-input__inner::placeholder) {
-  color: var(--cv-fg-3);
+  color: var(--fg3);
 }
 
 .config-section :deep(.el-input-number__decrease),
 .config-section :deep(.el-input-number__increase),
 .plugin-body :deep(.el-input-number__decrease),
 .plugin-body :deep(.el-input-number__increase) {
-  background: var(--cv-bg-2);
-  border-color: var(--cv-border);
-  color: var(--cv-fg-2);
+  background: var(--k-card-bg);
+  border-color: var(--k-color-border);
+  color: var(--fg2);
 }
 
 .config-section :deep(.el-input-number__decrease:hover),
 .config-section :deep(.el-input-number__increase:hover),
 .plugin-body :deep(.el-input-number__decrease:hover),
 .plugin-body :deep(.el-input-number__increase:hover) {
-  color: var(--cv-primary);
+  color: var(--k-color-primary);
 }
 
 /* ========== Toggle Switch ========== */
@@ -1457,8 +1437,8 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--cv-bg-3);
-  border: 1px solid var(--cv-border);
+  background-color: var(--bg3);
+  border: 1px solid var(--k-color-border);
   transition: background-color 0.15s ease, border-color 0.15s ease;
   border-radius: 10px;
 }
@@ -1470,14 +1450,14 @@ onMounted(() => {
   width: 14px;
   left: 2px;
   bottom: 2px;
-  background-color: var(--cv-fg-2);
+  background-color: var(--fg2);
   transition: transform 0.15s ease, background-color 0.15s ease;
   border-radius: 50%;
 }
 
 .toggle-switch input:checked + .slider {
-  background-color: var(--cv-primary);
-  border-color: var(--cv-primary);
+  background-color: var(--k-color-primary);
+  border-color: var(--k-color-primary);
 }
 
 .toggle-switch input:checked + .slider:before {
@@ -1488,12 +1468,12 @@ onMounted(() => {
 .divider-text {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--cv-fg-3);
+  color: var(--fg3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0.75rem 0 0.375rem;
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--cv-border-subtle);
+  border-bottom: 1px solid var(--k-color-divider);
 }
 
 /* ========== Dialog Footer ========== */
@@ -1502,8 +1482,8 @@ onMounted(() => {
   justify-content: flex-end;
   align-items: center;
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--cv-border);
-  background: var(--cv-bg-1);
+  border-top: 1px solid var(--k-color-border);
+  background: var(--bg1);
 }
 
 .footer-left {
@@ -1520,24 +1500,24 @@ onMounted(() => {
 .dialog-footer :deep(.k-button) {
   font-size: 0.75rem;
   padding: 0.375rem 0.75rem;
-  border-radius: var(--cv-radius);
-  border: 1px solid var(--cv-border-subtle);
-  background: var(--cv-bg-3);
-  color: var(--cv-fg-2);
+  border-radius: 6px;
+  border: 1px solid var(--k-color-divider);
+  background: var(--bg3);
+  color: var(--fg2);
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .dialog-footer :deep(.k-button:hover) {
-  background: var(--cv-bg-2);
-  border-color: var(--cv-border);
-  color: var(--cv-fg-1);
+  background: var(--k-card-bg);
+  border-color: var(--k-color-border);
+  color: var(--fg1);
 }
 
 .dialog-footer :deep(.k-button[type="primary"]) {
-  background: var(--cv-primary-bg);
-  border-color: var(--cv-primary-border);
-  color: var(--cv-primary);
+  background: var(--k-color-primary-fade);
+  border-color: var(--k-color-primary-tint);
+  color: var(--k-color-primary);
 }
 
 .dialog-footer :deep(.k-button[type="primary"]:hover) {
@@ -1548,7 +1528,7 @@ onMounted(() => {
 .dialog-footer :deep(.k-button[type="danger"]) {
   background: rgba(248, 81, 73, 0.15);
   border-color: rgba(248, 81, 73, 0.3);
-  color: var(--cv-danger);
+  color: var(--k-color-danger);
 }
 
 .dialog-footer :deep(.k-button[type="danger"]:hover) {
@@ -1572,12 +1552,12 @@ onMounted(() => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--cv-border);
+  background-color: var(--k-color-border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--cv-fg-3);
+  background-color: var(--fg3);
 }
 
 ::-webkit-scrollbar-corner {
@@ -1586,7 +1566,7 @@ onMounted(() => {
 
 /* ========== Delete Dialog ========== */
 .warning-text {
-  color: var(--cv-danger);
+  color: var(--k-color-danger);
   margin-bottom: 0.75rem;
   font-weight: 500;
   font-size: 0.875rem;
@@ -1595,25 +1575,25 @@ onMounted(() => {
 .info-text {
   margin-bottom: 0.75rem;
   font-size: 0.8125rem;
-  color: var(--cv-fg-2);
+  color: var(--fg2);
 }
 
 .code-highlight {
-  background: var(--cv-bg-1);
+  background: var(--bg1);
   padding: 2px 6px;
   border-radius: 3px;
-  font-family: var(--cv-font-mono);
+  font-family: var(--font-family-code);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   user-select: all;
-  border: 1px solid var(--cv-border);
-  color: var(--cv-fg-1);
+  border: 1px solid var(--k-color-border);
+  color: var(--fg1);
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .code-highlight:hover {
-  border-color: var(--cv-primary);
-  color: var(--cv-primary);
+  border-color: var(--k-color-primary);
+  color: var(--k-color-primary);
 }
 </style>

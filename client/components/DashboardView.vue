@@ -34,7 +34,7 @@
         v-for="(item, index) in layout"
         :key="item.id"
         class="grid-item"
-        :style="{ gridColumn: `span ${item.span}`, animationDelay: `${Math.min(index * 0.05, 0.6)}s` }"
+        :style="{ gridColumn: `span ${item.span}`, animationDelay: `${Math.min(index * 0.03, 0.3)}s` }"
         :draggable="isEditing"
         @dragstart="dragStart($event, index)"
         @dragover.prevent
@@ -367,150 +367,156 @@ onMounted(() => {
 <style scoped>
 /* ========================================
    GitHub Dimmed / Vercel 风格 Dashboard
-   去 AI 味，硬核专业高信噪比
+   硬核专业高信噪比
    ======================================== */
 
 .dashboard-container {
-  padding: 1.25rem;
+  padding: 1rem;
   max-width: 1600px;
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
-/* Hero Section - 更紧凑的顶部区域 */
+/* Hero Section - 极简顶部 */
 .hero-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0.25rem;
+  padding: 0;
 }
 
 .hero-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .hero-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .hero-icon :deep(svg) {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
 }
 
 .hero-text h1 {
-  margin: 0 0 0.125rem 0;
-  font-size: 1.375rem;
+  margin: 0;
+  font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: -0.25px;
-  color: var(--fg1, var(--k-color-text));
+  letter-spacing: -0.3px;
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
 }
 
 .hero-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  color: var(--fg2, var(--k-color-text-description));
-  font-size: 0.8rem;
+  gap: 0.5rem;
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
+  font-size: 0.7rem;
+  margin-top: 2px;
 }
 
-/* 状态指示器 - 实心小圆点，无发光效果 */
+/* 状态指示器 - 实心小圆点，克制配色 */
 .status-indicator {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: #3ba55e;
+  gap: 4px;
+  color: #3fb950;
   font-weight: 500;
-  font-size: 0.75rem;
-  background: rgba(59, 165, 94, 0.12);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(59, 165, 94, 0.2);
+  font-size: 0.65rem;
+  background: rgba(63, 185, 80, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(63, 185, 80, 0.2);
 }
 
 /* 克制的实心圆点，无高斯模糊 */
 .dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: #3ba55e;
+  background: #3fb950;
 }
 
 /* 版本标签 - 等宽字体 */
 .version-tag {
-  background: var(--bg3, var(--k-bg-light));
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-  font-size: 0.75rem;
-  color: var(--fg2, var(--k-color-text-description));
+  background: var(--bg3, #313136);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.65rem;
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
-/* 按钮 - GitHub 风格次要按钮 */
+.uptime {
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+/* 按钮 - GitHub 风格 */
 .button {
   cursor: pointer;
-  padding: 0.375rem 0.625rem;
+  padding: 5px 10px;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
+  gap: 4px;
+  font-size: 0.7rem;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
   user-select: none;
   background: var(--bg3, #313136);
-  color: var(--fg2, rgba(255, 255, 245, 0.9));
+  color: var(--fg2, rgba(255, 255, 245, 0.6));
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .button:hover {
   background: var(--bg2, #252529);
   border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
-  color: var(--fg1, #fff);
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
 }
 
 .button.is-primary {
-  background: rgba(59, 185, 80, 0.15);
+  background: rgba(63, 185, 80, 0.12);
   color: #3fb950;
-  border-color: rgba(59, 185, 80, 0.3);
+  border-color: rgba(63, 185, 80, 0.25);
 }
 
 .button.is-primary:hover {
-  background: rgba(59, 185, 80, 0.25);
-  border-color: rgba(59, 185, 80, 0.5);
+  background: rgba(63, 185, 80, 0.2);
+  border-color: rgba(63, 185, 80, 0.4);
 }
 
-/* Grid Layout - 更紧凑的间距 */
+/* Grid Layout - 紧凑间距 */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-auto-rows: auto;
-  gap: 1rem;
-  padding-bottom: 1.5rem;
+  gap: 12px;
+  padding-bottom: 1rem;
 }
 
 .grid-item {
   position: relative;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-  animation: card-enter 0.35s ease-out backwards;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+  animation: card-enter 0.25s ease-out backwards;
 }
 
 @keyframes card-enter {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -520,7 +526,7 @@ onMounted(() => {
 
 .bento-grid.is-editing .grid-item {
   border: 1px dashed var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: move;
 }
 
@@ -536,13 +542,13 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.12s ease;
 }
 
 .grid-item:hover .edit-overlay {
@@ -551,31 +557,32 @@ onMounted(() => {
 
 .remove-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  background: #ff595a;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  background: rgba(248, 81, 73, 0.9);
   color: #fff;
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.12s ease;
+  font-size: 12px;
 }
 
 .remove-btn:hover {
-  background: #ff3d3e;
+  background: #f85149;
 }
 
 .drag-handle {
-  color: var(--fg1, #fff);
-  font-size: 1.5rem;
-  opacity: 0.7;
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
+  font-size: 1.25rem;
+  opacity: 0.8;
 }
 
-/* Add Placeholder - 统一圆角 */
+/* Add Placeholder */
 .add-widget-placeholder {
   grid-column: span 1;
   border: 1px dashed var(--k-color-divider, rgba(82, 82, 89, 0.5)) !important;
@@ -584,32 +591,36 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--fg3, var(--k-color-text-description));
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
   cursor: pointer !important;
-  transition: all 0.15s ease;
-  min-height: 140px;
+  transition: all 0.12s ease;
+  min-height: 120px;
   background: transparent;
+  gap: 4px;
 }
 
 .add-widget-placeholder:hover {
   border-color: var(--k-color-primary, #7459ff) !important;
   color: var(--k-color-primary, #7459ff);
-  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
+  background: rgba(116, 89, 255, 0.08);
 }
 
 .add-widget-placeholder .k-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.375rem;
+  font-size: 1.25rem;
 }
 
-/* Modal - GitHub 风格弹窗 */
+.add-widget-placeholder span {
+  font-size: 0.7rem;
+}
+
+/* Modal - GitHub 风格 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -618,93 +629,93 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: var(--bg2, var(--k-card-bg));
-  width: 440px;
+  background: var(--bg2, #252529);
+  width: 400px;
   max-width: 90vw;
-  border-radius: 8px;
-  padding: 1.25rem;
+  border-radius: 6px;
+  padding: 1rem;
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.625rem;
   border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--fg1, var(--k-color-text));
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
 }
 
 .close-btn {
   cursor: pointer;
-  padding: 0.375rem;
-  border-radius: 4px;
-  color: var(--fg3, var(--k-color-text-description));
-  transition: all 0.15s ease;
+  padding: 4px;
+  border-radius: 3px;
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
+  transition: all 0.12s ease;
 }
 
 .close-btn:hover {
-  background: var(--bg3, var(--k-color-bg-2));
-  color: var(--fg1, var(--k-color-text));
+  background: var(--bg3, #313136);
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
 }
 
 .widget-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-height: 55vh;
+  gap: 6px;
+  max-height: 50vh;
   overflow-y: auto;
 }
 
 .widget-option {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
-  padding: 0.75rem;
+  gap: 0.75rem;
+  padding: 0.625rem;
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
   background: transparent;
 }
 
 .widget-option:hover {
   border-color: var(--k-color-primary, #7459ff);
-  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
+  background: rgba(116, 89, 255, 0.08);
 }
 
 .widget-preview {
-  width: 36px;
-  height: 36px;
-  background: var(--bg3, var(--k-color-bg-2));
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--bg3, #313136);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
-  color: var(--fg2, var(--k-color-text));
+  font-size: 14px;
+  color: var(--fg2, rgba(255, 255, 245, 0.6));
   flex-shrink: 0;
 }
 
 .widget-info h4 {
-  margin: 0 0 0.125rem 0;
-  font-size: 0.875rem;
+  margin: 0 0 2px 0;
+  font-size: 0.8rem;
   font-weight: 500;
-  color: var(--fg1, var(--k-color-text));
+  color: var(--fg1, rgba(255, 255, 245, 0.9));
 }
 
 .widget-info p {
   margin: 0;
-  font-size: 0.75rem;
-  color: var(--fg3, var(--k-color-text-description));
+  font-size: 0.7rem;
+  color: var(--fg3, rgba(255, 255, 245, 0.4));
 }
 
 /* 响应式布局 */
@@ -722,7 +733,7 @@ onMounted(() => {
   .hero-section {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .hero-actions {

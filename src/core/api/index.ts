@@ -757,9 +757,11 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   ctx.console.addListener('grouphelper/chat/guild-members' as any, async (params: { guildId: string }) => {
     try {
       const { guildId } = params
+      ctx.logger('grouphelper').debug('getGuildMembers called:', guildId)
       if (!guildId) return error('缺少 guildId 参数')
 
       for (const bot of ctx.bots) {
+        ctx.logger('grouphelper').debug('Trying bot:', bot.platform, bot.selfId)
         try {
           // 使用 getGuildMemberList 获取成员列表
           const members: any[] = []
@@ -1083,6 +1085,8 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // 监听并广播消息
   const broadcastMessage = async (session: any, isSelf = false) => {
+    ctx.logger('grouphelper').debug('broadcastMessage called:', { isSelf, channelId: session.channelId, userId: session.userId })
+
     // 获取消息内容
     let content = session.content
     let elements = session.elements
@@ -1254,6 +1258,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   ctx.on('message', (session) => {
     broadcastMessage(session)
   })
+  ctx.logger('grouphelper').info('Chat message listener registered')
 
   // 监听发送消息
   // @ts-ignore - send 事件类型定义可能不完整

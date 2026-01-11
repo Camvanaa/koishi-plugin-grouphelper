@@ -21,11 +21,10 @@
           等待消息...
         </div>
         <div
-          v-for="(session, index) in sessions"
+          v-for="session in sessions"
           :key="session.id"
           class="session-item"
           :class="{ active: currentSessionId === session.id }"
-          :style="{ animationDelay: `${Math.min(index * 0.05, 0.5)}s` }"
           @click="selectSession(session.id)"
         >
           <div class="session-icon">
