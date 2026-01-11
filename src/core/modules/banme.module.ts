@@ -228,10 +228,10 @@ export class BanmeModule extends BaseModule {
           milliseconds = parseTimeString(banmeConfig.jackpot.upDuration || '7d')
         }
       } else {
-        const baseMaxMillis = Math.min((banmeConfig.baseMax || 10) * 60 * 1000, 24 * 60 * 60 * 1000)
+        const baseMaxMillis = (banmeConfig.baseMax || 10) * 60 * 1000
         const baseMinMillis = Math.max((banmeConfig.baseMin || 1) * 1000, 1000)
         const additionalMinutes = Math.floor(Math.pow(records[session.guildId].count - 1, 1 / 3) * (banmeConfig.growthRate || 2))
-        const maxMilliseconds = baseMaxMillis + (additionalMinutes * 60 * 1000)
+        const maxMilliseconds = Math.min(baseMaxMillis + (additionalMinutes * 60 * 1000), 30 * 24 * 60 * 60 * 1000)
         milliseconds = Math.floor(Math.random() * (maxMilliseconds - baseMinMillis)) + baseMinMillis
       }
 
