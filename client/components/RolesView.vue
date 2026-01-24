@@ -113,6 +113,10 @@
                 <input type="radio" v-model="scopeMode" value="guilds">
                 仅指定群组生效
               </label>
+              <label class="radio-label">
+                <input type="radio" v-model="scopeMode" value="guildGroup">
+                仅指定群组组生效
+              </label>
             </div>
           </div>
 
@@ -124,6 +128,29 @@
               class="form-textarea"
               rows="4"
             ></textarea>
+          </div>
+
+          <div class="form-group" v-if="!currentRole.builtin && scopeMode === 'guildGroup'">
+            <label>指定群组组 ID（每行一个）</label>
+            <div class="group-checkbox-list" v-if="guildGroups.length">
+              <input
+                type="text"
+                v-model="guildGroupSearch"
+                placeholder="搜索群组组..."
+                class="form-input"
+              >
+              <div class="group-actions">
+                <button class="secondary-btn" @click="selectAllRoleGroups">全选</button>
+                <button class="secondary-btn" @click="clearRoleGroups">清空</button>
+                <span class="group-count">已选 {{ guildGroupIdsSelected.length }}</span>
+              </div>
+              <label v-for="group in filteredGuildGroupsForRole" :key="group.id" class="checkbox-label">
+                <input type="checkbox" :value="group.id" v-model="guildGroupIdsSelected">
+                <span>{{ group.name }} ({{ group.id }})</span>
+              </label>
+              <div v-if="filteredGuildGroupsForRole.length === 0" class="empty-tip">未找到匹配的群组组</div>
+            </div>
+            <div v-else class="empty-tip">暂无可用群组组，请先在群组配置中创建</div>
           </div>
         </div>
 
@@ -223,12 +250,67 @@
              </div>
 
              <!-- 自定义角色：可以添加成员 -->
-             <template v-else>
-               <div class="add-member">
-                   <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
-                   <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
-                   <button class="secondary-btn" @click.stop="showImportDialog = true">导入成员</button>
-               </div>
+              <template v-else>
+                <div class="add-member">
+                    <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
+                    <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
+                    <button class="secondary-btn" @click.stop="showImportDialog = true">导入成员</button>
+                </div>
+
+                <div class="form-group">
+                  <label>成员授予范围</label>
+                  <div class="scope-options">
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="inherit">
+                      继承角色范围
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="global">
+                      全局
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="guilds">
+                      指定群组
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="guildGroup">
+                      指定群组组
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group" v-if="memberScopeMode === 'guilds'">
+                  <label>指定群组 ID（每行一个）</label>
+                  <textarea
+                    v-model="memberGuildIdsText"
+                    placeholder="输入群号，每行一个"
+                    class="form-textarea"
+                    rows="3"
+                  ></textarea>
+                </div>
+
+                <div class="form-group" v-if="memberScopeMode === 'guildGroup'">
+                  <label>指定群组组 ID（每行一个）</label>
+                  <div class="group-checkbox-list" v-if="guildGroups.length">
+                    <input
+                      type="text"
+                      v-model="memberGuildGroupSearch"
+                      placeholder="搜索群组组..."
+                      class="form-input"
+                    >
+                    <div class="group-actions">
+                      <button class="secondary-btn" @click="selectAllMemberGroups">全选</button>
+                      <button class="secondary-btn" @click="clearMemberGroups">清空</button>
+                      <span class="group-count">已选 {{ memberGuildGroupIdsSelected.length }}</span>
+                    </div>
+                    <label v-for="group in filteredGuildGroupsForMember" :key="group.id" class="checkbox-label">
+                      <input type="checkbox" :value="group.id" v-model="memberGuildGroupIdsSelected">
+                      <span>{{ group.name }} ({{ group.id }})</span>
+                    </label>
+                    <div v-if="filteredGuildGroupsForMember.length === 0" class="empty-tip">未找到匹配的群组组</div>
+                  </div>
+                  <div v-else class="empty-tip">暂无可用群组组，请先在群组配置中创建</div>
+                </div>
 
                <!-- 成员搜索框 -->
                <div class="member-search" v-if="currentRoleMembers.length > 5">
@@ -246,19 +328,19 @@
                  </span>
                </div>
 
-               <div class="member-list" v-if="filteredRoleMembers.length > 0">
-                   <div v-for="member in filteredRoleMembers" :key="member.id" class="member-item">
-                       <div class="member-info">
-                          <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
-                          <div v-else class="member-icon">👤</div>
-                          <div class="member-text">
-                            <span class="member-name">{{ member.name || member.id }}</span>
-                            <span class="member-id-sub">{{ member.id }}</span>
-                          </div>
-                       </div>
-                       <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
-                   </div>
-               </div>
+                <div class="member-list" v-if="filteredRoleMembers.length > 0">
+                    <div v-for="member in filteredRoleMembers" :key="member.id" class="member-item" @click="openMemberScope(member)">
+                        <div class="member-info">
+                           <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
+                           <div v-else class="member-icon">👤</div>
+                           <div class="member-text">
+                             <span class="member-name">{{ member.name || member.id }}</span>
+                             <span class="member-id-sub">{{ member.id }}</span>
+                           </div>
+                        </div>
+                        <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
+                    </div>
+                </div>
                <div v-else-if="memberSearchQuery && currentRoleMembers.length > 0" class="empty-tip">未找到匹配的成员</div>
                <div v-else class="empty-tip">暂无成员（输入用户 QQ 号添加）</div>
              </template>
@@ -281,7 +363,7 @@
     <!-- 自定义确认对话框 -->
     <transition name="fade">
       <div class="modal-overlay" v-if="confirmDialog.show" @click="cancelConfirm">
-        <div class="modal-dialog" @click.stop>
+        <div class="member-scope-panel" @click.stop>
           <div class="modal-header">
             <h3>{{ confirmDialog.title }}</h3>
           </div>
@@ -419,13 +501,69 @@
         </div>
       </div>
     </transition>
+
+    <!-- 成员作用域编辑对话框 -->
+    <transition name="fade">
+      <div class="modal-overlay" v-if="showMemberScopeDialog" @click="closeMemberScopeDialog">
+        <div class="modal-dialog" @click.stop>
+          <div class="modal-header">
+            <h3>成员角色范围（调试）</h3>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>成员</label>
+              <div class="field-hint">{{ selectedMember?.name || selectedMember?.id }}</div>
+            </div>
+            <div class="form-group">
+              <label>当前角色</label>
+              <div class="field-hint">{{ currentRole?.name }}</div>
+            </div>
+            <div class="form-group">
+              <label>生效范围</label>
+              <div class="scope-options">
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="global">
+                  全局
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="guilds">
+                  指定群组
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="guildGroup">
+                  指定群组组
+                </label>
+              </div>
+            </div>
+            <div class="form-group" v-if="editMemberScopeMode === 'guilds'">
+              <label>群聊 ID（每行一个）</label>
+              <textarea v-model="editMemberGuildIds" class="form-textarea member-scope-textarea" rows="2"></textarea>
+            </div>
+            <div class="form-group" v-if="editMemberScopeMode === 'guildGroup'">
+              <label>群组组</label>
+              <div class="group-checkbox-list" v-if="guildGroups.length">
+                <label v-for="group in filteredGuildGroupsForMember" :key="group.id" class="checkbox-label">
+                  <input type="checkbox" :value="group.id" v-model="editMemberGuildGroupIds">
+                  <span>{{ group.name }} ({{ group.id }})</span>
+                </label>
+              </div>
+              <div v-else class="empty-tip">暂无群组组</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="secondary-btn" @click="closeMemberScopeDialog">取消</button>
+            <button class="primary-btn" @click="saveMemberScope">保存</button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { authApi } from '../api'
-import type { Role, PermissionNode, RoleMember } from '../types'
+import type { AuthScope, GuildGroup, Role, PermissionNode, RoleMember, UserRoleBinding } from '../types'
 import { message } from '@koishijs/client'
 
 // 创建默认角色对象
@@ -436,11 +574,13 @@ const createDefaultRole = (): Role => ({
   color: '#999999',
   priority: 0,
   permissions: [],
-  guildIds: []
+  guildIds: [],
+  scope: { type: 'global' }
 })
 
 // 状态
 const roles = ref<Role[]>([])
+const guildGroups = ref<GuildGroup[]>([])
 const permissions = ref<PermissionNode[]>([])
 const currentRole = ref<Role | null>(null)
 const editingRole = ref<Role>(createDefaultRole())
@@ -450,6 +590,16 @@ const newMemberId = ref('')
 const currentRoleMembers = ref<RoleMember[]>([])
 const loading = ref(false)
 const memberSearchQuery = ref('')
+const memberScopeMode = ref<'inherit' | 'global' | 'guilds' | 'guildGroup'>('inherit')
+const memberGuildIdsText = ref('')
+const memberGuildGroupIdsSelected = ref<string[]>([])
+const guildGroupSearch = ref('')
+const memberGuildGroupSearch = ref('')
+const showMemberScopeDialog = ref(false)
+const selectedMember = ref<RoleMember | null>(null)
+const editMemberScopeMode = ref<'global' | 'guilds' | 'guildGroup'>('global')
+const editMemberGuildIds = ref('')
+const editMemberGuildGroupIds = ref<string[]>([])
 
 // 过滤后的角色成员列表
 const filteredRoleMembers = computed(() => {
@@ -463,6 +613,92 @@ const filteredRoleMembers = computed(() => {
   )
 })
 
+const filteredGuildGroupsForRole = computed(() => {
+  const query = guildGroupSearch.value.trim().toLowerCase()
+  if (!query) return guildGroups.value
+  return guildGroups.value.filter(group =>
+    group.id.toLowerCase().includes(query) || group.name.toLowerCase().includes(query)
+  )
+})
+
+const filteredGuildGroupsForMember = computed(() => {
+  const query = memberGuildGroupSearch.value.trim().toLowerCase()
+  if (!query) return guildGroups.value
+  return guildGroups.value.filter(group =>
+    group.id.toLowerCase().includes(query) || group.name.toLowerCase().includes(query)
+  )
+})
+
+const selectAllRoleGroups = () => {
+  guildGroupIdsSelected.value = filteredGuildGroupsForRole.value.map(group => group.id)
+}
+
+const clearRoleGroups = () => {
+  guildGroupIdsSelected.value = []
+}
+
+const selectAllMemberGroups = () => {
+  memberGuildGroupIdsSelected.value = filteredGuildGroupsForMember.value.map(group => group.id)
+}
+
+const clearMemberGroups = () => {
+  memberGuildGroupIdsSelected.value = []
+}
+
+const openMemberScope = async (member: RoleMember) => {
+  if (!currentRole.value) return
+  selectedMember.value = member
+  try {
+    const bindings = await authApi.getUserBindings(member.id)
+    const binding = bindings.find(item => item.roleId === currentRole.value?.id)
+    if (!binding) {
+      message.error('未找到该成员的角色绑定')
+      return
+    }
+    const scope = binding.scope
+    if (scope.type === 'guilds') {
+      editMemberScopeMode.value = 'guilds'
+      editMemberGuildIds.value = (scope.guildIds || []).join('\n')
+      editMemberGuildGroupIds.value = []
+    } else if (scope.type === 'guildGroup') {
+      editMemberScopeMode.value = 'guildGroup'
+      editMemberGuildGroupIds.value = [...(scope.guildGroupIds || [])]
+      editMemberGuildIds.value = ''
+    } else {
+      editMemberScopeMode.value = 'global'
+      editMemberGuildIds.value = ''
+      editMemberGuildGroupIds.value = []
+    }
+    showMemberScopeDialog.value = true
+  } catch (e) {
+    message.error('加载成员作用域失败')
+  }
+}
+
+const closeMemberScopeDialog = () => {
+  showMemberScopeDialog.value = false
+}
+
+const saveMemberScope = async () => {
+  if (!currentRole.value || !selectedMember.value) return
+  let scope: AuthScope
+  if (editMemberScopeMode.value === 'guilds') {
+    scope = { type: 'guilds', guildIds: editMemberGuildIds.value.split('\n').map(s => s.trim()).filter(Boolean) }
+  } else if (editMemberScopeMode.value === 'guildGroup') {
+    scope = { type: 'guildGroup', guildGroupIds: editMemberGuildGroupIds.value }
+  } else {
+    scope = { type: 'global' }
+  }
+
+  try {
+    await authApi.updateUserRoleScope(selectedMember.value.id, currentRole.value.id, scope)
+    message.success('已更新成员范围')
+    showMemberScopeDialog.value = false
+  } catch (e) {
+    message.error('更新失败')
+  }
+}
+
 // 导入对话框相关状态
 const showImportDialog = ref(false)
 const importSource = ref<'role' | 'authority' | 'guild-admin'>('role')
@@ -472,6 +708,7 @@ const importGuildId = ref('')
 const importPreviewMembers = ref<RoleMember[]>([])
 const importLoading = ref(false)
 const selectedImportIds = ref<Set<string>>(new Set())
+
 
 // 全选状态
 const isAllSelected = computed(() => {
@@ -517,6 +754,19 @@ const scrollToGroup = (name: string) => {
   }
 }
 
+const parseIdLines = (value: string): string[] =>
+  value.split('\n').map(s => s.trim()).filter(Boolean)
+
+const resolveMemberScope = (): AuthScope | undefined => {
+  if (memberScopeMode.value === 'inherit') return undefined
+  if (memberScopeMode.value === 'global') return { type: 'global' }
+  if (memberScopeMode.value === 'guilds') {
+    const guildIds = parseIdLines(memberGuildIdsText.value)
+    return { type: 'guilds', guildIds }
+  }
+  return { type: 'guildGroup', guildGroupIds: memberGuildGroupIdsSelected.value }
+}
+
 // 监听滚动以更新当前激活的分组
 const handlePermissionsScroll = () => {
   if (!permissionsMainRef.value) return
@@ -540,22 +790,58 @@ const handlePermissionsScroll = () => {
 }
 
 // 群组范围模式 - 使用独立的 ref 避免空数组时状态回弹
-const scopeMode = ref<'global' | 'guilds'>('global')
+const scopeMode = ref<'global' | 'guilds' | 'guildGroup'>('global')
 
 // 群组 ID 文本（用于编辑）
+const normalizeScope = (role: Role): AuthScope => {
+  if (role.scope && role.scope.type) return role.scope
+  if (Array.isArray(role.guildIds) && role.guildIds.length > 0) {
+    return { type: 'guilds', guildIds: role.guildIds }
+  }
+  return { type: 'global' }
+}
+
 const guildIdsText = computed({
-  get: () => (editingRole.value.guildIds || []).join('\n'),
+  get: () => {
+    const scope = normalizeScope(editingRole.value)
+    return scope.type === 'guilds' ? (scope.guildIds || []).join('\n') : ''
+  },
   set: (val: string) => {
     const ids = val.split('\n').map(s => s.trim()).filter(Boolean)
-    editingRole.value = { ...editingRole.value, guildIds: ids }
+    editingRole.value = { ...editingRole.value, scope: { type: 'guilds', guildIds: ids }, guildIds: ids }
+  }
+})
+
+const guildGroupIdsSelected = computed({
+  get: () => {
+    const scope = normalizeScope(editingRole.value)
+    return scope.type === 'guildGroup' ? (scope.guildGroupIds || []) : []
+  },
+  set: (ids: string[]) => {
+    editingRole.value = { ...editingRole.value, scope: { type: 'guildGroup', guildGroupIds: ids }, guildIds: [] }
   }
 })
 
 // 监听 scopeMode 变化，同步 guildIds
 watch(scopeMode, (newVal) => {
   if (newVal === 'global') {
-    // 切换到全局时清空群组列表
-    editingRole.value = { ...editingRole.value, guildIds: [] }
+    editingRole.value = { ...editingRole.value, scope: { type: 'global' }, guildIds: [] }
+    return
+  }
+
+  if (newVal === 'guilds') {
+    const ids = normalizeScope(editingRole.value).type === 'guilds'
+      ? (normalizeScope(editingRole.value).guildIds || [])
+      : []
+    editingRole.value = { ...editingRole.value, scope: { type: 'guilds', guildIds: ids }, guildIds: ids }
+    return
+  }
+
+  if (newVal === 'guildGroup') {
+    const ids = normalizeScope(editingRole.value).type === 'guildGroup'
+      ? (normalizeScope(editingRole.value).guildGroupIds || [])
+      : []
+    editingRole.value = { ...editingRole.value, scope: { type: 'guildGroup', guildGroupIds: ids }, guildIds: [] }
   }
 })
 
@@ -604,6 +890,7 @@ const fetchData = async () => {
     console.log('[RolesView] Fetching roles and permissions...')
     roles.value = await authApi.getRoles()
     permissions.value = await authApi.getPermissions()
+    guildGroups.value = await authApi.getGuildGroups()
     console.log('[RolesView] Loaded', roles.value.length, 'roles and', permissions.value.length, 'permissions')
   } catch (e) {
     console.error('[RolesView] Failed to fetch data:', e)
@@ -624,9 +911,12 @@ onMounted(() => {
   }, 100)
 })
 
+
 // 计算属性
 const hasChanges = computed(() => {
   if (!currentRole.value) return false
+  const currentScope = normalizeScope(currentRole.value)
+  const editingScope = normalizeScope(editingRole.value)
   // 使用更可靠的比较方式
   const original = JSON.stringify({
     name: currentRole.value.name,
@@ -634,7 +924,7 @@ const hasChanges = computed(() => {
     color: currentRole.value.color,
     priority: currentRole.value.priority,
     permissions: currentRole.value.permissions || [],
-    guildIds: currentRole.value.guildIds || []
+    scope: currentScope
   })
   const current = JSON.stringify({
     name: editingRole.value.name,
@@ -642,7 +932,7 @@ const hasChanges = computed(() => {
     color: editingRole.value.color,
     priority: editingRole.value.priority,
     permissions: editingRole.value.permissions || [],
-    guildIds: editingRole.value.guildIds || []
+    scope: editingScope
   })
   return original !== current
 })
@@ -711,11 +1001,13 @@ const selectRole = async (role: Role) => {
     ...createDefaultRole(),
     ...role,
     permissions: Array.isArray(role.permissions) ? [...role.permissions] : [],
-    guildIds: Array.isArray(role.guildIds) ? [...role.guildIds] : []
+    guildIds: Array.isArray(role.guildIds) ? [...role.guildIds] : [],
+    scope: normalizeScope(role)
   }
   editingRole.value = normalizedRole
   // 同步 scopeMode
-  scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
+  if (normalizedRole.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+  else scopeMode.value = (normalizedRole.scope?.type === 'guilds') ? 'guilds' : 'global'
   console.log('[RolesView] Selected role:', normalizedRole, 'scopeMode:', scopeMode.value)
   activeTab.value = 'display'
   memberSearchQuery.value = '' // 重置成员搜索
@@ -730,7 +1022,8 @@ const createRole = async () => {
     color: '#999999',
     priority: 1,
     permissions: [],
-    guildIds: []
+    guildIds: [],
+    scope: { type: 'global' }
   }
   try {
     console.log('[RolesView] Creating new role:', newRole)
@@ -765,10 +1058,12 @@ const saveChanges = async () => {
         ...createDefaultRole(),
         ...updated,
         permissions: Array.isArray(updated.permissions) ? [...updated.permissions] : [],
-        guildIds: Array.isArray(updated.guildIds) ? [...updated.guildIds] : []
+        guildIds: Array.isArray(updated.guildIds) ? [...updated.guildIds] : [],
+        scope: normalizeScope(updated)
       }
       // 同步 scopeMode
-      scopeMode.value = (updated.guildIds && updated.guildIds.length > 0) ? 'guilds' : 'global'
+      if (editingRole.value.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+      else scopeMode.value = (editingRole.value.scope?.type === 'guilds') ? 'guilds' : 'global'
     }
   } catch (e) {
     console.error('[RolesView] Failed to save role:', e)
@@ -791,11 +1086,13 @@ const resetChanges = async () => {
       ...createDefaultRole(),
       ...currentRole.value,
       permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
-      guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : []
+      guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
+      scope: normalizeScope(currentRole.value)
     }
     editingRole.value = normalizedRole
     // 同步 scopeMode
-    scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
+    if (normalizedRole.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+    else scopeMode.value = (normalizedRole.scope?.type === 'guilds') ? 'guilds' : 'global'
     message.success('已重置更改')
   }
 }
@@ -835,6 +1132,7 @@ const cloneRole = async () => {
     // 确保数组被复制，避免引用同一对象
     permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
     guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
+    scope: normalizeScope(currentRole.value),
     builtin: false
   }
 
@@ -981,7 +1279,8 @@ const addMember = async () => {
   
   try {
     console.log('[RolesView] Adding member:', userId, 'to role:', roleId)
-    await authApi.assignRole(userId, roleId)
+    const scope = resolveMemberScope()
+    await authApi.assignRole(userId, roleId, scope)
     message.success('添加成员成功')
     newMemberId.value = ''
     await fetchRoleMembers(roleId)
@@ -1126,7 +1425,8 @@ const doImportMembers = async () => {
   importLoading.value = true
   try {
     const userIds = Array.from(selectedImportIds.value)
-    const result = await authApi.importMembers(currentRole.value.id, userIds)
+    const scope = resolveMemberScope()
+    const result = await authApi.importMembers(currentRole.value.id, userIds, scope)
     message.success(`成功导入 ${result.imported} 个成员`)
     closeImportDialog()
     // 刷新成员列表
@@ -1588,6 +1888,44 @@ const copyRoleId = async () => {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
+.hint-tag {
+  display: inline-block;
+  margin: 4px 6px 0 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg1, #1e1e20);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  font-size: 0.7rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+}
+
+.group-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+}
+
+.group-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.group-count {
+  font-size: 0.75rem;
+  color: var(--fg3, rgba(255, 255, 245, .4));
+}
+
 /* 当前已选权限显示 */
 .current-perms {
   display: flex;
@@ -1908,6 +2246,7 @@ const copyRoleId = async () => {
   gap: 0.75rem;
 }
 
+
 /* 成员项 - hover 效果 */
 .member-item {
   display: flex;
@@ -2205,6 +2544,56 @@ const copyRoleId = async () => {
   justify-content: flex-end;
   gap: 8px;
   border-top: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  background: var(--bg1, #1e1e20);
+}
+
+/* 成员范围弹窗 */
+.member-scope-panel {
+  background: var(--bg2, #252529);
+  border-radius: 8px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  width: 680px;
+  height: 520px;
+  overflow: hidden;
+  animation: modal-enter 0.2s ease-out;
+}
+
+.member-scope-panel .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 420px;
+  overflow-y: auto;
+}
+
+.member-scope-panel .form-input {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.member-scope-panel .form-textarea {
+  min-height: 56px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.member-scope-textarea {
+  max-width: 200px;
+}
+
+.member-scope-panel .scope-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.member-scope-panel .group-checkbox-list {
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 180px;
+  overflow-y: auto;
   background: var(--bg1, #1e1e20);
 }
 
@@ -2623,6 +3012,12 @@ const copyRoleId = async () => {
     min-width: auto;
     max-width: calc(100vw - 32px);
     margin: 16px;
+  }
+
+  .member-scope-panel {
+    width: 680px;
+    height: 520px;
+    margin: 0;
   }
 
   .import-dialog {

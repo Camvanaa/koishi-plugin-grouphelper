@@ -445,6 +445,29 @@ export interface PermissionNode {
   group?: string // 用于前端分组显示
 }
 
+export type ScopeType = 'global' | 'guildGroup' | 'guilds'
+
+export interface AuthScope {
+  type: ScopeType
+  guildGroupIds?: string[]
+  guildIds?: string[]
+}
+
+export interface GuildGroup {
+  id: string
+  name: string
+  description?: string
+  guildIds: string[]
+}
+
+export interface GuildGroupsData extends Record<string, unknown> {
+  groups: Record<string, GuildGroup>
+}
+
+export interface GroupGroupConfigData extends Record<string, unknown> {
+  configs: Record<string, Partial<GroupConfig>>
+}
+
 export interface Role {
   id: string
   name: string
@@ -453,7 +476,9 @@ export interface Role {
   color?: string
   priority: number
   permissions: string[]
-  /** 角色生效的群组 ID 列表（空数组或 undefined 表示全局生效） */
+  /** 角色生效范围（空或 undefined 表示全局） */
+  scope?: AuthScope
+  /** 兼容旧版：角色生效的群组 ID 列表 */
   guildIds?: string[]
   /** 是否为内置角色（内置角色不可删除） */
   builtin?: boolean
@@ -465,7 +490,14 @@ export interface AuthRolesData extends Record<string, unknown> {
 }
 
 export interface AuthUsersData extends Record<string, unknown> {
-  users: Record<string, string[]> // userId -> roleIds
+  users: Record<string, UserRoleBinding[]> // userId -> role bindings
+}
+
+export interface UserRoleBinding {
+  roleId: string
+  scope: AuthScope
+  assignedBy?: string
+  assignedAt?: number
 }
 
 /** 已注册的命令信息（用于动态生成帮助） */

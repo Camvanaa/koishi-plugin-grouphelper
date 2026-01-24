@@ -20,7 +20,9 @@ import type {
   CommandLogData,
   LeaveRecord,
   AuthRolesData,
-  AuthUsersData
+  AuthUsersData,
+  GuildGroupsData,
+  GroupGroupConfigData
 } from '../../types'
 
 /** 数据存储映射类型 */
@@ -28,6 +30,8 @@ export interface DataStores {
   warns: JsonDataStore<Record<string, WarnRecord>>
   blacklist: JsonDataStore<Record<string, BlacklistRecord>>
   groupConfig: JsonDataStore<Record<string, GroupConfig>>
+  guildGroups: JsonDataStore<GuildGroupsData>
+  groupGroupConfig: JsonDataStore<GroupGroupConfigData>
   mutes: JsonDataStore<Record<string, Record<string, MuteRecord>>>
   banmeRecords: JsonDataStore<Record<string, BanMeRecord>>
   lockedNames: JsonDataStore<Record<string, LockedName>>
@@ -106,6 +110,32 @@ export class DataManager {
       )
     }
     return this.stores.groupConfig
+  }
+
+  /**
+   * 获取群组组存储
+   */
+  get guildGroups(): JsonDataStore<GuildGroupsData> {
+    if (!this.stores.guildGroups) {
+      this.stores.guildGroups = new JsonDataStore(
+        path.resolve(this.dataPath, 'guild_groups.json'),
+        { groups: {} }
+      )
+    }
+    return this.stores.guildGroups
+  }
+
+  /**
+   * 获取群组组配置存储
+   */
+  get groupGroupConfig(): JsonDataStore<GroupGroupConfigData> {
+    if (!this.stores.groupGroupConfig) {
+      this.stores.groupGroupConfig = new JsonDataStore(
+        path.resolve(this.dataPath, 'group_group_config.json'),
+        { configs: {} }
+      )
+    }
+    return this.stores.groupGroupConfig
   }
 
   /**

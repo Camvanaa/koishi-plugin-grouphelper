@@ -186,10 +186,37 @@ export interface Role {
   color?: string
   priority: number
   permissions: string[]
+  scope?: AuthScope
   /** 角色生效的群组 ID 列表（空数组或 undefined 表示全局生效） */
   guildIds?: string[]
   /** 是否为内置角色（内置角色不可删除） */
   builtin?: boolean
+}
+
+export type ScopeType = 'global' | 'guildGroup' | 'guilds'
+
+export interface AuthScope {
+  type: ScopeType
+  guildGroupIds?: string[]
+  guildIds?: string[]
+}
+
+export interface GuildGroup {
+  id: string
+  name: string
+  description?: string
+  guildIds: string[]
+}
+
+export interface GroupGroupConfigData {
+  configs: Record<string, Partial<GroupConfig>>
+}
+
+export interface UserRoleBinding {
+  roleId: string
+  scope: AuthScope
+  assignedBy?: string
+  assignedAt?: number
 }
 
 export interface PermissionNode {
@@ -207,14 +234,23 @@ declare module '@koishijs/client' {
     'grouphelper/auth/role/update'(params: { role: Role }): Promise<{ success: boolean }>
     'grouphelper/auth/role/delete'(params: { roleId: string }): Promise<{ success: boolean }>
     'grouphelper/auth/user/get'(params: { userId: string }): Promise<string[]>
-    'grouphelper/auth/user/assign'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
+    'grouphelper/auth/user/bindings'(params: { userId: string }): Promise<UserRoleBinding[]>
+    'grouphelper/auth/user/assign'(params: { userId: string, roleId: string, scope?: AuthScope, assignedBy?: string }): Promise<{ success: boolean }>
     'grouphelper/auth/user/revoke'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
+    'grouphelper/auth/user/scope-update'(params: { userId: string, roleId: string, scope: AuthScope, updatedBy?: string }): Promise<{ success: boolean }>
     'grouphelper/auth/permission/list'(): Promise<PermissionNode[]>
+    'grouphelper/auth/role/import-members'(params: { roleId: string, userIds: string[], scope?: AuthScope, assignedBy?: string }): Promise<{ success: boolean; imported: number }>
+    'grouphelper/auth/guild-group/list'(): Promise<GuildGroup[]>
+    'grouphelper/auth/guild-group/update'(params: { group: GuildGroup }): Promise<{ success: boolean }>
+    'grouphelper/auth/guild-group/delete'(params: { groupId: string }): Promise<{ success: boolean }>
 
     // 群组配置 API
     'grouphelper/config/list'(): Promise<Record<string, GroupConfig>>
     'grouphelper/config/get'(guildId: string): Promise<GroupConfig | undefined>
     'grouphelper/config/update'(guildId: string, config: GroupConfig): Promise<{ success: boolean }>
+    'grouphelper/config/group-group-config/list'(): Promise<Record<string, Partial<GroupConfig>>>
+    'grouphelper/config/group-group-config/get'(params: { groupId: string }): Promise<Partial<GroupConfig>>
+    'grouphelper/config/group-group-config/update'(params: { groupId: string, config: Partial<GroupConfig> }): Promise<{ success: boolean }>
 
     // 警告记录 API
     'grouphelper/warns/list'(): Promise<Record<string, WarnRecord>>

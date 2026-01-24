@@ -6,7 +6,7 @@
 import { Context, h } from 'koishi'
 import type {} from '@koishijs/plugin-console'
 import { GroupHelperService } from '../services/grouphelper.service'
-import type { Subscription, Role } from '../../types'
+import type { AuthScope, GuildGroup, GroupConfig, GroupGroupConfigData, Role, Subscription } from '../../types'
 import * as crypto from 'crypto'
 const pkg = require('../../../package.json')
 
@@ -27,6 +27,27 @@ function error(message: string): ApiResponse {
   return { success: false, error: message }
 }
 
+function mergePartialConfig<T extends Record<string, any>>(target: T, patch: Partial<T>): T {
+  const result: T = { ...target }
+  for (const key of Object.keys(patch) as Array<keyof T>) {
+    const value = patch[key]
+    if (typeof value === 'undefined') continue
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      target[key] &&
+      typeof target[key] === 'object' &&
+      !Array.isArray(target[key])
+    ) {
+      result[key] = mergePartialConfig(target[key], value) as T[keyof T]
+    } else {
+      result[key] = value as T[keyof T]
+    }
+  }
+  return result
+}
+
 /**
  * 注册所有 WebSocket API
  */
@@ -38,6 +59,22 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   }
 
   const data = service.data
+
+  const applyGroupGroupConfigToGuilds = async (groupId: string) => {
+    const groups = data.guildGroups.get('groups') || {}
+    const configs = data.groupGroupConfig.get('configs') || {}
+    const group = groups[groupId]
+    const patch = configs[groupId]
+    if (!group || !patch) return
+
+    const groupConfig = data.groupConfig.getAll()
+    for (const guildId of group.guildIds || []) {
+      const current = groupConfig[guildId] || {}
+      const merged = mergePartialConfig(current, patch as GroupConfig)
+      data.groupConfig.set(guildId, merged)
+    }
+    await data.groupConfig.flush()
+  }
 
   // ===== 群组配置 API =====
   
@@ -155,6 +192,11 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     return success(service.auth.getUserRoleIds(params.userId))
   })
 
+  /** 获取某用户的角色绑定列表（含 scope） */
+  ctx.console.addListener('grouphelper/auth/user/bindings' as any, async (params: { userId: string }) => {
+    return success(service.auth.getUserRoleBindings(params.userId))
+  })
+
   /** 获取角色的成员列表 */
   ctx.console.addListener('grouphelper/auth/role/members' as any, async (params: { roleId: string, fetchNames?: boolean }) => {
     const userIds = service.auth.getRoleMembers(params.roleId)
@@ -176,8 +218,8 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 分配角色 */
-  ctx.console.addListener('grouphelper/auth/user/assign' as any, async (params: { userId: string, roleId: string }) => {
-    await service.auth.assignRole(params.userId, params.roleId)
+  ctx.console.addListener('grouphelper/auth/user/assign' as any, async (params: { userId: string, roleId: string, scope?: AuthScope, assignedBy?: string }) => {
+    await service.auth.assignRole(params.userId, params.roleId, params.scope, params.assignedBy)
     await service.data.authUsers.flush()
     return success({ success: true })
   })
@@ -189,8 +231,15 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     return success({ success: true })
   })
 
+  /** 更新用户角色作用域 */
+  ctx.console.addListener('grouphelper/auth/user/scope-update' as any, async (params: { userId: string, roleId: string, scope: AuthScope, updatedBy?: string }) => {
+    await service.auth.updateUserRoleScope(params.userId, params.roleId, params.scope, params.updatedBy)
+    await service.data.authUsers.flush()
+    return success({ success: true })
+  })
+
   /** 批量导入成员到角色 */
-  ctx.console.addListener('grouphelper/auth/role/import-members' as any, async (params: { roleId: string, userIds: string[] }) => {
+  ctx.console.addListener('grouphelper/auth/role/import-members' as any, async (params: { roleId: string, userIds: string[], scope?: AuthScope, assignedBy?: string }) => {
     try {
       const { roleId, userIds } = params
       if (!roleId || !userIds || !Array.isArray(userIds)) {
@@ -206,7 +255,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       for (const userId of userIds) {
         if (userId && typeof userId === 'string') {
           try {
-            await service.auth.assignRole(userId.trim(), roleId)
+            await service.auth.assignRole(userId.trim(), roleId, params.scope, params.assignedBy)
             imported++
           } catch {}
         }
@@ -271,6 +320,74 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       ctx.logger('grouphelper').error('获取权限用户列表失败:', e)
       return error(e instanceof Error ? e.message : '获取用户列表失败')
     }
+  })
+
+  // ===== 群组组管理 API =====
+
+  /** 获取所有群组组 */
+  ctx.console.addListener('grouphelper/auth/guild-group/list' as any, async () => {
+    const groups = service.data.guildGroups.get('groups') || {}
+    return success(Object.values(groups))
+  })
+
+  /** 创建/更新群组组 */
+  ctx.console.addListener('grouphelper/auth/guild-group/update' as any, async (params: { group: GuildGroup }) => {
+    const group = params.group
+    if (!group || !group.id || !group.name) return error('无效的群组组信息')
+    const groups = service.data.guildGroups.get('groups') || {}
+    groups[group.id] = {
+      id: String(group.id),
+      name: String(group.name),
+      description: group.description ? String(group.description) : '',
+      guildIds: Array.isArray(group.guildIds) ? group.guildIds.map(String) : []
+    }
+    service.data.guildGroups.set('groups', groups)
+    await service.data.guildGroups.flush()
+    await applyGroupGroupConfigToGuilds(groups[group.id].id)
+    return success({ success: true })
+  })
+
+  /** 删除群组组 */
+  ctx.console.addListener('grouphelper/auth/guild-group/delete' as any, async (params: { groupId: string }) => {
+    const groups = service.data.guildGroups.get('groups') || {}
+    if (groups[params.groupId]) {
+      delete groups[params.groupId]
+      service.data.guildGroups.set('groups', groups)
+      await service.data.guildGroups.flush()
+    }
+    const configs = service.data.groupGroupConfig.get('configs') || {}
+    if (configs[params.groupId]) {
+      delete configs[params.groupId]
+      service.data.groupGroupConfig.set('configs', configs)
+      await service.data.groupGroupConfig.flush()
+    }
+    return success({ success: true })
+  })
+
+  // ===== 群组组配置 API =====
+
+  /** 获取所有群组组配置 */
+  ctx.console.addListener('grouphelper/config/group-group-config/list' as any, async () => {
+    const configs = data.groupGroupConfig.get('configs') || {}
+    return success(configs)
+  })
+
+  /** 获取指定群组组配置 */
+  ctx.console.addListener('grouphelper/config/group-group-config/get' as any, async (params: { groupId: string }) => {
+    const configs = data.groupGroupConfig.get('configs') || {}
+    return success(configs[params.groupId] || {})
+  })
+
+  /** 更新群组组配置（局部合并） */
+  ctx.console.addListener('grouphelper/config/group-group-config/update' as any, async (params: { groupId: string, config: Partial<GroupConfig> }) => {
+    const { groupId, config } = params
+    if (!groupId || !config || typeof config !== 'object') return error('无效的群组组配置')
+    const configs = data.groupGroupConfig.get('configs') || {}
+    configs[groupId] = config
+    data.groupGroupConfig.set('configs', configs)
+    await data.groupGroupConfig.flush()
+    await applyGroupGroupConfigToGuilds(groupId)
+    return success({ success: true })
   })
 
   /** 获取指定群的管理员列表 */

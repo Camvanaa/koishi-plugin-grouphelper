@@ -1,7 +1,7 @@
 import { Context, Logger } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
-import { Config } from '../../types'
+import { AuthScope, Config } from '../../types'
 import { BUILTIN_ROLE_IDS } from '../services/auth.service'
 
 const logger = new Logger('grouphelper:auth')
@@ -75,6 +75,60 @@ export class AuthModule extends BaseModule {
     }
 
     return { role: null }
+  }
+
+  private parseIdList(value?: string): string[] {
+    if (!value) return []
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+  }
+
+  private resolveAssignScope(session: any, options: any): { scope?: AuthScope, error?: string } {
+    const auth = this.ctx.groupHelper.auth
+    const allowed = auth.getPermissionScopes(session, 'gauth.add')
+    if (!allowed.length) {
+      return { error: '你没有可用的角色分配范围' }
+    }
+
+    const scopeType = options?.scopeType || (options?.guilds ? 'guilds' : options?.groups ? 'guildGroup' : '')
+    let requested: AuthScope | undefined
+
+    if (scopeType) {
+      if (scopeType === 'global') {
+        requested = { type: 'global' }
+      } else if (scopeType === 'guilds') {
+        const guildIds = this.parseIdList(options?.guilds)
+        const finalGuildIds = guildIds.length ? guildIds : (session.guildId ? [session.guildId] : [])
+        if (!finalGuildIds.length) {
+          return { error: '请指定群聊 ID，或在群聊内执行该命令' }
+        }
+        requested = { type: 'guilds', guildIds: finalGuildIds }
+      } else if (scopeType === 'guildGroup') {
+        const groupIds = this.parseIdList(options?.groups)
+        if (!groupIds.length) {
+          return { error: '请指定群组组 ID' }
+        }
+        requested = { type: 'guildGroup', guildGroupIds: groupIds }
+      } else {
+        return { error: '无效的范围类型，可选: global | guilds | guildGroup' }
+      }
+    }
+
+    if (!requested) {
+      const fallback = auth.getDefaultScopeForPermission(session, 'gauth.add')
+      if (!fallback) {
+        return { error: '当前授权范围有多个分支，请显式指定范围' }
+      }
+      requested = fallback
+    }
+
+    if (!auth.isScopeAllowed(allowed, requested)) {
+      return { error: '指定范围超出你的授权范围' }
+    }
+
+    return { scope: requested }
   }
 
   /**
@@ -164,7 +218,10 @@ export class AuthModule extends BaseModule {
       .example('gauth.add @可爱猫娘 admin')
       .example('gauth.add @可爱猫娘 管理员')
       .example('gauth.add 123456 moderator')
-      .action(async ({ session }, target, roleIdentifier) => {
+      .option('scopeType', '-st <type:string> 范围类型(global|guilds|guildGroup)')
+      .option('guilds', '-g <ids:string> 指定群聊ID，逗号分隔')
+      .option('groups', '-gg <ids:string> 指定群组组ID，逗号分隔')
+      .action(async ({ session, options }, target, roleIdentifier) => {
         if (!target) return '请指定要操作的用户'
         if (!roleIdentifier) return '请指定要添加的角色 ID 或名称'
 
@@ -185,8 +242,11 @@ export class AuthModule extends BaseModule {
           return `"${role.name}" 是内置角色，由系统自动分配，不支持手动添加`
         }
 
+        const { scope, error } = this.resolveAssignScope(session, options)
+        if (error) return error
+
         try {
-          await this.ctx.groupHelper.auth.assignRole(userId, role.id)
+          await this.ctx.groupHelper.auth.assignRole(userId, role.id, scope, session.userId)
           const msg = `已将用户 ${userId} 添加到角色 "${role.name}"`
           return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {

@@ -14,6 +14,11 @@
         </div>
       </div>
       <div class="header-actions">
+        <div class="filter-tabs">
+          <button class="filter-btn" :class="{ active: listFilter === 'all' }" @click="listFilter = 'all'">全部</button>
+          <button class="filter-btn" :class="{ active: listFilter === 'guild' }" @click="listFilter = 'guild'">群组</button>
+          <button class="filter-btn" :class="{ active: listFilter === 'group' }" @click="listFilter = 'group'">群组组</button>
+        </div>
         <div class="toggle-wrapper" title="自动获取群名称和头像">
           <label>解析群名</label>
           <el-switch v-model="fetchNames" @change="refreshConfigs" />
@@ -44,6 +49,10 @@
           <k-icon name="plus" />
           新建配置
         </button>
+        <button class="btn btn-primary" @click="createGroupGroup">
+          <k-icon name="layers" />
+          新建群组组
+        </button>
       </div>
     </div>
 
@@ -55,7 +64,7 @@
 
     <!-- 群组列表 -->
     <div v-else class="config-list">
-      <div v-if="Object.keys(filteredConfigs).length === 0" class="empty-state">
+      <div v-if="combinedListItems.length === 0" class="empty-state">
         <k-icon name="inbox" class="empty-icon" />
         <p>{{ searchQuery ? '未找到匹配的群组' : '暂无群组配置' }}</p>
       </div>
@@ -69,49 +78,57 @@
             <span class="col-actions">操作</span>
           </div>
           <div
-            v-for="(config, guildId) in filteredConfigs"
-            :key="guildId"
+            v-for="item in combinedListItems"
+            :key="item.key"
             class="list-row"
-            @click="editConfig(guildId as string)"
+            :class="{ 'group-row': item.type === 'group' }"
+            @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)"
           >
             <div class="col-guild">
+              <k-icon v-if="item.type === 'group'" name="layers" class="guild-icon-sm" />
               <img
-                v-if="fetchNames && config.guildAvatar"
-                :src="config.guildAvatar"
+                v-else-if="fetchNames && item.config?.guildAvatar"
+                :src="item.config?.guildAvatar"
                 class="guild-avatar-sm"
                 @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
               />
               <k-icon v-else name="users" class="guild-icon-sm" />
               <div class="guild-text">
-                <span class="guild-name">{{ config.guildName || guildId }}</span>
-                <span class="guild-id-sub" v-if="config.guildName">{{ guildId }}</span>
+                <span class="guild-name">
+                  {{ item.type === 'group' ? item.group?.name : (item.config?.guildName || item.id) }}
+                  <span v-if="item.type === 'group'" class="tag">群组组</span>
+                </span>
+                <span class="guild-id-sub" v-if="item.type === 'group' || item.config?.guildName">{{ item.id }}</span>
               </div>
             </div>
             <div class="col-features">
-              <span class="badge-sm" :class="{ active: config.welcomeEnabled }" title="入群欢迎">迎</span>
-              <span class="badge-sm" :class="{ active: config.goodbyeEnabled }" title="退群欢送">送</span>
-              <span class="badge-sm" :class="{ active: config.antiRecall?.enabled }" title="防撤回">撤</span>
-              <span class="badge-sm" :class="{ active: config.antiRepeat?.enabled }" title="复读检测">复</span>
-              <span class="badge-sm" :class="{ active: config.dice?.enabled }" title="掷骰子">骰</span>
-              <span class="badge-sm" :class="{ active: config.banme?.enabled }" title="自我禁言">禁</span>
-              <span class="badge-sm" :class="{ active: config.openai?.enabled }" title="AI助手">AI</span>
-              <span class="badge-sm" :class="{ active: config.report?.enabled }" title="举报功能">报</span>
+              <span class="badge-sm" :class="{ active: item.config?.welcomeEnabled }" title="入群欢迎">迎</span>
+              <span class="badge-sm" :class="{ active: item.config?.goodbyeEnabled }" title="退群欢送">送</span>
+              <span class="badge-sm" :class="{ active: item.config?.antiRecall?.enabled }" title="防撤回">撤</span>
+              <span class="badge-sm" :class="{ active: item.config?.antiRepeat?.enabled }" title="复读检测">复</span>
+              <span class="badge-sm" :class="{ active: item.config?.dice?.enabled }" title="掷骰子">骰</span>
+              <span class="badge-sm" :class="{ active: item.config?.banme?.enabled }" title="自我禁言">禁</span>
+              <span class="badge-sm" :class="{ active: item.config?.openai?.enabled }" title="AI助手">AI</span>
+              <span class="badge-sm" :class="{ active: item.config?.report?.enabled }" title="举报功能">报</span>
             </div>
             <div class="col-stats">
-              <span v-if="config.approvalKeywords?.length" title="入群验证词"><b>{{ config.approvalKeywords.length }}</b> 验证</span>
-              <span v-if="config.keywords?.length" title="违规词"><b>{{ config.keywords.length }}</b> 违规</span>
-              <span v-if="!config.approvalKeywords?.length && !config.keywords?.length" class="muted">-</span>
+              <span v-if="item.type === 'group'" class="muted">包含 {{ item.group?.guildIds?.length || 0 }} 群</span>
+              <template v-else>
+                <span v-if="item.config?.approvalKeywords?.length" title="入群验证词"><b>{{ item.config?.approvalKeywords.length }}</b> 验证</span>
+                <span v-if="item.config?.keywords?.length" title="违规词"><b>{{ item.config?.keywords.length }}</b> 违规</span>
+                <span v-if="!item.config?.approvalKeywords?.length && !item.config?.keywords?.length" class="muted">-</span>
+              </template>
             </div>
             <div class="col-actions" @click.stop>
-              <button class="action-btn" @click="copyGuildId(guildId as string)" title="复制群号">
+              <button class="action-btn" @click="copyGuildId(item.id)" title="复制群号">
                 <k-icon name="copy" />
                 <span>复制</span>
               </button>
-              <button class="action-btn" @click="editConfig(guildId as string)" title="编辑配置">
+              <button class="action-btn" @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)" title="编辑配置">
                 <k-icon name="edit-2" />
                 <span>编辑</span>
               </button>
-              <button class="action-btn danger" @click="deleteConfig(guildId as string)" title="删除配置">
+              <button class="action-btn danger" @click="item.type === 'guild' ? deleteConfig(item.id) : deleteGroupGroup(item.group!)" title="删除配置">
                 <k-icon name="trash-2" />
                 <span>删除</span>
               </button>
@@ -122,58 +139,68 @@
       <!-- 卡片视图 (使用 v-show 让 CSS 可以控制) -->
       <div v-show="viewMode === 'grid'" class="card-grid">
           <div
-            v-for="(config, guildId) in filteredConfigs"
-            :key="guildId"
+            v-for="item in combinedGridItems"
+            :key="item.key"
             class="config-card"
-            @click="editConfig(guildId as string)"
+            :class="{ 'group-card': item.type === 'group' }"
+            @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)"
           >
             <div class="card-header">
               <div class="guild-info">
+                <k-icon v-if="item.type === 'group'" name="layers" class="guild-icon" />
                 <img
-                  v-if="fetchNames && config.guildAvatar"
-                  :src="config.guildAvatar"
+                  v-else-if="fetchNames && item.config?.guildAvatar"
+                  :src="item.config?.guildAvatar"
                   class="guild-avatar"
                   @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
                 />
                 <k-icon v-else name="users" class="guild-icon" />
-                <span class="guild-id">{{ config.guildName ? `${config.guildName} (${guildId})` : guildId }}</span>
+                <span class="guild-id">
+                  {{ item.type === 'group' ? `${item.group?.name} (${item.id})` : (item.config?.guildName ? `${item.config?.guildName} (${item.id})` : item.id) }}
+                  <span v-if="item.type === 'group'" class="tag">群组组</span>
+                </span>
               </div>
             </div>
             <div class="card-body">
               <!-- 简化的功能指示器 -->
               <div class="feature-badges">
-                <span class="badge" :class="{ active: config.welcomeEnabled }" title="欢迎消息">迎</span>
-                <span class="badge" :class="{ active: config.goodbyeEnabled }" title="欢送消息">送</span>
-                <span class="badge" :class="{ active: config.antiRecall?.enabled }" title="防撤回">撤</span>
-                <span class="badge" :class="{ active: config.antiRepeat?.enabled }" title="复读检测">复</span>
-                <span class="badge" :class="{ active: config.openai?.enabled }" title="AI助手">AI</span>
-                <span class="badge" :class="{ active: config.report?.enabled }" title="举报功能">报</span>
+                <span class="badge" :class="{ active: item.config?.welcomeEnabled }" title="欢迎消息">迎</span>
+                <span class="badge" :class="{ active: item.config?.goodbyeEnabled }" title="欢送消息">送</span>
+                <span class="badge" :class="{ active: item.config?.antiRecall?.enabled }" title="防撤回">撤</span>
+                <span class="badge" :class="{ active: item.config?.antiRepeat?.enabled }" title="复读检测">复</span>
+                <span class="badge" :class="{ active: item.config?.openai?.enabled }" title="AI助手">AI</span>
+                <span class="badge" :class="{ active: item.config?.report?.enabled }" title="举报功能">报</span>
               </div>
 
               <!-- 统计信息单行 -->
               <div class="card-stats">
-                <span class="stat-item" v-if="config.approvalKeywords?.length">
-                  <span class="stat-num">{{ config.approvalKeywords.length }}</span> 入群词
-                </span>
-                <span class="stat-item" v-if="config.keywords?.length">
-                  <span class="stat-num">{{ config.keywords.length }}</span> 禁言词
-                </span>
-                <span class="stat-item placeholder" v-if="!config.approvalKeywords?.length && !config.keywords?.length">
-                  暂无配置
-                </span>
+                <template v-if="item.type === 'group'">
+                  <span class="stat-item">包含 {{ item.group?.guildIds?.length || 0 }} 群</span>
+                </template>
+                <template v-else>
+                  <span class="stat-item" v-if="item.config?.approvalKeywords?.length">
+                    <span class="stat-num">{{ item.config?.approvalKeywords.length }}</span> 入群词
+                  </span>
+                  <span class="stat-item" v-if="item.config?.keywords?.length">
+                    <span class="stat-num">{{ item.config?.keywords.length }}</span> 禁言词
+                  </span>
+                  <span class="stat-item placeholder" v-if="!item.config?.approvalKeywords?.length && !item.config?.keywords?.length">
+                    暂无配置
+                  </span>
+                </template>
               </div>
             </div>
 
             <div class="card-footer">
-              <k-button size="small" @click.stop="copyGuildId(guildId as string)" title="复制群号">
+              <k-button size="small" @click.stop="copyGuildId(item.id)" title="复制群号">
                 <template #icon><k-icon name="copy" /></template>
                 复制
               </k-button>
-              <k-button size="small" @click.stop="editConfig(guildId as string)" title="编辑配置">
+              <k-button size="small" @click.stop="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)" title="编辑配置">
                 <template #icon><k-icon name="edit-2" /></template>
                 编辑
               </k-button>
-              <k-button size="small" type="danger" @click.stop="deleteConfig(guildId as string)" title="删除配置">
+              <k-button size="small" type="danger" @click.stop="item.type === 'guild' ? deleteConfig(item.id) : deleteGroupGroup(item.group!)" title="删除配置">
                 <template #icon><k-icon name="trash-2" /></template>
                 删除
               </k-button>
@@ -214,7 +241,8 @@
     <div v-if="showEditDialog" class="edit-overlay" @click.self="showEditDialog = false">
       <div class="edit-dialog large">
         <div class="dialog-header">
-          <h3>编辑群组配置 - {{ editingGuildId }}</h3>
+          <h3 v-if="editingMode === 'guild'">编辑群组配置 - {{ editingGuildId }}</h3>
+          <h3 v-else>编辑群组组配置 - {{ editingGroupGroupId }}</h3>
           <button class="close-btn" @click="showEditDialog = false">
             <k-icon name="x" />
           </button>
@@ -249,6 +277,15 @@
             </div>
             <div class="divider" style="margin: 0.5rem 0.75rem; width: auto; opacity: 0.5;"></div>
             <div
+              v-if="editingMode === 'group'"
+              class="sidebar-item"
+              :class="{ active: activeTab === 'group-meta' }"
+              @click="activeTab = 'group-meta'"
+            >
+              <k-icon name="layers" />
+              <span>群组组信息</span>
+            </div>
+            <div
               class="sidebar-item"
               :class="{ active: activeTab === 'plugins' }"
               @click="activeTab = 'plugins'"
@@ -260,6 +297,62 @@
 
           <!-- 右侧内容区 -->
           <div class="edit-content">
+            <div v-if="editingMode === 'group'" class="section-hint">
+              群组组配置为局部合并，保存后将应用到该群组组包含的所有群聊。
+            </div>
+            <div v-if="editingMode === 'group' && activeTab === 'group-meta'" class="config-section">
+              <div class="section-title">群组组信息</div>
+              <div class="form-group">
+                <label>群组组名称</label>
+                <input type="text" v-model="editingGroupMeta.name" class="form-input" placeholder="群组组名称">
+              </div>
+              <div class="form-group">
+                <label>群组组 ID</label>
+                <input type="text" v-model="editingGroupMeta.id" class="form-input" :disabled="!isGroupGroupNew">
+              </div>
+              <div class="form-group">
+                <label>描述</label>
+                <input type="text" v-model="editingGroupMeta.description" class="form-input" placeholder="可选">
+              </div>
+              <div class="form-group">
+                <label>包含的群聊</label>
+                <div class="group-select-panel">
+                  <div class="group-select-toolbar">
+                    <input
+                      type="text"
+                      v-model="groupGuildSearch"
+                      placeholder="搜索群号或群名..."
+                      class="form-input"
+                    >
+                    <div class="group-actions">
+                      <button class="btn btn-secondary" @click="selectAllGroupGuilds">全选</button>
+                      <button class="btn btn-secondary" @click="clearGroupGuilds">清空</button>
+                      <span class="group-count">已选 {{ editingGroupMeta.guildIds.length }}</span>
+                    </div>
+                  </div>
+                  <div class="group-select-body">
+                    <div class="group-checkbox-list" v-if="filteredGuildOptions.length">
+                      <label v-for="item in filteredGuildOptions" :key="item.id" class="checkbox-label">
+                        <input type="checkbox" :value="item.id" v-model="editingGroupMeta.guildIds">
+                        <span>{{ item.label }}</span>
+                      </label>
+                    </div>
+                    <div v-else class="empty-state">未找到匹配的群</div>
+                    <div class="selected-chips" v-if="editingGroupMeta.guildIds.length">
+                      <div class="chips-title">已选群聊</div>
+                      <div class="chips-wrap">
+                        <span class="chip" v-for="id in editingGroupMeta.guildIds" :key="id">{{ id }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>手动输入群聊 ID</label>
+                <textarea v-model="editingGroupMetaGuildIds" class="form-textarea" rows="3" placeholder="每行一个群号，支持粘贴"></textarea>
+                <div class="field-hint">输入内容会与已选合并并去重</div>
+              </div>
+            </div>
             <!-- 入群设置 -->
             <div v-show="activeTab === 'entrance'" class="config-section">
               <div class="section-title">入群欢迎</div>
@@ -677,8 +770,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { message } from '@koishijs/client'
-import { configApi } from '../api'
-import type { GroupConfig } from '../types'
+import { configApi, authApi } from '../api'
+import type { GroupConfig, GuildGroup } from '../types'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -689,6 +782,13 @@ const fetchNames = ref(true)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('list')
 const configs = ref<Record<string, GroupConfig>>({})
+
+const groupConfigs = ref<Record<string, Partial<GroupConfig>>>({})
+const listFilter = ref<'all' | 'guild' | 'group'>('all')
+
+const guildGroups = ref<GuildGroup[]>([])
+const groupLoading = ref(false)
+const groupSaving = ref(false)
 
 // 过滤后的配置列表
 const filteredConfigs = computed(() => {
@@ -704,13 +804,53 @@ const filteredConfigs = computed(() => {
   }
   return result
 })
+
+const combinedListItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const items: Array<{ key: string; type: 'guild' | 'group'; id: string; config?: GroupConfig; group?: GuildGroup }> = []
+
+  if (listFilter.value !== 'group') {
+    for (const [guildId, config] of Object.entries(filteredConfigs.value)) {
+      items.push({ key: `guild:${guildId}`, type: 'guild', id: guildId, config })
+    }
+  }
+
+  if (listFilter.value !== 'guild') {
+    for (const group of guildGroups.value) {
+      const match = !query ||
+        group.id.toLowerCase().includes(query) ||
+        group.name.toLowerCase().includes(query)
+      if (!match) continue
+      const config = groupConfigs.value[group.id] as GroupConfig | undefined
+      items.push({ key: `group:${group.id}`, type: 'group', id: group.id, group, config })
+    }
+  }
+
+  return items
+})
+
+const combinedGridItems = computed(() => combinedListItems.value)
 const showEditDialog = ref(false)
+const editingMode = ref<'guild' | 'group'>('guild')
+const editingGroupGroupId = ref('')
+const editingGroupMeta = ref<GuildGroup>({ id: '', name: '', description: '', guildIds: [] })
+const groupGuildSearch = ref('')
+const isGroupGroupNew = computed(() => !editingGroupGroupId.value)
+const editingGroupMetaGuildIds = computed({
+  get: () => editingGroupMeta.value.guildIds.join('\n'),
+  set: (val: string) => {
+    const incoming = val.split('\n').map(s => s.trim()).filter(Boolean)
+    const merged = Array.from(new Set([...editingGroupMeta.value.guildIds, ...incoming]))
+    editingGroupMeta.value = { ...editingGroupMeta.value, guildIds: merged }
+  }
+})
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const newConfig = ref({ guildId: '' })
 const deleteConfirmId = ref('')
 const editingGuildId = ref('')
 const editingConfig = ref<GroupConfig | null>(null)
+const originalGroupGroupConfig = ref<Partial<GroupConfig>>({})
 const editingApprovalKeywords = ref('')
 const editingForbiddenKeywords = ref('')
 const activeTab = ref('entrance')
@@ -737,6 +877,31 @@ const refreshConfigs = async () => {
   }
 }
 
+const refreshGuildGroups = async () => {
+  groupLoading.value = true
+  try {
+    guildGroups.value = await authApi.getGuildGroups()
+    groupConfigs.value = await configApi.groupGroupConfigList()
+  } catch (e: any) {
+    message.error(e.message || '加载群组组失败')
+  } finally {
+    groupLoading.value = false
+  }
+}
+
+const createGroupGroup = () => {
+  editingMode.value = 'group'
+  editingGroupGroupId.value = ''
+  editingGroupMeta.value = { id: '', name: '', description: '', guildIds: [] }
+  const base = applyConfigDefaults({})
+  originalGroupGroupConfig.value = cloneConfig(base)
+  editingConfig.value = cloneConfig(base)
+  editingApprovalKeywords.value = ''
+  editingForbiddenKeywords.value = ''
+  activeTab.value = 'group-meta'
+  showEditDialog.value = true
+}
+
 const reloadConfigs = async () => {
   reloading.value = true
   try {
@@ -751,26 +916,74 @@ const reloadConfigs = async () => {
 }
 
 const editConfig = (guildId: string) => {
+  editingMode.value = 'guild'
   editingGuildId.value = guildId
-  const config = { ...configs.value[guildId] }
-  
-  // 初始化默认值
-  if (!config.antiRecall) config.antiRecall = { enabled: false }
-  if (!config.antiRepeat) config.antiRepeat = { enabled: false, threshold: 0 }
-  if (!config.forbidden) config.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
-  if (!config.dice) config.dice = { enabled: true, lengthLimit: 1000 }
-  if (!config.banme) config.banme = {
-    enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
-    jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
-  }
-  if (!config.openai) config.openai = { enabled: true, chatEnabled: true, translateEnabled: true }
-  if (!config.report) config.report = { enabled: true, autoProcess: true, includeContext: false, contextSize: 10 }
+  const config = applyConfigDefaults({ ...configs.value[guildId] })
 
   editingConfig.value = config
   editingApprovalKeywords.value = (config.approvalKeywords || []).join(', ')
   editingForbiddenKeywords.value = (config.keywords || []).join(', ')
   activeTab.value = 'entrance'
   showEditDialog.value = true
+}
+
+const applyConfigDefaults = (config: Partial<GroupConfig>): GroupConfig => {
+  const shaped: any = { ...config }
+  if (!shaped.antiRecall) shaped.antiRecall = { enabled: false }
+  if (!shaped.antiRepeat) shaped.antiRepeat = { enabled: false, threshold: 0 }
+  if (!shaped.forbidden) shaped.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
+  if (!shaped.dice) shaped.dice = { enabled: true, lengthLimit: 1000 }
+  if (!shaped.banme) shaped.banme = {
+    enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
+    jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
+  }
+  if (!shaped.openai) shaped.openai = { enabled: true, chatEnabled: true, translateEnabled: true }
+  if (!shaped.report) shaped.report = { enabled: true, autoProcess: true, includeContext: false, contextSize: 10 }
+  return shaped as GroupConfig
+}
+
+const cloneConfig = <T,>(value: T): T => JSON.parse(JSON.stringify(value || {}))
+
+const openGroupGroupConfig = (group: GuildGroup) => {
+  editingMode.value = 'group'
+  editingGroupGroupId.value = group.id
+  editingGroupMeta.value = {
+    id: group.id,
+    name: group.name,
+    description: group.description || '',
+    guildIds: Array.isArray(group.guildIds) ? [...group.guildIds] : []
+  }
+  const base = groupConfigs.value[group.id] || {}
+  const shapedBase = applyConfigDefaults({ ...base })
+  originalGroupGroupConfig.value = cloneConfig(shapedBase)
+  editingConfig.value = cloneConfig(shapedBase)
+  editingApprovalKeywords.value = (editingConfig.value.approvalKeywords || []).join(', ')
+  editingForbiddenKeywords.value = (editingConfig.value.keywords || []).join(', ')
+  activeTab.value = 'group-meta'
+  showEditDialog.value = true
+}
+
+const guildOptions = computed(() => {
+  return Object.entries(configs.value).map(([guildId, config]) => ({
+    id: guildId,
+    label: config.guildName ? `${config.guildName} (${guildId})` : guildId
+  }))
+})
+
+const filteredGuildOptions = computed(() => {
+  const query = groupGuildSearch.value.trim().toLowerCase()
+  if (!query) return guildOptions.value
+  return guildOptions.value.filter(item =>
+    item.id.toLowerCase().includes(query) || item.label.toLowerCase().includes(query)
+  )
+})
+
+const selectAllGroupGuilds = () => {
+  editingGroupMeta.value.guildIds = filteredGuildOptions.value.map(item => item.id)
+}
+
+const clearGroupGuilds = () => {
+  editingGroupMeta.value.guildIds = []
 }
 
 const handleRepeatSwitch = () => {
@@ -812,15 +1025,74 @@ const saveConfig = async () => {
 
   saving.value = true
   try {
-    await configApi.update(editingGuildId.value, editingConfig.value)
-    message.success('保存成功')
+    if (editingMode.value === 'guild') {
+      await configApi.update(editingGuildId.value, editingConfig.value)
+      message.success('保存成功')
+      showEditDialog.value = false
+      await refreshConfigs()
+      return
+    }
+
+    if (!editingGroupMeta.value.id.trim()) {
+      message.warning('请填写群组组 ID')
+      saving.value = false
+      return
+    }
+    if (!editingGroupMeta.value.name.trim()) {
+      message.warning('请填写群组组名称')
+      saving.value = false
+      return
+    }
+
+    editingGroupGroupId.value = editingGroupMeta.value.id.trim()
+
+    const base = originalGroupGroupConfig.value || {}
+    const current = editingConfig.value
+    const diff = buildConfigDiff(base, current)
+    await authApi.updateGuildGroup({
+      id: editingGroupMeta.value.id.trim(),
+      name: editingGroupMeta.value.name.trim(),
+      description: editingGroupMeta.value.description?.trim() || '',
+      guildIds: editingGroupMeta.value.guildIds
+    })
+    await configApi.groupGroupConfigUpdate(editingGroupGroupId.value, diff)
+    message.success('群组组配置已保存')
     showEditDialog.value = false
-    await refreshConfigs()
+    await refreshGuildGroups()
   } catch (e: any) {
     message.error(e.message || '保存失败')
   } finally {
     saving.value = false
   }
+}
+
+const buildConfigDiff = (base: any, current: any): Partial<GroupConfig> => {
+  const diff: any = Array.isArray(current) ? [] : {}
+
+  if (Array.isArray(current)) {
+    return JSON.stringify(current) === JSON.stringify(base) ? undefined as any : current
+  }
+
+  for (const key of Object.keys(current)) {
+    const value = (current as any)[key]
+    const baseValue = (base as any)?.[key]
+
+    if (typeof value === 'undefined') continue
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const child = buildConfigDiff(baseValue || {}, value)
+      if (typeof child !== 'undefined' && Object.keys(child).length > 0) {
+        diff[key] = child
+      }
+      continue
+    }
+
+    if (JSON.stringify(value) !== JSON.stringify(baseValue)) {
+      diff[key] = value
+    }
+  }
+
+  return diff
 }
 
 const createConfig = async () => {
@@ -853,6 +1125,20 @@ const deleteConfig = (guildId?: string) => {
   showDeleteDialog.value = true
 }
 
+const deleteGroupGroup = async (group: GuildGroup) => {
+  if (!confirm(`确定要删除群组组 "${group.name}" 吗？`)) return
+  groupSaving.value = true
+  try {
+    await authApi.deleteGuildGroup(group.id)
+    message.success('已删除群组组')
+    await refreshGuildGroups()
+  } catch (e: any) {
+    message.error(e.message || '删除群组组失败')
+  } finally {
+    groupSaving.value = false
+  }
+}
+
 const confirmDelete = async () => {
   if (deleteConfirmId.value !== editingGuildId.value) return
 
@@ -878,6 +1164,7 @@ const copyGuildId = (guildId?: string) => {
 
 onMounted(() => {
   refreshConfigs()
+  refreshGuildGroups()
 })
 </script>
 
@@ -891,6 +1178,185 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   font-family: var(--font-family);
+}
+
+/* ========== Guild Groups ========== */
+.guild-groups-panel {
+  margin-bottom: 16px;
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.groups-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+
+.groups-list {
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.group-item {
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-item:hover {
+  background: rgba(120, 120, 130, 0.08);
+}
+
+.group-item.active {
+  border-color: var(--k-color-primary, #7459ff);
+  background: rgba(116, 89, 255, 0.08);
+}
+
+.group-name {
+  font-size: 0.85rem;
+}
+
+.group-id {
+  font-size: 0.7rem;
+  color: var(--k-color-text-secondary);
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+.group-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.section-hint {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(120, 120, 130, 0.08);
+  color: var(--k-color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.group-editor {
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.group-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.group-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.group-count {
+  font-size: 0.75rem;
+  color: var(--k-color-text-secondary);
+  align-self: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--k-color-text-secondary);
+}
+
+.group-select-panel {
+  border: 1px solid var(--k-color-divider);
+  border-radius: 8px;
+  background: var(--k-card-bg);
+  padding: 10px;
+}
+
+.group-select-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.group-select-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.selected-chips {
+  border-left: 1px dashed var(--k-color-divider);
+  padding-left: 12px;
+  min-height: 120px;
+}
+
+.chips-title {
+  font-size: 0.75rem;
+  color: var(--k-color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(116, 89, 255, 0.12);
+  color: var(--k-color-primary, #7459ff);
+  font-size: 0.7rem;
+  border: 1px solid rgba(116, 89, 255, 0.3);
+}
+
+.field-hint {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--k-color-text-secondary);
 }
 
 /* ========== Header ========== */
@@ -907,6 +1373,30 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-divider);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.filter-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg3);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filter-btn.active {
+  background: rgba(116, 89, 255, 0.15);
+  color: var(--k-color-primary, #7459ff);
 }
 
 .toggle-wrapper {
@@ -1143,6 +1633,10 @@ onMounted(() => {
   align-items: center;
 }
 
+.group-row {
+  background: rgba(116, 89, 255, 0.06);
+}
+
 .list-row:last-child {
   border-bottom: none;
 }
@@ -1184,6 +1678,15 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tag {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  background: rgba(116, 89, 255, 0.18);
+  color: var(--k-color-primary, #7459ff);
 }
 
 .guild-id-sub {
@@ -1341,6 +1844,10 @@ onMounted(() => {
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
   animation: fadeIn 0.2s ease-out backwards;
+}
+
+.group-card {
+  border-color: rgba(116, 89, 255, 0.4);
 }
 
 @keyframes fadeIn {
