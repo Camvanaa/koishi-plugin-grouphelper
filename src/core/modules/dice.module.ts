@@ -75,7 +75,7 @@ export class DiceModule extends BaseModule {
     this.registerCommand({
       name: 'dice',
       desc: '掷骰子',
-      args: '<sides:number> [count:number]',
+      args: '<sides:string> [count:string]',
       permNode: 'dice',
       permDesc: '使用掷骰子功能',
       skipAuth: true,  // 掷骰子是普通功能，不需要权限
@@ -84,7 +84,7 @@ export class DiceModule extends BaseModule {
     })
       .example('dice 6')
       .example('dice 20 3')
-      .action(async ({ session }, sides, count = 1) => {
+      .action(async ({ session }, sides_str, count_str = 1) => {
         if (!session.guildId) return
 
         const groupConfig = this.getGroupConfig(session.guildId)
@@ -93,6 +93,9 @@ export class DiceModule extends BaseModule {
         if (!diceConfig.enabled) {
           return ''
         }
+
+        const sides = parseInt(sides_str)
+        const count = parseInt(count_str)
 
         if (!sides) {
           return '喵呜...请指定骰子面数喵~'

@@ -29,6 +29,7 @@ export class OrderManageModule extends BaseModule {
     this.registerUnbanAllCommand()
     this.registerBanListCommand()
     this.registerUnbanRandomCommand()
+    this.registerUnbanBatchCommand()
     this.registerNicknameCommand()
   }
 
@@ -354,6 +355,65 @@ export class OrderManageModule extends BaseModule {
         return `已随机解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}`
       })
   }
+
+  /**
+   * unban-batch 命令 - 批量解禁
+   */
+
+  private registerUnbanBatchCommand(): void {
+    this.registerCommand({
+      name: 'unban-batch',
+      desc: '批量解除禁言',
+      args: '<num:string>',
+      permNode: 'unban-batch',
+      permDesc: '批量解除禁言',
+      usage: '一次性解除多个用户的禁言，按照每个用户已经禁言的百分比来解除',
+      examples: ['unban-batch 5']
+    })
+      .action(async ({ session }, num) => {
+        if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+        if (!num) return '请提供要解除禁言的用户数量，格式：unban-batch <数量>'
+        const count = parseInt(num)
+        if (isNaN(count) || count <= 0) return '请提供一个有效的数字，格式：unban-batch <数量>'
+
+        const mutes = this.data.mutes.getAll()
+        const currentMutes = mutes[session.guildId] || {}
+        const banList: string[] = []
+        
+        for (const userId in currentMutes) {
+          const muteEndTime = currentMutes[userId].startTime + currentMutes[userId].duration
+          if (muteEndTime > Date.now()) {
+            banList.push(userId)
+          }
+        }
+
+        if (banList.length === 0) {
+          this.logCommand(session, 'unban-batch', session.guildId, '失败：当前没有被禁言的成员', false)
+          return '当前没有被禁言的成员喵~'
+        }
+
+        const sortedBanList = banList.sort((a, b) => {
+          const aData = currentMutes[a]
+          const bData = currentMutes[b]
+          const aRemaining = (aData.startTime + aData.duration) - Date.now()
+          const bRemaining = (bData.startTime + bData.duration) - Date.now()
+          return aRemaining / aData.duration - bRemaining / bData.duration
+        })
+
+        const unbanList = sortedBanList.slice(0, count)
+
+        for (const userId of unbanList) {
+          await session.bot.muteGuildMember(session.guildId, userId, 0)
+          currentMutes[userId].startTime = Date.now()
+          currentMutes[userId].duration = 0
+        }
+
+        mutes[session.guildId] = currentMutes
+        this.data.mutes.setAll(mutes)
+        this.logCommand(session, 'unban-batch', session.guildId, `成功：已批量解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}`)
+        return `已批量解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}`
+      })
+    }
 
   /**
    * nickname 命令 - 设置用户昵称

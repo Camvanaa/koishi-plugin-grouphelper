@@ -88,6 +88,9 @@ export class StatusModule extends BaseModule {
     // GroupHelper 统计
     const groupCount = Object.keys(await this.data.groupConfig.getAll()).length
     const logCount = (await this.data.commandLogs.getAll()).length
+
+    const pkg = require('../../../package.json')
+    const grouphelperVersion = `${pkg.version || `unknown`}` // 应该从 package.json 获取，这里硬编码或从 ctx.app.version 获取
     
     return {
       os: {
@@ -118,7 +121,7 @@ export class StatusModule extends BaseModule {
         plugins
       },
       grouphelper: {
-        version: '0.3.3', // 应该从 package.json 获取
+        version: grouphelperVersion, // 应该从 package.json 获取
         groupCount,
         logCount
       }
