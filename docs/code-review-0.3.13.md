@@ -6,7 +6,27 @@
 
 ## 本报告的代码基线
 
-本地 `dev` 分支 `790b8ac`(2026-07-26)。`origin/dev` 那条线已被舍弃,不作为参考,下文全部结论与行号均以本地工作区为准。
+审查基线为本地 `dev` 分支 `790b8ac`(2026-07-26)。`origin/dev` 那条线已被舍弃,不作为参考。
+
+## 修复状态
+
+本报告的结论已在 `79e94de`…`b3d227b` 六次提交中落地,**P0 全部 10 条、P1 全部、P2 绝大多数均已修复**,`tsc --noEmit` 与 `yarn build` 均通过。下文行号是审查当时的位置,修复后已发生偏移,阅读时请以实际代码为准。
+
+审查之外另行发现并一并修复的问题:
+
+- `json.store.ts` 的 `markDirty()` 是无上限 debounce,持续写入下 flush 永不触发(叠加 CacheService 从不 dispose 会整体丢失缓存)
+- `json.store.ts` 的 flush 失败后不重试也不告警,表现为"界面提示保存成功、重启后改动消失"
+- `event.module.ts:50,177` 同样把关键词当正则编译,与 keyword 模块是同一个 ReDoS 面
+- `event.module.ts` 的入群审核从不读取 `groupConfig.auto`,自动拒绝是死配置
+- `client/types.ts` 与 `src/types/index.ts` 中两处已漂移的类型声明
+
+仍未处理、留待后续的项:
+
+- 大文件拆分(5.1)——`api/index.ts` 1561 行、三个 3000 行级 Vue 组件仍未拆
+- 公共组件与 composable 提取(5.2)——确认弹窗、弹窗骨架、`formatTime` 等重复仍在
+- `client/styles/*.css` 未接线的设计系统草案(已收敛全局选择器,未删除)
+- ChatView 的虚拟滚动与 `renderMessage` 渲染期副作用
+- Dashboard 直连 GitHub/npm 的请求下沉到后端代理
 
 ---
 
