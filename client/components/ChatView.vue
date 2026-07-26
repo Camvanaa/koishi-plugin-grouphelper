@@ -61,8 +61,14 @@
         </div>
 
         <div class="message-list" ref="messageListRef">
+          <div v-if="hiddenMessageCount > 0" class="load-earlier">
+            <button class="load-earlier-btn" @click="showEarlierMessages">
+              查看更早的 {{ Math.min(hiddenMessageCount, MESSAGE_WINDOW_STEP) }} 条消息
+              <span class="load-earlier-hint">（还有 {{ hiddenMessageCount }} 条）</span>
+            </button>
+          </div>
           <div
-            v-for="msg in currentSession.messages"
+            v-for="msg in visibleMessages"
             :key="msg.id"
             class="message-row"
             :class="{ self: isSelf(msg) }"
@@ -320,9 +326,13 @@ import { chatApi, imageApi, GuildMember } from '../api'
 import type { ChatMessage } from '../types'
 
 // 图片缓存 - URL -> dataUrl
-const imageCache = reactive<Map<string, string>>(new Map())
+// 刻意不用 reactive：renderMessage 会读它，一旦具备响应性，
+// 任何一张图片代理完成都会触发全部消息重渲染，进而给仍在加载的图片
+// 重新分配 id 并再排一次代理请求，形成自我放大的循环。
+// 图片就位是由 handleProxyImage 直接改 DOM 完成的，不需要响应式。
+const imageCache = new Map<string, string>()
 // 正在加载的图片 URLs
-const loadingImages = reactive<Set<string>>(new Set())
+const loadingImages = new Set<string>()
 
 // 检查 URL 是否需要代理
 const needsProxy = (url: string): boolean => {
@@ -475,6 +485,8 @@ const loadGuildMembers = async (guildId: string) => {
     const result = await chatApi.getGuildMembers(guildId)
     if (requestId !== guildMembersRequestId) return
     members.value = result.members || []
+    // at 的显示名依赖成员列表，成员到位后已渲染的消息需要重算
+    invalidateRenderCache()
   } catch (e) {
     if (requestId !== guildMembersRequestId) return
     console.warn('Failed to load guild members:', e)
@@ -719,15 +731,43 @@ const handleIncomingMessage = async (msg: ChatMessage) => {
   // 如果不是当前会话，增加未读
   if (currentSessionId.value !== sessionId) {
     session.unread++
-  } else {
+  } else if (isNearBottom()) {
+    // 只有本来就在底部时才跟随新消息；用户上翻查看历史时不应被拽回去
     scrollToBottom()
   }
 }
 
 const currentSession = ref<Session | undefined>(undefined)
 
+/**
+ * 窗口化渲染：只渲染最近若干条消息。
+ *
+ * 消息高度不定（文本与图片混排），定高虚拟滚动不适用；
+ * 这里用聊天软件常见的做法——默认只挂最近一屏多一点的 DOM，
+ * 更早的内容按需展开，把节点数从「会话全部消息」压到常数级。
+ */
+const MESSAGE_WINDOW_INITIAL = 80
+const MESSAGE_WINDOW_STEP = 80
+const visibleCount = ref(MESSAGE_WINDOW_INITIAL)
+
+const visibleMessages = computed(() => {
+  const all = currentSession.value?.messages || []
+  return all.length > visibleCount.value ? all.slice(-visibleCount.value) : all
+})
+
+const hiddenMessageCount = computed(() => {
+  const total = currentSession.value?.messages.length || 0
+  return Math.max(0, total - visibleCount.value)
+})
+
+const showEarlierMessages = () => {
+  visibleCount.value += MESSAGE_WINDOW_STEP
+}
+
 watch(currentSessionId, (newId) => {
   const session = sessions.value.find(s => s.id === newId)
+  // 换会话时收回展开的窗口，否则会带着上一个会话的展开量渲染
+  visibleCount.value = MESSAGE_WINDOW_INITIAL
   if (session) {
     session.unread = 0
     currentSession.value = session
@@ -810,6 +850,15 @@ const connectToChat = async () => {
   connectForm.targetId = ''
   connectForm.name = ''
   connectForm.type = 'group'
+}
+
+/** 距底部多少像素以内算作「在底部」，留出一点余量以容忍行高误差 */
+const NEAR_BOTTOM_THRESHOLD = 80
+
+const isNearBottom = (): boolean => {
+  const el = messageListRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD
 }
 
 const scrollToBottom = () => {
@@ -906,8 +955,44 @@ const MAX_SESSION_MESSAGES = 500
 /** 暂存标记用的哨兵字符，出现在原文里会被提前剔除，避免伪造标记 */
 const FRAGMENT_MARK = '\u0000'
 
+/**
+ * 已渲染消息的记忆化缓存。
+ *
+ * renderMessage 在模板里被调用，每次组件重渲染都会对全部消息重跑一遍。
+ * 而它并非纯函数——内部会自增图片 id 计数器并用 nextTick 排代理请求，
+ * 于是每来一条新消息，历史所有图片都会重新拉一次代理、并且刚设好的 src
+ * 会被新生成的占位符覆盖成空白。
+ *
+ * 消息内容一旦收到就不再变化，因此按 id 缓存渲染结果既能消除这些副作用，
+ * 又能让 v-html 拿到完全相同的字符串、从而不去动已经加载好图片的 DOM。
+ */
+const renderCache = new Map<string, string>()
+
+/** 缓存上限，配合会话消息上限，避免长期运行后无界增长 */
+const MAX_RENDER_CACHE = MAX_SESSION_MESSAGES * 4
+
+/** 成员名称等外部依赖变化后，已渲染内容需要重算 */
+const invalidateRenderCache = () => renderCache.clear()
+
 const renderMessage = (msg: ChatMessage) => {
   if (!msg.content) return ''
+
+  const cacheKey = String(msg.id ?? '')
+  if (cacheKey) {
+    const cached = renderCache.get(cacheKey)
+    if (cached !== undefined) return cached
+  }
+
+  const rendered = renderMessageUncached(msg)
+
+  if (cacheKey) {
+    if (renderCache.size >= MAX_RENDER_CACHE) renderCache.clear()
+    renderCache.set(cacheKey, rendered)
+  }
+  return rendered
+}
+
+const renderMessageUncached = (msg: ChatMessage) => {
 
   // 消息内容整体是不可信输入：昵称、引用内容、图片地址都可由群成员操控。
   // 这里的做法是——各元素渲染出的 HTML 先暂存并留下哨兵标记，
@@ -1404,6 +1489,33 @@ const handleBubbleClick = (event: MouseEvent) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.load-earlier {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 8px;
+}
+
+.load-earlier-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--fg2);
+  background: transparent;
+  border: 1px solid var(--k-color-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.load-earlier-btn:hover {
+  background: var(--bg3);
+  color: var(--fg1);
+}
+
+.load-earlier-hint {
+  margin-left: 4px;
+  opacity: 0.65;
 }
 
 .message-row {
