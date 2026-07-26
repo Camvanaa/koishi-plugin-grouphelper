@@ -79,6 +79,7 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
@@ -87,7 +88,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { message } from '@koishijs/client'
 import { blacklistApi } from '../api'
 import type { BlacklistRecord } from '../types'
+import { formatTime } from '../utils/format'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
 
+
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 const loading = ref(false)
 const adding = ref(false)
 const showAddDialog = ref(false)
@@ -140,7 +146,12 @@ const addUser = async () => {
 
 const removeUser = async (userId: string) => {
   // 移除是不可撤销的破坏性操作，列表 hover 时极易误点，必须二次确认
-  if (!window.confirm(`确定要将 ${formatUserId(userId)} 移出黑名单吗？`)) return
+  const ok = await showConfirm({
+    title: '移出黑名单',
+    message: `确定要将 ${formatUserId(userId)} 移出黑名单吗？`,
+    type: 'danger'
+  })
+  if (!ok) return
 
   try {
     await blacklistApi.remove(userId)
@@ -149,11 +160,6 @@ const removeUser = async (userId: string) => {
   } catch (e: any) {
     message.error(e.message || '移除失败')
   }
-}
-
-const formatTime = (timestamp: number | undefined) => {
-  if (!timestamp) return '未知'
-  return new Date(timestamp).toLocaleString('zh-CN')
 }
 
 const formatUserId = (id: string) => {

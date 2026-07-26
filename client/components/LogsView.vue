@@ -234,6 +234,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { message } from '@koishijs/client'
 import { logsApi } from '../api'
 import type { LogRecord, LogSearchParams } from '../types'
+import { formatTime } from '../utils/format'
 
 const loading = ref(false)
 const logs = ref<LogRecord[]>([])
@@ -364,10 +365,6 @@ const refreshLogs = async () => {
 const searchLogs = () => {
   searchParams.page = 1
   refreshLogs()
-}
-
-const formatTime = (timestamp: string | number) => {
-  return new Date(timestamp).toLocaleString('zh-CN')
 }
 
 const resetFilters = () => {

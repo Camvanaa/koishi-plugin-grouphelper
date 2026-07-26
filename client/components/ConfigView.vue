@@ -764,6 +764,7 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
@@ -772,7 +773,11 @@ import { ref, onMounted, computed } from 'vue'
 import { message } from '@koishijs/client'
 import { configApi, authApi } from '../api'
 import type { GroupConfig, GuildGroup } from '../types'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
 
+
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 const loading = ref(false)
 const saving = ref(false)
 const creating = ref(false)
@@ -1133,7 +1138,12 @@ const deleteConfig = (guildId?: string) => {
 }
 
 const deleteGroupGroup = async (group: GuildGroup) => {
-  if (!confirm(`确定要删除群组组 "${group.name}" 吗？`)) return
+  const ok = await showConfirm({
+    title: '删除群组组',
+    message: `确定要删除群组组 "${group.name}" 吗？`,
+    type: 'danger'
+  })
+  if (!ok) return
   groupSaving.value = true
   try {
     await authApi.deleteGuildGroup(group.id)

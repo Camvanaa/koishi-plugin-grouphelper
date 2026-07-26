@@ -177,6 +177,7 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
@@ -185,7 +186,12 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { message } from '@koishijs/client'
 import { warnsApi } from '../api'
 import type { WarnRecord } from '../types'
+import { formatTime } from '../utils/format'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
 
+
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 const loading = ref(false)
 const adding = ref(false)
 const reloading = ref(false)
@@ -301,7 +307,12 @@ const addWarn = async () => {
 
 /** 清空某人的警告记录，不可撤销且按钮紧邻步进器，先做二次确认 */
 const clearWarn = async (item: ProcessedWarn) => {
-  if (!window.confirm(`确定要清除用户 ${item.userId} 在群 ${item.guildId} 的全部警告吗？`)) return
+  const ok = await showConfirm({
+    title: '清除警告',
+    message: `确定要清除用户 ${item.userId} 在群 ${item.guildId} 的全部警告吗？`,
+    type: 'danger'
+  })
+  if (!ok) return
   await updateWarn(item, 0)
 }
 
@@ -317,11 +328,6 @@ const updateWarn = async (item: ProcessedWarn, count: number | undefined) => {
     message.error(e.message || '更新警告失败')
     await refreshWarns() 
   }
-}
-
-const formatTime = (timestamp: number | undefined) => {
-  if (!timestamp) return '未知'
-  return new Date(timestamp).toLocaleString('zh-CN')
 }
 
 onMounted(() => {

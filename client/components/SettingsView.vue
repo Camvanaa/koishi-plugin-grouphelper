@@ -742,23 +742,8 @@
       </div>
     </transition>
 
-    <!-- Confirm Dialog -->
-    <transition name="fade">
-      <div class="modal-overlay" v-if="confirmDialog.show" @click="cancelConfirm">
-        <div class="modal-dialog" @click.stop>
-          <div class="modal-header">
-            <h3 class="modal-title">{{ confirmDialog.title }}</h3>
-          </div>
-          <div class="modal-body">
-            <p class="modal-text">{{ confirmDialog.message }}</p>
-          </div>
-          <div class="modal-footer">
-            <button class="action-btn" @click="cancelConfirm">取消</button>
-            <button :class="['action-btn', confirmDialog.type === 'danger' ? 'danger' : 'primary']" @click="doConfirm">确认</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <!-- 统一确认对话框 -->
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
@@ -766,6 +751,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { message } from '@koishijs/client'
 import { settingsApi, cacheApi, type CacheStats } from '../api'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
 
 // 默认配置结构
 const defaultSettings = {
@@ -871,43 +858,8 @@ const selectSection = (id: string) => {
   sectionDropdownOpen.value = false
 }
 
-// 确认对话框状态
-const confirmDialog = ref({
-  show: false,
-  title: '确认',
-  message: '',
-  type: 'normal' as 'normal' | 'danger',
-  onConfirm: () => {},
-  onCancel: () => {}
-})
-
-// 显示确认对话框
-const showConfirm = (options: { title?: string, message: string, type?: 'normal' | 'danger' }): Promise<boolean> => {
-  return new Promise((resolve) => {
-    confirmDialog.value = {
-      show: true,
-      title: options.title || '确认',
-      message: options.message,
-      type: options.type || 'normal',
-      onConfirm: () => {
-        confirmDialog.value.show = false
-        resolve(true)
-      },
-      onCancel: () => {
-        confirmDialog.value.show = false
-        resolve(false)
-      }
-    }
-  })
-}
-
-const cancelConfirm = () => {
-  confirmDialog.value.onCancel()
-}
-
-const doConfirm = () => {
-  confirmDialog.value.onConfirm()
-}
+// 确认弹窗（Promise 化，见 useConfirm）
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 
 // 检测是否有未保存的修改
 const hasChanges = computed(() => {
