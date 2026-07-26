@@ -119,7 +119,7 @@
                   controls-position="right"
                   @change="(val) => updateWarn(item, val)"
                 />
-                <k-button size="small" type="danger" @click="updateWarn(item, 0)" title="清除警告">
+                <k-button size="small" type="danger" @click="clearWarn(item)" title="清除警告">
                   <template #icon><k-icon name="trash-2" /></template>
                   清除
                 </k-button>
@@ -266,19 +266,26 @@ const reloadWarns = async () => {
 }
 
 const addWarn = async () => {
-  if (!newWarn.guildId.trim() || !newWarn.userId.trim()) {
+  // 校验与提交必须用同一个 trim 后的值，否则脏 key 会落盘
+  const guildId = newWarn.guildId.trim()
+  const userId = newWarn.userId.trim()
+  if (!guildId || !userId) {
     message.warning('请输入群号和用户ID')
+    return
+  }
+  if (!/^\d+$/.test(guildId) || !/^\d+$/.test(userId)) {
+    message.warning('群号和用户ID应为纯数字')
     return
   }
 
   adding.value = true
   try {
-    await warnsApi.add(newWarn.guildId, newWarn.userId)
+    await warnsApi.add(guildId, userId)
     message.success('添加成功')
     showAddDialog.value = false
-    
+
     // 自动切换到新添加的群组
-    const targetGuildId = newWarn.guildId
+    const targetGuildId = guildId
     newWarn.guildId = ''
     newWarn.userId = ''
     
@@ -290,6 +297,12 @@ const addWarn = async () => {
   } finally {
     adding.value = false
   }
+}
+
+/** 清空某人的警告记录，不可撤销且按钮紧邻步进器，先做二次确认 */
+const clearWarn = async (item: ProcessedWarn) => {
+  if (!window.confirm(`确定要清除用户 ${item.userId} 在群 ${item.guildId} 的全部警告吗？`)) return
+  await updateWarn(item, 0)
 }
 
 const updateWarn = async (item: ProcessedWarn, count: number | undefined) => {

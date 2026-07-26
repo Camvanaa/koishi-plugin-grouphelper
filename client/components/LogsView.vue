@@ -15,7 +15,7 @@
           <k-icon name="x" />
           重置
         </button>
-        <button class="btn btn-primary" @click="refreshLogs">
+        <button class="btn btn-primary" @click="searchLogs">
           <k-icon name="search" />
           搜索
         </button>
@@ -332,7 +332,14 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', onMouseUp)
 })
 
+/**
+ * 请求序号：切换 pageSize 时分页组件会同时触发 size-change 与 current-change，
+ * 慢的那个请求后返回就会覆盖新结果，导致表格内容与分页器状态对不上。
+ */
+let logsRequestId = 0
+
 const refreshLogs = async () => {
+  const requestId = ++logsRequestId
   loading.value = true
   try {
     const params: LogSearchParams = { ...searchParams }
@@ -340,15 +347,23 @@ const refreshLogs = async () => {
       params.startTime = dateRange.value[0]
       params.endTime = dateRange.value[1]
     }
-    
+
     const result = await logsApi.search(params)
+    if (requestId !== logsRequestId) return
     logs.value = result.list
     total.value = result.total
   } catch (e: any) {
+    if (requestId !== logsRequestId) return
     message.error(e.message || '加载日志失败')
   } finally {
-    loading.value = false
+    if (requestId === logsRequestId) loading.value = false
   }
+}
+
+/** 条件变更后的查询入口：必须回到第 1 页，否则在第 5 页改筛选会查到空结果 */
+const searchLogs = () => {
+  searchParams.page = 1
+  refreshLogs()
 }
 
 const formatTime = (timestamp: string | number) => {
@@ -363,6 +378,8 @@ const resetFilters = () => {
   searchParams.guildId = undefined
   searchParams.details = undefined
   searchParams.page = 1
+  // 清空条件后要重新查询，否则表格仍显示旧的筛选结果，与表单状态不符
+  refreshLogs()
 }
 
 const getDetail = (log: LogRecord) => {

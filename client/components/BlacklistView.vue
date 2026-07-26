@@ -109,14 +109,22 @@ const refreshBlacklist = async () => {
 }
 
 const addUser = async () => {
-  if (!newUser.userId.trim()) {
+  // 用 trim 后的值校验就必须用同一个值提交，
+  // 否则带尾随空格的 ID 会以脏 key 落盘，后续按纯数字查询永远命中不了
+  const userId = newUser.userId.trim()
+  if (!userId) {
     message.warning('请输入用户ID')
     return
   }
+  if (!/^\d+$/.test(userId)) {
+    message.warning('用户ID应为纯数字')
+    return
+  }
+
   adding.value = true
   try {
-    await blacklistApi.add(newUser.userId, {
-      userId: newUser.userId,
+    await blacklistApi.add(userId, {
+      userId,
       timestamp: Date.now()
     })
     message.success('已添加到黑名单')
@@ -131,6 +139,9 @@ const addUser = async () => {
 }
 
 const removeUser = async (userId: string) => {
+  // 移除是不可撤销的破坏性操作，列表 hover 时极易误点，必须二次确认
+  if (!window.confirm(`确定要将 ${formatUserId(userId)} 移出黑名单吗？`)) return
+
   try {
     await blacklistApi.remove(userId)
     message.success('已从黑名单移除')

@@ -70,7 +70,7 @@
           >
             <div class="message-avatar">
               <img v-if="msg.avatar" :src="msg.avatar" @error="handleAvatarError" />
-              <div v-else class="avatar-placeholder">{{ msg.username[0]?.toUpperCase() }}</div>
+              <div v-else class="avatar-placeholder">{{ (msg.username || msg.userId || '?')[0].toUpperCase() }}</div>
             </div>
             <div class="message-content-wrapper">
               <div class="message-meta">
@@ -460,17 +460,28 @@ const filteredAdmins = computed(() => filteredMembers.value.filter(m => m.isAdmi
 const filteredNormalMembers = computed(() => filteredMembers.value.filter(m => !m.isAdmin && !m.isOwner))
 
 // 加载群成员
+/**
+ * 请求序号：快速切换会话时先发的请求可能后返回，
+ * 不加判别会让成员列表停留在上一个群，与标题显示的群不一致。
+ */
+let guildMembersRequestId = 0
+
 const loadGuildMembers = async (guildId: string) => {
+  const requestId = ++guildMembersRequestId
   loadingMembers.value = true
   members.value = []
-  
+
   try {
     const result = await chatApi.getGuildMembers(guildId)
+    if (requestId !== guildMembersRequestId) return
     members.value = result.members || []
   } catch (e) {
+    if (requestId !== guildMembersRequestId) return
     console.warn('Failed to load guild members:', e)
   } finally {
-    loadingMembers.value = false
+    if (requestId === guildMembersRequestId) {
+      loadingMembers.value = false
+    }
   }
 }
 
@@ -632,10 +643,19 @@ const isSelf = (msg: ChatMessage) => {
 }
 
 // 接收消息监听
+// @koishijs/client 的 receive 是 listeners[event] = listener 的单槽实现，
+// 既不能叠加也没有反注册 API。用一个存活标记把回调与组件生命周期绑定，
+// 组件销毁后不再处理推送，也不会继续 mutate 已废弃的 sessions。
+let listenerActive = true
 onMounted(() => {
   receive('grouphelper/chat/message', (data: ChatMessage) => {
+    if (!listenerActive) return
     handleIncomingMessage(data)
   })
+})
+
+onUnmounted(() => {
+  listenerActive = false
 })
 
 const handleIncomingMessage = async (msg: ChatMessage) => {
@@ -690,6 +710,10 @@ const handleIncomingMessage = async (msg: ChatMessage) => {
   }
 
   session.messages.push(msg)
+  // 会话消息只增不删的话，长时间挂机会让内存与 DOM 无界增长并明显卡顿
+  if (session.messages.length > MAX_SESSION_MESSAGES) {
+    session.messages.splice(0, session.messages.length - MAX_SESSION_MESSAGES)
+  }
   session.lastMessage = msg
   
   // 如果不是当前会话，增加未读
@@ -875,6 +899,9 @@ const sanitizeUrl = (url: unknown): string => {
   }
   return ''
 }
+
+/** 单个会话保留的最大消息条数 */
+const MAX_SESSION_MESSAGES = 500
 
 /** 暂存标记用的哨兵字符，出现在原文里会被提前剔除，避免伪造标记 */
 const FRAGMENT_MARK = '\u0000'

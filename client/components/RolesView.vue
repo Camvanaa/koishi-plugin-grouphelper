@@ -561,7 +561,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { authApi } from '../api'
 import type { AuthScope, GuildGroup, Role, PermissionNode, RoleMember, UserRoleBinding } from '../types'
 import { message } from '@koishijs/client'
@@ -902,13 +902,18 @@ const fetchData = async () => {
 
 onMounted(() => {
   fetchData()
-  
-  // 延迟添加滚动监听器（等待 DOM 渲染）
-  setTimeout(() => {
-    if (permissionsMainRef.value) {
-      permissionsMainRef.value.addEventListener('scroll', handlePermissionsScroll)
-    }
-  }, 100)
+})
+
+// 权限面板要选中角色并切到权限 tab 才会渲染，挂载后延时 100ms 去取 ref 时它还是 null，
+// 原先的绑定从未真正生效（滚动高亮一直不工作），而且也没有对应的解绑。
+// 改为监听 ref 本身：元素出现时绑定，被替换或销毁时解绑。
+watch(permissionsMainRef, (el, prevEl) => {
+  prevEl?.removeEventListener('scroll', handlePermissionsScroll)
+  el?.addEventListener('scroll', handlePermissionsScroll)
+})
+
+onUnmounted(() => {
+  permissionsMainRef.value?.removeEventListener('scroll', handlePermissionsScroll)
 })
 
 
@@ -975,12 +980,21 @@ const groupedPermissions = computed(() => {
 })
 
 // 方法
+/**
+ * 请求序号：连续切换角色时，先发的请求可能后返回，
+ * 不加判别会用旧角色的成员覆盖掉当前选中角色的列表，
+ * 管理员可能因此对错误的对象执行移除操作。
+ */
+let roleMembersRequestId = 0
+
 const fetchRoleMembers = async (roleId: string) => {
+  const requestId = ++roleMembersRequestId
   try {
-    console.log('[RolesView] Fetching members for role:', roleId)
-    currentRoleMembers.value = await authApi.getRoleMembers(roleId, true)
-    console.log('[RolesView] Loaded', currentRoleMembers.value.length, 'members')
+    const members = await authApi.getRoleMembers(roleId, true)
+    if (requestId !== roleMembersRequestId) return
+    currentRoleMembers.value = members
   } catch (e) {
+    if (requestId !== roleMembersRequestId) return
     console.error('[RolesView] Failed to fetch role members:', e)
     currentRoleMembers.value = []
   }
@@ -1452,14 +1466,21 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
     if (!draggedId || draggedId === targetRole.id) return
     
     const draggedRole = roles.value.find(r => r.id === draggedId)
-    if(draggedRole) {
-        // 交换 priority
-        const temp = draggedRole.priority
-        draggedRole.priority = targetRole.priority
-        targetRole.priority = temp
-        
+    if (!draggedRole) return
+
+    // 交换 priority
+    const temp = draggedRole.priority
+    draggedRole.priority = targetRole.priority
+    targetRole.priority = temp
+
+    try {
         await authApi.updateRole(draggedRole)
         await authApi.updateRole(targetRole)
+    } catch (e) {
+        // 本地 priority 已经就地改过了，失败时必须重新拉取，
+        // 否则界面显示的新顺序与服务端不一致，且用户毫无察觉
+        message.error('排序失败: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
         await fetchData()
     }
 }

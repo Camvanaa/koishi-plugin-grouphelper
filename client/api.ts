@@ -26,6 +26,8 @@ export interface DashboardStats {
   totalWarns: number
   totalBlacklisted: number
   totalSubscriptions: number
+  /** 插件版本号，由后端 stats/dashboard 返回 */
+  version?: string
   timestamp: number
 }
 
@@ -37,14 +39,17 @@ interface ApiResponse<T> {
 }
 
 // 通用调用封装
-async function call<T>(event: keyof any, params?: any): Promise<T> {
-  // @ts-ignore
-  const result = await send(event, params) as ApiResponse<T>
+async function call<T>(event: string, params?: any): Promise<T> {
+  // send 在 WebSocket 未连接时直接返回 undefined 而不是 Promise，
+  // 不先判空的话下面取 .success 会抛出难以理解的 TypeError
+  const result = await send(event as any, params) as ApiResponse<T> | undefined
+  if (!result) {
+    throw new Error('与后端的连接已断开，请刷新页面重试')
+  }
   if (!result.success) {
     throw new Error(result.error || '请求失败')
   }
-  // @ts-ignore
-  return result.data
+  return result.data as T
 }
 
 // 群组配置 API
@@ -84,8 +89,10 @@ export const blacklistApi = {
 export const subscriptionApi = {
   list: (fetchNames?: boolean) => call<Subscription[]>('grouphelper/subscriptions/list', { fetchNames }),
   add: (subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/add', { subscription }),
-  remove: (index: number) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { index }),
-  update: (index: number, subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/update', { index, subscription }),
+  // 按 type+id 定位，不用数组下标——下标会因他人增删而指向错误的订阅
+  remove: (type: string, id: string) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { type, id }),
+  update: (type: string, id: string, subscription: Subscription) =>
+    call<{ success: boolean }>('grouphelper/subscriptions/update', { type, id, subscription }),
 }
 
 export interface ModuleStatus {
