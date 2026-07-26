@@ -63,151 +63,17 @@
     </div>
 
     <!-- 群组列表 -->
-    <div v-else class="config-list">
-      <div v-if="combinedListItems.length === 0" class="empty-state">
-        <k-icon name="inbox" class="empty-icon" />
-        <p>{{ searchQuery ? '未找到匹配的群组' : '暂无群组配置' }}</p>
-      </div>
-
-      <!-- 列表视图 (使用 v-show 让 CSS 可以控制) -->
-      <div v-show="viewMode === 'list'" class="list-table">
-          <div class="list-header">
-            <span class="col-guild">群组信息</span>
-            <span class="col-features">功能开关</span>
-            <span class="col-stats">统计</span>
-            <span class="col-actions">操作</span>
-          </div>
-          <div
-            v-for="item in combinedListItems"
-            :key="item.key"
-            class="list-row"
-            :class="{ 'group-row': item.type === 'group' }"
-            @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)"
-          >
-            <div class="col-guild">
-              <k-icon v-if="item.type === 'group'" name="layers" class="guild-icon-sm" />
-              <img
-                v-else-if="fetchNames && item.config?.guildAvatar"
-                :src="item.config?.guildAvatar"
-                class="guild-avatar-sm"
-                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-              />
-              <k-icon v-else name="users" class="guild-icon-sm" />
-              <div class="guild-text">
-                <span class="guild-name">
-                  {{ item.type === 'group' ? item.group?.name : (item.config?.guildName || item.id) }}
-                  <span v-if="item.type === 'group'" class="tag">群组组</span>
-                </span>
-                <span class="guild-id-sub" v-if="item.type === 'group' || item.config?.guildName">{{ item.id }}</span>
-              </div>
-            </div>
-            <div class="col-features">
-              <span class="badge-sm" :class="{ active: item.config?.welcomeEnabled }" title="入群欢迎">迎</span>
-              <span class="badge-sm" :class="{ active: item.config?.goodbyeEnabled }" title="退群欢送">送</span>
-              <span class="badge-sm" :class="{ active: item.config?.antiRecall?.enabled }" title="防撤回">撤</span>
-              <span class="badge-sm" :class="{ active: item.config?.antiRepeat?.enabled }" title="复读检测">复</span>
-              <span class="badge-sm" :class="{ active: item.config?.dice?.enabled }" title="掷骰子">骰</span>
-              <span class="badge-sm" :class="{ active: item.config?.banme?.enabled }" title="自我禁言">禁</span>
-              <span class="badge-sm" :class="{ active: item.config?.openai?.enabled }" title="AI助手">AI</span>
-              <span class="badge-sm" :class="{ active: item.config?.report?.enabled }" title="举报功能">报</span>
-            </div>
-            <div class="col-stats">
-              <span v-if="item.type === 'group'" class="muted">包含 {{ item.group?.guildIds?.length || 0 }} 群</span>
-              <template v-else>
-                <span v-if="item.config?.approvalKeywords?.length" title="入群验证词"><b>{{ item.config?.approvalKeywords.length }}</b> 验证</span>
-                <span v-if="item.config?.keywords?.length" title="违规词"><b>{{ item.config?.keywords.length }}</b> 违规</span>
-                <span v-if="!item.config?.approvalKeywords?.length && !item.config?.keywords?.length" class="muted">-</span>
-              </template>
-            </div>
-            <div class="col-actions" @click.stop>
-              <button class="action-btn" @click="copyGuildId(item.id)" title="复制群号">
-                <k-icon name="copy" />
-                <span>复制</span>
-              </button>
-              <button class="action-btn" @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)" title="编辑配置">
-                <k-icon name="edit-2" />
-                <span>编辑</span>
-              </button>
-              <button class="action-btn danger" @click="item.type === 'guild' ? deleteConfig(item.id) : deleteGroupGroup(item.group!)" title="删除配置">
-                <k-icon name="trash-2" />
-                <span>删除</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-      <!-- 卡片视图 (使用 v-show 让 CSS 可以控制) -->
-      <div v-show="viewMode === 'grid'" class="card-grid">
-          <div
-            v-for="item in combinedGridItems"
-            :key="item.key"
-            class="config-card"
-            :class="{ 'group-card': item.type === 'group' }"
-            @click="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)"
-          >
-            <div class="card-header">
-              <div class="guild-info">
-                <k-icon v-if="item.type === 'group'" name="layers" class="guild-icon" />
-                <img
-                  v-else-if="fetchNames && item.config?.guildAvatar"
-                  :src="item.config?.guildAvatar"
-                  class="guild-avatar"
-                  @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-                />
-                <k-icon v-else name="users" class="guild-icon" />
-                <span class="guild-id">
-                  {{ item.type === 'group' ? `${item.group?.name} (${item.id})` : (item.config?.guildName ? `${item.config?.guildName} (${item.id})` : item.id) }}
-                  <span v-if="item.type === 'group'" class="tag">群组组</span>
-                </span>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- 简化的功能指示器 -->
-              <div class="feature-badges">
-                <span class="badge" :class="{ active: item.config?.welcomeEnabled }" title="欢迎消息">迎</span>
-                <span class="badge" :class="{ active: item.config?.goodbyeEnabled }" title="欢送消息">送</span>
-                <span class="badge" :class="{ active: item.config?.antiRecall?.enabled }" title="防撤回">撤</span>
-                <span class="badge" :class="{ active: item.config?.antiRepeat?.enabled }" title="复读检测">复</span>
-                <span class="badge" :class="{ active: item.config?.openai?.enabled }" title="AI助手">AI</span>
-                <span class="badge" :class="{ active: item.config?.report?.enabled }" title="举报功能">报</span>
-              </div>
-
-              <!-- 统计信息单行 -->
-              <div class="card-stats">
-                <template v-if="item.type === 'group'">
-                  <span class="stat-item">包含 {{ item.group?.guildIds?.length || 0 }} 群</span>
-                </template>
-                <template v-else>
-                  <span class="stat-item" v-if="item.config?.approvalKeywords?.length">
-                    <span class="stat-num">{{ item.config?.approvalKeywords.length }}</span> 入群词
-                  </span>
-                  <span class="stat-item" v-if="item.config?.keywords?.length">
-                    <span class="stat-num">{{ item.config?.keywords.length }}</span> 禁言词
-                  </span>
-                  <span class="stat-item placeholder" v-if="!item.config?.approvalKeywords?.length && !item.config?.keywords?.length">
-                    暂无配置
-                  </span>
-                </template>
-              </div>
-            </div>
-
-            <div class="card-footer">
-              <k-button size="small" @click.stop="copyGuildId(item.id)" title="复制群号">
-                <template #icon><k-icon name="copy" /></template>
-                复制
-              </k-button>
-              <k-button size="small" @click.stop="item.type === 'guild' ? editConfig(item.id) : openGroupGroupConfig(item.group!)" title="编辑配置">
-                <template #icon><k-icon name="edit-2" /></template>
-                编辑
-              </k-button>
-              <k-button size="small" type="danger" @click.stop="item.type === 'guild' ? deleteConfig(item.id) : deleteGroupGroup(item.group!)" title="删除配置">
-                <template #icon><k-icon name="trash-2" /></template>
-                删除
-              </k-button>
-            </div>
-          </div>
-        </div>
-    </div>
+    <ConfigListPanel
+      v-else
+      :list-items="combinedListItems"
+      :grid-items="combinedGridItems"
+      :view-mode="viewMode"
+      :fetch-names="fetchNames"
+      :search-query="searchQuery"
+      @open="onListOpen"
+      @remove="onListRemove"
+      @copy="copyGuildId"
+    />
 
     <!-- 新建配置弹窗 -->
     <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
@@ -719,6 +585,8 @@ import type { GroupConfig, GuildGroup } from '../types'
 import { useConfirm } from '../composables/useConfirm'
 import ConfirmDialog from './common/ConfirmDialog.vue'
 import ToggleSwitch from './common/ToggleSwitch.vue'
+import ConfigListPanel from './config/ConfigListPanel.vue'
+import type { ConfigListItem } from './config/ConfigListPanel.vue'
 
 
 const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
@@ -1117,6 +985,18 @@ const confirmDelete = async () => {
   }
 }
 
+/** 列表项被打开：群走群配置弹窗，群组组走群组组弹窗 */
+const onListOpen = (item: ConfigListItem) => {
+  if (item.type === 'guild') editConfig(item.id)
+  else if (item.group) openGroupGroupConfig(item.group)
+}
+
+/** 列表项被删除，分派到对应的删除流程 */
+const onListRemove = (item: ConfigListItem) => {
+  if (item.type === 'guild') deleteConfig(item.id)
+  else if (item.group) deleteGroupGroup(item.group)
+}
+
 const copyGuildId = (guildId?: string) => {
   const id = guildId || editingGuildId.value
   navigator.clipboard.writeText(id)
@@ -1141,6 +1021,7 @@ onMounted(() => {
   font-family: var(--font-family);
 }
 
+
 /* ========== Guild Groups ========== */
 .guild-groups-panel {
   margin-bottom: 16px;
@@ -1150,6 +1031,7 @@ onMounted(() => {
   padding: 16px;
 }
 
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -1157,15 +1039,18 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+
 .panel-header h3 {
   margin: 0;
   font-size: 0.95rem;
 }
 
+
 .panel-actions {
   display: flex;
   gap: 8px;
 }
+
 
 .panel-body {
   display: flex;
@@ -1173,11 +1058,13 @@ onMounted(() => {
   gap: 12px;
 }
 
+
 .groups-layout {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 16px;
 }
+
 
 .groups-list {
   background: var(--k-color-card, rgba(24, 24, 28, 0.7));
@@ -1187,6 +1074,7 @@ onMounted(() => {
   max-height: 320px;
   overflow-y: auto;
 }
+
 
 .group-item {
   padding: 8px 10px;
@@ -1198,18 +1086,22 @@ onMounted(() => {
   gap: 4px;
 }
 
+
 .group-item:hover {
   background: rgba(120, 120, 130, 0.08);
 }
+
 
 .group-item.active {
   border-color: var(--k-color-primary, #7459ff);
   background: rgba(116, 89, 255, 0.08);
 }
 
+
 .group-name {
   font-size: 0.85rem;
 }
+
 
 .group-id {
   font-size: 0.7rem;
@@ -1217,10 +1109,12 @@ onMounted(() => {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
+
 .group-row-actions {
   display: flex;
   gap: 6px;
 }
+
 
 .section-hint {
   margin-bottom: 12px;
@@ -1231,6 +1125,7 @@ onMounted(() => {
   font-size: 0.8rem;
 }
 
+
 .group-editor {
   background: var(--k-color-card, rgba(24, 24, 28, 0.7));
   border: var(--border);
@@ -1238,10 +1133,12 @@ onMounted(() => {
   padding: 12px;
 }
 
+
 .group-actions {
   display: flex;
   gap: 8px;
 }
+
 
 .group-checkbox-list {
   display: flex;
@@ -1252,11 +1149,13 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+
 .group-count {
   font-size: 0.75rem;
   color: var(--k-color-text-secondary);
   align-self: center;
 }
+
 
 .checkbox-label {
   display: flex;
@@ -1266,12 +1165,14 @@ onMounted(() => {
   color: var(--k-color-text-secondary);
 }
 
+
 .group-select-panel {
   border: 1px solid var(--k-color-divider);
   border-radius: 8px;
   background: var(--k-card-bg);
   padding: 10px;
 }
+
 
 .group-select-toolbar {
   display: flex;
@@ -1280,11 +1181,13 @@ onMounted(() => {
   margin-bottom: 10px;
 }
 
+
 .group-select-body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+
 
 .selected-chips {
   border-left: 1px dashed var(--k-color-divider);
@@ -1292,17 +1195,20 @@ onMounted(() => {
   min-height: 120px;
 }
 
+
 .chips-title {
   font-size: 0.75rem;
   color: var(--k-color-text-secondary);
   margin-bottom: 6px;
 }
 
+
 .chips-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 
 .chip {
   display: inline-flex;
@@ -1314,11 +1220,13 @@ onMounted(() => {
   border: 1px solid rgba(116, 89, 255, 0.3);
 }
 
+
 .field-hint {
   margin-top: 4px;
   font-size: 0.7rem;
   color: var(--k-color-text-secondary);
 }
+
 
 /* ========== Header ========== */
 .view-header {
@@ -1330,11 +1238,13 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-divider);
 }
 
+
 .header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
 
 .filter-tabs {
   display: flex;
@@ -1344,6 +1254,7 @@ onMounted(() => {
   border-radius: 6px;
   padding: 4px;
 }
+
 
 .filter-btn {
   background: transparent;
@@ -1355,10 +1266,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
+
 .filter-btn.active {
   background: rgba(116, 89, 255, 0.15);
   color: var(--k-color-primary, #7459ff);
 }
+
 
 .toggle-wrapper {
   display: flex;
@@ -1371,10 +1284,12 @@ onMounted(() => {
   border-right: 1px solid var(--k-color-divider);
 }
 
+
 .toggle-wrapper label {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
+
 
 /* 视图切换按钮 */
 .view-toggle {
@@ -1384,6 +1299,7 @@ onMounted(() => {
   overflow: hidden;
   margin-right: 0.5rem;
 }
+
 
 .view-btn {
   background: var(--bg3);
@@ -1397,23 +1313,28 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .view-btn:first-child {
   border-right: 1px solid var(--k-color-divider);
 }
+
 
 .view-btn:hover {
   background: var(--k-card-bg);
   color: var(--fg1);
 }
 
+
 .view-btn.active {
   background: var(--k-color-primary-fade);
   color: var(--k-color-primary);
 }
 
+
 .view-btn :deep(.k-icon) {
   font-size: 14px;
 }
+
 
 .view-title {
   font-size: 1rem;
@@ -1423,12 +1344,14 @@ onMounted(() => {
   letter-spacing: -0.25px;
 }
 
+
 /* ========== Header Left & Search ========== */
 .header-left {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
+
 
 .search-wrapper {
   display: flex;
@@ -1442,15 +1365,18 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .search-wrapper:focus-within {
   border-color: var(--k-color-primary);
 }
+
 
 .search-icon {
   color: var(--fg3);
   font-size: 14px;
   flex-shrink: 0;
 }
+
 
 .search-input {
   border: none;
@@ -1462,9 +1388,11 @@ onMounted(() => {
   font-family: var(--font-family);
 }
 
+
 .search-input::placeholder {
   color: var(--fg3);
 }
+
 
 .divider-vertical {
   width: 1px;
@@ -1472,6 +1400,7 @@ onMounted(() => {
   background: var(--k-color-divider);
   margin: 0 0.5rem;
 }
+
 
 /* ========== Header Buttons Override ========== */
 .btn {
@@ -1489,10 +1418,12 @@ onMounted(() => {
   line-height: 1;
 }
 
+
 .btn-secondary {
   background: var(--bg3);
   color: var(--fg2);
 }
+
 
 .btn-secondary:hover {
   background: var(--bg3);
@@ -1500,11 +1431,13 @@ onMounted(() => {
   color: var(--fg1);
 }
 
+
 .btn-primary {
   background: var(--k-color-primary-fade);
   color: var(--k-color-primary);
   border-color: rgba(116, 89, 255, 0.2);
 }
+
 
 .btn-primary:hover {
   background: rgba(116, 89, 255, 0.18);
@@ -1512,9 +1445,11 @@ onMounted(() => {
   color: var(--k-color-primary);
 }
 
+
 .header-actions :deep(.k-icon) {
   font-size: 14px;
 }
+
 
 /* ========== El-Switch Override ========== */
 .toggle-wrapper :deep(.el-switch) {
@@ -1524,6 +1459,7 @@ onMounted(() => {
   height: 18px;
 }
 
+
 .toggle-wrapper :deep(.el-switch__core) {
   min-width: 32px;
   height: 18px;
@@ -1531,10 +1467,12 @@ onMounted(() => {
   border: 1px solid var(--k-color-border);
 }
 
+
 .toggle-wrapper :deep(.el-switch__core .el-switch__action) {
   width: 14px;
   height: 14px;
 }
+
 
 .loading-state {
   display: flex;
@@ -1546,201 +1484,21 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+
 .spin {
   animation: spin 1s linear infinite;
 }
+
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.config-list {
-  flex: 1;
-  overflow-y: auto;
-  align-content: start;
-}
-
-/* 列表表格视图 */
-.list-table {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.list-header {
-  display: grid;
-  grid-template-columns: 1fr 180px 120px 190px;
-  gap: 1rem;
-  padding: 0.625rem 1rem;
-  background: var(--bg1);
-  border-bottom: 1px solid var(--k-color-border);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--fg3);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.list-row {
-  display: grid;
-  grid-template-columns: 1fr 180px 120px 190px;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--k-color-divider);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  align-items: center;
-}
-
-.group-row {
-  background: rgba(116, 89, 255, 0.06);
-}
-
-.list-row:last-child {
-  border-bottom: none;
-}
-
-.list-row:hover {
-  background: var(--k-hover-bg);
-}
-
-.col-guild {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.guild-avatar-sm {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.guild-icon-sm {
-  font-size: 16px;
-  color: var(--fg3);
-  flex-shrink: 0;
-}
-
-.guild-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.guild-name {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tag {
-  margin-left: 6px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  background: rgba(116, 89, 255, 0.18);
-  color: var(--k-color-primary, #7459ff);
-}
-
-.guild-id-sub {
-  font-size: 0.6875rem;
-  color: var(--fg3);
-  font-family: var(--font-family-code);
-}
-
-.col-features {
-  display: flex;
-  gap: 3px;
-}
-
-.badge-sm {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  font-size: 0.5625rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg1);
-  color: var(--fg3);
-  border: 1px solid var(--k-color-divider);
-}
-
-.badge-sm.active {
-  background: var(--k-color-success-fade);
-  color: var(--k-color-success);
-  border-color: var(--k-color-success);
-}
-
-.col-stats {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.6875rem;
-  color: var(--fg3);
-}
-
-.col-stats b {
-  font-weight: 600;
-  color: var(--fg1);
-  font-family: var(--font-family-code);
-}
-
-.col-stats .muted {
-  color: var(--fg3);
-}
-
-.col-actions {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.action-btn {
-  background: transparent;
-  border: 1px solid var(--k-color-divider);
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  color: var(--fg3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover {
-  background: var(--bg3);
-  border-color: var(--k-color-border);
-  color: var(--fg1);
-}
-
-.action-btn.danger:hover {
-  background: var(--k-color-danger-fade);
-  border-color: var(--k-color-danger);
-  color: var(--k-color-danger);
-}
 
 .action-btn :deep(.k-icon) {
   font-size: 12px;
 }
 
-/* 卡片网格视图 */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-}
 
 /* 响应式布局 */
 @media (max-width: 900px) {
@@ -1754,89 +1512,12 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 600px) {
-  .list-header,
-  .list-row {
-    grid-template-columns: 1fr 40px;
-    padding: 0.75rem 0.5rem;
-    gap: 0.5rem;
-  }
-
-  .col-features,
-  .col-stats {
-    display: none;
-  }
-
-  .col-actions .action-btn {
-    padding: 4px;
-  }
-
-  .col-actions .action-btn span {
-    display: none;
-  }
-
-  .col-actions button:not(:nth-child(2)) {
-    display: none; /* 只显示编辑按钮 */
-  }
-}
-
-.empty-state {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem;
-  color: var(--fg3);
-  font-size: 0.875rem;
-}
-
-.empty-icon {
-  font-size: 40px;
-  margin-bottom: 0.75rem;
-  opacity: 0.4;
-}
-
-/* ========== Config Card ========== */
-.config-card {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-  animation: fadeIn 0.2s ease-out backwards;
-}
-
-.group-card {
-  border-color: rgba(116, 89, 255, 0.4);
-}
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.config-card:hover {
-  border-color: var(--fg3);
-  background: var(--bg3);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--k-color-divider);
-}
-
-.card-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--k-color-divider);
-  background: var(--bg1);
-}
 
 /* Card Footer Button Override */
 .card-footer :deep(.k-button) {
@@ -1850,111 +1531,30 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .card-footer :deep(.k-button:hover) {
   border-color: var(--fg3);
   color: var(--fg1);
   background: var(--bg3);
 }
 
+
 .card-footer :deep(.k-button[type="danger"]) {
   color: var(--k-color-danger);
   border-color: transparent;
 }
+
 
 .card-footer :deep(.k-button[type="danger"]:hover) {
   background: rgba(248, 81, 73, 0.15);
   border-color: var(--k-color-danger);
 }
 
+
 .card-footer :deep(.k-icon) {
   font-size: 12px;
 }
 
-.guild-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.guild-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.guild-icon {
-  color: var(--fg2);
-  font-size: 20px;
-}
-
-.guild-id {
-  font-weight: 500;
-  font-size: 0.875rem;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-body {
-  padding: 0.625rem 0.75rem;
-}
-
-/* 功能徽章 - 紧凑单行 */
-.feature-badges {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 0.5rem;
-}
-
-.badge {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  font-size: 0.625rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg1);
-  color: var(--fg3);
-  border: 1px solid var(--k-color-divider);
-  transition: all 0.15s ease;
-}
-
-.badge.active {
-  background: var(--k-color-success-fade);
-  color: var(--k-color-success);
-  border-color: var(--k-color-success);
-}
-
-/* 统计信息行 */
-.card-stats {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.6875rem;
-  color: var(--fg3);
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.stat-num {
-  font-weight: 600;
-  color: var(--fg1);
-  font-family: var(--font-family-code);
-}
-
-.stat-item.placeholder {
-  font-style: italic;
-}
 
 /* ========== Dialog & Overlay ========== */
 .edit-overlay, .dialog-overlay {
@@ -1971,6 +1571,7 @@ onMounted(() => {
   z-index: 1000;
 }
 
+
 .edit-dialog {
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
@@ -1982,6 +1583,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
+
 
 .dialog-card {
   background: var(--k-card-bg);
@@ -1995,9 +1597,11 @@ onMounted(() => {
   animation: fadeIn 0.15s ease-out;
 }
 
+
 .dialog-body {
   padding: 1rem 1.25rem;
 }
+
 
 .form-input {
   width: 100%;
@@ -2012,14 +1616,17 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .form-input:focus {
   outline: none;
   border-color: var(--k-color-primary);
 }
 
+
 .form-input::placeholder {
   color: var(--fg3);
 }
+
 
 .edit-dialog.large {
   max-width: 760px;
@@ -2027,6 +1634,7 @@ onMounted(() => {
   border-radius: 8px;
   animation: fadeIn 0.15s ease-out;
 }
+
 
 .dialog-header {
   display: flex;
@@ -2037,12 +1645,14 @@ onMounted(() => {
   background: var(--bg1);
 }
 
+
 .dialog-header h3 {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--fg1);
 }
+
 
 .close-btn {
   background: none;
@@ -2057,10 +1667,12 @@ onMounted(() => {
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
+
 .close-btn:hover {
   color: var(--fg1);
   background: var(--bg3);
 }
+
 
 /* ========== Edit Layout ========== */
 .edit-layout {
@@ -2068,6 +1680,7 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
 }
+
 
 .edit-sidebar {
   width: 140px;
@@ -2078,6 +1691,7 @@ onMounted(() => {
   gap: 2px;
   background: var(--bg1);
 }
+
 
 .sidebar-item {
   display: flex;
@@ -2091,10 +1705,12 @@ onMounted(() => {
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
+
 .sidebar-item:hover {
   background: var(--bg3);
   color: var(--fg1);
 }
+
 
 .sidebar-item.active {
   background: var(--bg3);
@@ -2105,6 +1721,7 @@ onMounted(() => {
   padding-left: calc(0.75rem - 2px);
 }
 
+
 .edit-content {
   flex: 1;
   overflow-y: auto;
@@ -2112,11 +1729,13 @@ onMounted(() => {
   background: var(--k-card-bg);
 }
 
+
 .config-section {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+
 
 .section-title {
   font-size: 0.75rem;
@@ -2129,11 +1748,13 @@ onMounted(() => {
   border-left: 2px solid var(--k-color-success);
 }
 
+
 .divider {
   height: 1px;
   background: var(--k-color-divider);
   margin: 0.75rem 0;
 }
+
 
 /* ========== Plugin Card ========== */
 .plugin-card {
@@ -2144,9 +1765,11 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .plugin-card:hover {
   border-color: var(--fg3);
 }
+
 
 .plugin-header {
   display: flex;
@@ -2159,9 +1782,11 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 }
 
+
 .plugin-header:hover {
   background: var(--bg3);
 }
+
 
 .plugin-title {
   display: flex;
@@ -2172,6 +1797,7 @@ onMounted(() => {
   color: var(--fg1);
 }
 
+
 .plugin-status {
   display: flex;
   align-items: center;
@@ -2179,11 +1805,13 @@ onMounted(() => {
   color: var(--fg3);
 }
 
+
 .plugin-body {
   padding: 0.75rem;
   border-top: 1px solid var(--k-color-divider);
   background: var(--k-card-bg);
 }
+
 
 /* ========== Form Elements ========== */
 .form-group {
@@ -2194,6 +1822,7 @@ onMounted(() => {
   padding: 0.375rem 0;
 }
 
+
 .form-group label:first-child {
   width: 100px;
   flex-shrink: 0;
@@ -2201,6 +1830,7 @@ onMounted(() => {
   font-weight: 500;
   color: var(--fg2);
 }
+
 
 .form-textarea {
   width: 100%;
@@ -2215,14 +1845,17 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .form-textarea:focus {
   outline: none;
   border-color: var(--k-color-primary);
 }
 
+
 .form-textarea::placeholder {
   color: var(--fg3);
 }
+
 
 .form-hint-row {
   margin-top: -0.25rem;
@@ -2230,11 +1863,13 @@ onMounted(() => {
   padding-left: calc(100px + 0.75rem);
 }
 
+
 .form-hint {
   font-size: 0.6875rem;
   color: var(--fg3);
   font-style: italic;
 }
+
 
 /* ========== El-Input Override ========== */
 .config-section :deep(.el-input__wrapper),
@@ -2248,6 +1883,7 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .config-section :deep(.el-input__wrapper:hover),
 .config-section :deep(.el-input-number:hover),
 .plugin-body :deep(.el-input__wrapper:hover),
@@ -2255,10 +1891,12 @@ onMounted(() => {
   border-color: var(--fg3);
 }
 
+
 .config-section :deep(.el-input__wrapper.is-focus),
 .plugin-body :deep(.el-input__wrapper.is-focus) {
   border-color: var(--k-color-primary) !important;
 }
+
 
 .config-section :deep(.el-input__inner),
 .plugin-body :deep(.el-input__inner) {
@@ -2267,10 +1905,12 @@ onMounted(() => {
   font-size: 0.8125rem;
 }
 
+
 .config-section :deep(.el-input__inner::placeholder),
 .plugin-body :deep(.el-input__inner::placeholder) {
   color: var(--fg3);
 }
+
 
 .config-section :deep(.el-input-number__decrease),
 .config-section :deep(.el-input-number__increase),
@@ -2281,12 +1921,14 @@ onMounted(() => {
   color: var(--fg2);
 }
 
+
 .config-section :deep(.el-input-number__decrease:hover),
 .config-section :deep(.el-input-number__increase:hover),
 .plugin-body :deep(.el-input-number__decrease:hover),
 .plugin-body :deep(.el-input-number__increase:hover) {
   color: var(--k-color-primary);
 }
+
 
 /* ========== Toggle Switch ========== */
 
@@ -2306,6 +1948,7 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-divider);
 }
 
+
 /* ========== Dialog Footer ========== */
 .dialog-footer {
   display: flex;
@@ -2316,15 +1959,18 @@ onMounted(() => {
   background: var(--bg1);
 }
 
+
 .footer-left {
   display: flex;
   gap: 6px;
 }
 
+
 .footer-right {
   display: flex;
   gap: 6px;
 }
+
 
 /* Dialog Footer Button Override */
 .dialog-footer :deep(.k-button) {
@@ -2338,11 +1984,13 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .dialog-footer :deep(.k-button:hover) {
   background: var(--k-card-bg);
   border-color: var(--k-color-border);
   color: var(--fg1);
 }
+
 
 .dialog-footer :deep(.k-button[type="primary"]) {
   background: var(--k-color-primary-fade);
@@ -2350,10 +1998,12 @@ onMounted(() => {
   color: var(--k-color-primary);
 }
 
+
 .dialog-footer :deep(.k-button[type="primary"]:hover) {
   background: rgba(116, 89, 255, 0.25);
   border-color: rgba(116, 89, 255, 0.5);
 }
+
 
 .dialog-footer :deep(.k-button[type="danger"]) {
   background: rgba(248, 81, 73, 0.15);
@@ -2361,15 +2011,18 @@ onMounted(() => {
   color: var(--k-color-danger);
 }
 
+
 .dialog-footer :deep(.k-button[type="danger"]:hover) {
   background: rgba(248, 81, 73, 0.25);
   border-color: rgba(248, 81, 73, 0.5);
 }
 
+
 .dialog-footer :deep(.k-button:disabled) {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 
 /* ========== Scrollbar ========== */
 ::-webkit-scrollbar {
@@ -2377,22 +2030,27 @@ onMounted(() => {
   height: 6px;
 }
 
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--k-color-border);
   border-radius: 3px;
 }
 
+
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--fg3);
 }
 
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
 
 /* ========== Delete Dialog ========== */
 .warning-text {
@@ -2402,11 +2060,13 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+
 .info-text {
   margin-bottom: 0.75rem;
   font-size: 0.8125rem;
   color: var(--fg2);
 }
+
 
 .code-highlight {
   background: var(--bg1);
@@ -2422,10 +2082,12 @@ onMounted(() => {
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
+
 .code-highlight:hover {
   border-color: var(--k-color-primary);
   color: var(--k-color-primary);
 }
+
 
 /* ========================================
    移动端适配 (< 768px)
@@ -2703,6 +2365,7 @@ onMounted(() => {
   }
 }
 
+
 /* 小屏手机适配 (< 480px) */
 @media (max-width: 480px) {
   .view-header {
@@ -2767,6 +2430,7 @@ onMounted(() => {
     font-size: 0.7rem;
   }
 }
+
 
 /* ========================================
    编辑弹窗移动端适配
@@ -2917,6 +2581,7 @@ onMounted(() => {
     width: 100% !important;
   }
 }
+
 
 @media (max-width: 480px) {
   .edit-dialog.large {

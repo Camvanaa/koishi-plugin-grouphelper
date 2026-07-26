@@ -28,11 +28,17 @@ function classesInTemplate(tpl) {
       if (c && !c.includes('{') && !c.includes('$')) found.add(c)
     }
   }
-  // 动态 :class="{ a: x, 'b-c': y }" 与 :class="['a', ...]"
+  // 动态 :class="{ a: x, 'b-c': y }" 与 :class="['a', 'b']"
+  // 只取对象的键与数组里的字面量，不能把条件表达式中的字符串值（如
+  // `{ 'group-row': item.type === 'group' }` 里的 'group'）也当成类名
   for (const m of tpl.matchAll(/\s:class="([^"]*)"/g)) {
-    for (const c of m[1].matchAll(/['"]([\w-]+)['"]\s*:/g)) found.add(c[1])
-    for (const c of m[1].matchAll(/(^|[{,\s])([a-zA-Z][\w-]*)\s*:/g)) found.add(c[2])
-    for (const c of m[1].matchAll(/['"]([\w-]+)['"]/g)) found.add(c[1])
+    const expr = m[1].trim()
+    if (expr.startsWith('{')) {
+      for (const c of expr.matchAll(/['"]([\w-]+)['"]\s*:/g)) found.add(c[1])
+      for (const c of expr.matchAll(/(^\{|[,{])\s*([a-zA-Z][\w-]*)\s*:/g)) found.add(c[2])
+    } else if (expr.startsWith('[')) {
+      for (const c of expr.matchAll(/['"]([\w-]+)['"]/g)) found.add(c[1])
+    }
   }
   return found
 }
