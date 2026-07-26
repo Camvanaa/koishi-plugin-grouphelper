@@ -91,30 +91,21 @@
             <div class="form-row">
               <label class="form-label">自动撤回</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoDelete" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoDelete" />
                 <span class="form-hint">自动撤回包含禁言关键词的消息</span>
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">自动禁言</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoBan" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoBan" />
                 <span class="form-hint">自动禁言发送禁言关键词的用户</span>
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">自动踢出</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoKick" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoKick" />
                 <span class="form-hint">自动踢出发送禁言关键词的用户</span>
               </div>
             </div>
@@ -170,10 +161,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.dice.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.dice.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -196,10 +184,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -224,10 +209,7 @@
             <div class="form-row">
               <label class="form-label">自动禁言匹配</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.autoBan" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.autoBan" />
               </div>
             </div>
           </div>
@@ -237,10 +219,7 @@
             <div class="form-row">
               <label class="form-label">启用金卡</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.jackpot.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.jackpot.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -286,10 +265,7 @@
             <div class="form-row">
               <label class="form-label">启用验证</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.friendRequest.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.friendRequest.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -322,20 +298,14 @@
             <div class="form-row">
               <label class="form-label">手动处理</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.guildRequest.manual" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.guildRequest.manual" />
                 <span class="form-hint">开启后收到群邀请不自动处理，仅推送通知，由管理员在 QQ 客户端手动同意/拒绝</span>
               </div>
             </div>
             <div class="form-row" v-if="!settings.guildRequest.manual">
               <label class="form-label">自动同意</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.guildRequest.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.guildRequest.enabled" />
                 <span class="form-hint">启用时同意所有邀请，禁用时拒绝所有</span>
               </div>
             </div>
@@ -358,10 +328,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.setEssenceMsg.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.setEssenceMsg.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -383,10 +350,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.setTitle.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.setTitle.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -414,10 +378,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRepeat.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRepeat.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -440,10 +401,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRecall.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRecall.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -461,10 +419,7 @@
             <div class="form-row">
               <label class="form-label">显示原消息时间</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRecall.showOriginalTime" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRecall.showOriginalTime" />
               </div>
             </div>
           </div>
@@ -497,28 +452,19 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.enabled" />
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">启用对话</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.chatEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.chatEnabled" />
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">启用翻译</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.translateEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.translateEnabled" />
               </div>
             </div>
             <div class="form-row">
@@ -592,10 +538,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.report.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.report.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -607,19 +550,13 @@
             <div class="form-row">
               <label class="form-label">自动处理</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.report.autoProcess" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.report.autoProcess" />
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">自动撤回</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.report.autoRecall" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.report.autoRecall" />
                 <span class="form-hint">处罚成功后自动撤回被举报消息</span>
               </div>
             </div>
@@ -753,6 +690,7 @@ import { message } from '@koishijs/client'
 import { settingsApi, cacheApi, type CacheStats } from '../api'
 import { useConfirm } from '../composables/useConfirm'
 import ConfirmDialog from './common/ConfirmDialog.vue'
+import ToggleSwitch from './common/ToggleSwitch.vue'
 
 // 默认配置结构
 const defaultSettings = {
@@ -1341,51 +1279,11 @@ onMounted(() => {
 }
 
 /* Toggle Switch */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
-}
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
 
-.toggle-track {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--k-color-border);
-  transition: 0.2s;
-  border-radius: 20px;
-}
 
-.toggle-track:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--fg0);
-  transition: 0.2s;
-  border-radius: 50%;
-}
 
-.toggle-switch input:checked + .toggle-track {
-  background-color: var(--k-color-primary);
-}
 
-.toggle-switch input:checked + .toggle-track:before {
-  transform: translateX(16px);
-}
 
 /* Subsection Divider */
 .subsection-divider {
@@ -1858,8 +1756,9 @@ onMounted(() => {
     margin-top: 0.25rem;
   }
 
-  /* 开关 */
-  .toggle-switch {
+  /* 开关：子组件无法被父级 scoped 样式命中，改由容器控制对齐 */
+  .form-control > .gh-toggle,
+  .form-control :deep(.gh-toggle) {
     align-self: flex-start;
   }
 

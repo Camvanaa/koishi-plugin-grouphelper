@@ -358,10 +358,7 @@
               <div class="section-title">入群欢迎</div>
               <div class="form-group">
                 <label>启用欢迎消息</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.welcomeEnabled" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.welcomeEnabled" />
               </div>
               <div class="form-group" v-if="editingConfig.welcomeEnabled">
                 <label>欢迎语</label>
@@ -376,10 +373,7 @@
               <div class="section-title" style="margin-top: 1.5rem;">入群验证</div>
               <div class="form-group">
                 <label>自动拒绝</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="autoReject" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="autoReject" />
               </div>
               <div class="form-group">
                 <label>拒绝回复</label>
@@ -423,31 +417,19 @@
               </div>
               <div class="form-group">
                 <label>自动撤回</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoDelete" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoDelete" />
               </div>
               <div class="form-group">
                 <label>自动禁言</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoBan" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoBan" />
               </div>
                <div class="form-group">
                 <label>自动踢出</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoKick" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoKick" />
               </div>
               <div class="form-group">
                 <label>触发回显</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.echo" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.echo" />
               </div>
               <div class="form-group">
                 <label>禁言时长(ms)</label>
@@ -460,10 +442,7 @@
               <div class="section-title">退群欢送</div>
               <div class="form-group">
                 <label>启用欢送消息</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.goodbyeEnabled" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.goodbyeEnabled" />
               </div>
               <div class="form-group" v-if="editingConfig.goodbyeEnabled">
                 <label>欢送语</label>
@@ -492,10 +471,7 @@
                     <span>防撤回</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.antiRecall.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.antiRecall.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['antiRecall'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -518,10 +494,7 @@
                     <span>复读检测</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.antiRepeat.enabled" @change="handleRepeatSwitch" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.antiRepeat.enabled" @update:modelValue="handleRepeatSwitch" @click.stop />
                     <k-icon :name="expandedPlugins['repeat'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -546,10 +519,7 @@
                     <span>掷骰子</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.dice.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.dice.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['dice'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -569,20 +539,14 @@
                     <span>自我禁言</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.banme.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['banme'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['banme']">
                    <div class="form-group">
                     <label>自动检测</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.banme.autoBan" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.autoBan" />
                   </div>
                   <div class="form-group">
                     <label>最小时长(s)</label>
@@ -601,10 +565,7 @@
                   
                   <div class="form-group">
                     <label>启用金卡</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.banme.jackpot.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.jackpot.enabled" />
                   </div>
                   <div class="form-group">
                     <label>基础概率</label>
@@ -637,27 +598,18 @@
                     <span>AI 助手</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.openai.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['ai'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['ai']">
                   <div class="form-group">
                     <label>启用对话</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.openai.chatEnabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.chatEnabled" />
                   </div>
                   <div class="form-group">
                     <label>启用翻译</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.openai.translateEnabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.translateEnabled" />
                   </div>
                   <div class="form-group">
                     <label>系统提示词</label>
@@ -688,27 +640,18 @@
                     <span>举报功能</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.report.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['report'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['report']">
                   <div class="form-group">
                     <label>自动处理</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.report.autoProcess" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.autoProcess" />
                   </div>
                   <div class="form-group">
                     <label>包含上下文</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.report.includeContext" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.includeContext" />
                   </div>
                   <div class="form-group" v-if="editingConfig.report.includeContext">
                     <label>上下文条数</label>
@@ -775,6 +718,7 @@ import { configApi, authApi } from '../api'
 import type { GroupConfig, GuildGroup } from '../types'
 import { useConfirm } from '../composables/useConfirm'
 import ConfirmDialog from './common/ConfirmDialog.vue'
+import ToggleSwitch from './common/ToggleSwitch.vue'
 
 
 const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
@@ -2345,53 +2289,11 @@ onMounted(() => {
 }
 
 /* ========== Toggle Switch ========== */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
 
-.toggle-switch .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--bg3);
-  border: 1px solid var(--k-color-border);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-  border-radius: 10px;
-}
 
-.toggle-switch .slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 2px;
-  bottom: 2px;
-  background-color: var(--fg2);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-  border-radius: 50%;
-}
 
-.toggle-switch input:checked + .slider {
-  background-color: var(--k-color-primary);
-  border-color: var(--k-color-primary);
-}
 
-.toggle-switch input:checked + .slider:before {
-  transform: translateX(16px);
-  background-color: #fff;
-}
 
 .divider-text {
   font-size: 0.6875rem;
@@ -3046,20 +2948,6 @@ onMounted(() => {
 
   .plugin-title span {
     font-size: 0.75rem;
-  }
-
-  .toggle-switch {
-    width: 32px;
-    height: 18px;
-  }
-
-  .toggle-switch .slider:before {
-    height: 12px;
-    width: 12px;
-  }
-
-  .toggle-switch input:checked + .slider:before {
-    transform: translateX(14px);
   }
 
   .dialog-footer {
