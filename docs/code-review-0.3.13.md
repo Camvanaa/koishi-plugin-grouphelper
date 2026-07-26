@@ -27,6 +27,29 @@
 - **后端去重**:`parseUserId`(3 份,各只处理一部分形式)、`recordMute`(3 份,字段不一致)、布尔解析(4 份)分别统一
 - **前端公共件**:`useConfirm` + `ConfirmDialog` 取代两份逐行相同的实现,并把三处原生 `confirm()` 一并收编;`utils/format.ts` 统一 5 份时间格式化
 
+## ⚠ 构建脚本的坑(实测发现)
+
+`package.json` 里 `"build:server": "tsc"`,但 `tsconfig.json` 设了 `emitDeclarationOnly: true`
+——**这条命令只产出 `.d.ts`,永远不会生成 `lib/index.js`**。而 `package.json` 的 `main`
+正是指向 `lib/index.js`。
+
+后果:在插件目录下执行 `yarn build`,前端 `dist/` 会更新,后端 `lib/` 却原封不动。
+实测本次修复前 `lib/index.js` 停留在 2026-03-17,比源码落后四个月;若以 `yarn start`
+(生产模式)加载,所有后端改动都不会生效。
+
+真正编译 `lib/` 的是工作区根目录的 yakumo:
+
+```bash
+# 在 koishi-app 根目录执行，流水线为 tsc → esbuild → client
+yarn build grouphelper
+```
+
+改完后端代码后请务必走这一步,或用 `yarn dev`(esbuild-register 直接加载 `src/`)。
+注意 `grouphelper` 在 `koishi.yml` 里挂在 `group:develop` 下、条件是
+`NODE_ENV === 'development'`,所以 `yarn start` 不会加载它,只有 `yarn dev` 会。
+
+---
+
 仍未处理、留待后续的项:
 
 - 三个 3000 行级 Vue 组件(RolesView / ConfigView / ChatView)仍未拆
