@@ -245,7 +245,7 @@ export class WarnModule extends BaseModule {
       await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
 
       // 记录禁言
-      this.recordMute(session.guildId, userId, milliseconds)
+      this.data.recordMute(session.guildId, userId, milliseconds)
 
       await this.ctx.groupHelper.pushMessage(
         session.bot,
@@ -268,21 +268,6 @@ export class WarnModule extends BaseModule {
   }
 
   /**
-   * 记录禁言信息
-   */
-  private recordMute(guildId: string, userId: string, duration: number): void {
-    // mutes 结构: Record<guildId, Record<userId, MuteRecord>>
-    const guildMutes = this.data.mutes.get(guildId) || {}
-    guildMutes[userId] = {
-      startTime: Date.now(),
-      duration: duration,
-      remainingTime: duration
-    }
-    this.data.mutes.set(guildId, guildMutes)
-    this.data.mutes.flush()
-  }
-
-  /**
    * 处理清除警告命令
    */
   private async handleClearWarn(session: Session, user: any): Promise<string> {
@@ -295,7 +280,7 @@ export class WarnModule extends BaseModule {
       return '请指定要清除警告的用户喵！'
     }
 
-    const userId = String(user).split(':')[1]
+    const userId = parseUserId(user)
     const guildWarns = this.data.warns.get(session.guildId)
 
     if (!guildWarns || !guildWarns[userId]) {
@@ -331,7 +316,7 @@ export class WarnModule extends BaseModule {
 
     if (user) {
       // 查看指定用户的警告
-      const userId = String(user).split(':')[1]
+      const userId = parseUserId(user)
       
       if (!guildWarns || !guildWarns[userId]) {
         return `用户 ${userId} 在本群没有警告记录`

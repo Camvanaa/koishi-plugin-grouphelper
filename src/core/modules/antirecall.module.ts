@@ -2,6 +2,7 @@ import { Context, Session, Element } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config, RecalledMessage, GroupConfig } from '../../types'
+import { parseBoolOption } from '../../utils'
 
 interface CachedMessage {
   content: string
@@ -480,11 +481,9 @@ export class AntiRecallModule extends BaseModule {
 
         if (options.enabled !== undefined) {
           const enabledStr = options.enabled.toString().toLowerCase()
-          if (['true', '1', 'yes', 'y', 'on'].includes(enabledStr)) {
-            updates.enabled = true
-            messages.push('已启用防撤回')
-          } else if (['false', '0', 'no', 'n', 'off'].includes(enabledStr)) {
-            updates.enabled = false
+          const parsed_enabledStr = parseBoolOption(enabledStr)
+          if (parsed_enabledStr !== null) {
+            updates.enabled = parsed_enabledStr
             messages.push('已禁用防撤回')
           }
         }

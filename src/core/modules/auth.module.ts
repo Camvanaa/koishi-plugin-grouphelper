@@ -20,22 +20,6 @@ export class AuthModule extends BaseModule {
   }
 
   /**
-   * 解析用户 ID（支持 @at 和纯数字）
-   */
-  private parseUserId(target: string): string | null {
-    if (!target) return null
-    try {
-      if (target.startsWith('<at')) {
-        const match = target.match(/id="(\d+)"/)
-        if (match) return match[1]
-      }
-      return target.replace(/^@/, '').trim() || null
-    } catch (e) {
-      return target.replace(/^@/, '').trim() || null
-    }
-  }
-
-  /**
    * 通过 ID、名称或别名查找角色
    * @param roleIdentifier 角色 ID、名称或别名
    * @returns { role, warning } 找到的角色和可能的警告信息

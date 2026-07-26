@@ -142,6 +142,26 @@ export class DataManager {
   /**
    * 获取禁言记录存储
    */
+  /**
+   * 登记一条禁言记录。
+   *
+   * 此前 warn / keyword / orderManage / report 各写一份，字段已经分叉：
+   * orderManage 那份漏了 remainingTime 也不 flush。禁言到期检查依赖这些字段，
+   * 因此统一收在数据层，杜绝再次漂移。
+   *
+   * @param duration 禁言时长（毫秒）；传 0 表示解除禁言
+   */
+  recordMute(guildId: string, userId: string, duration: number): void {
+    const guildMutes = this.mutes.get(guildId) || {}
+    guildMutes[userId] = {
+      startTime: Date.now(),
+      duration,
+      remainingTime: duration
+    }
+    this.mutes.set(guildId, guildMutes)
+    this.mutes.flush()
+  }
+
   get mutes(): JsonDataStore<Record<string, Record<string, MuteRecord>>> {
     if (!this.stores.mutes) {
       this.stores.mutes = new JsonDataStore(

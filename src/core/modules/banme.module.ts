@@ -1,7 +1,7 @@
 import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
-import { parseTimeString, formatDuration } from '../../utils'
+import { parseTimeString, formatDuration, parseBoolOption } from '../../utils'
 
 /**
  * 自助禁言模块
@@ -429,10 +429,9 @@ export class BanmeModule extends BaseModule {
 
         if (options.enabled !== undefined) {
           const enabled = options.enabled.toString().toLowerCase()
-          if (['true', '1', 'yes', 'y', 'on'].includes(enabled)) {
-            banmeConfig.enabled = true
-          } else if (['false', '0', 'no', 'n', 'off'].includes(enabled)) {
-            banmeConfig.enabled = false
+          const parsed_enabled = parseBoolOption(enabled)
+          if (parsed_enabled !== null) {
+            banmeConfig.enabled = parsed_enabled
           } else {
             this.log(session, 'banme.config', session.userId, '失败：启用选项无效')
             return '启用选项无效，请输入 true/false'
@@ -448,10 +447,9 @@ export class BanmeModule extends BaseModule {
         if (options.losetime) banmeConfig.jackpot.loseDuration = options.losetime
         if (options.autoBan !== undefined) {
           const autoBan = options.autoBan.toString().toLowerCase()
-          if (['true', '1', 'yes', 'y', 'on'].includes(autoBan)) {
-            banmeConfig.autoBan = true
-          } else if (['false', '0', 'no', 'n', 'off'].includes(autoBan)) {
-            banmeConfig.autoBan = false
+          const parsed_autoBan = parseBoolOption(autoBan)
+          if (parsed_autoBan !== null) {
+            banmeConfig.autoBan = parsed_autoBan
           } else {
             this.log(session, 'banme.config', session.userId, '失败：自动禁言选项无效')
             return '自动禁言选项无效，请输入 true/false'

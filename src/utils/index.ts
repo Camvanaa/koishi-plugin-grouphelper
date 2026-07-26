@@ -28,6 +28,24 @@ export function formatBeijingTime(date: Date = new Date()): string {
   return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`
 }
 
+const TRUTHY_VALUES = new Set(['true', '1', 'yes', 'y', 'on'])
+const FALSY_VALUES = new Set(['false', '0', 'no', 'n', 'off'])
+
+/**
+ * 解析命令里的布尔开关值。
+ *
+ * 各模块此前各写一份判断，接受的字面量集合已开始不一致。
+ *
+ * @returns true / false，无法识别时返回 null（调用方据此提示格式错误，
+ *          而不是把无法识别的输入静默当成 false）
+ */
+export function parseBoolOption(value: unknown): boolean | null {
+  const text = String(value ?? '').trim().toLowerCase()
+  if (TRUTHY_VALUES.has(text)) return true
+  if (FALSY_VALUES.has(text)) return false
+  return null
+}
+
 /** 关键词以此前缀开头时才按正则处理，其余一律字面量匹配 */
 export const REGEX_KEYWORD_PREFIX = 're:'
 
@@ -131,21 +149,31 @@ export function saveData(filePath: string, data: any): void {
 }
 
 /**
- * 解析用户ID
- * @param user 用户ID或用户对象
- * @returns 解析后的用户ID
+ * 从各种形式中解析出用户 ID。
+ *
+ * 需要同时覆盖三种来源，此前三个模块各写一份、各只处理其中一部分：
+ *   - Koishi `user:user` 参数传入的 `platform:id`
+ *   - 消息里的 `<at id="123"/>` 元素
+ *   - 用户手输的 `@123` 或裸 `123`
+ *
+ * @returns 解析出的纯 ID，无法解析时返回 null
  */
-export function parseUserId(user: string | any): string {
+export function parseUserId(user: string | any): string | null {
   if (!user) return null
+  const raw = String(user).trim()
+  if (!raw) return null
 
+  const atMatch = raw.match(/<at[^>]*id="([^"]+)"/)
+  if (atMatch) return atMatch[1]
 
-  if (typeof user === 'string') {
-
-    return user.replace(/^@/, '').trim()
+  // platform:id —— 取最后一段，兼容 id 本身不含冒号的所有平台
+  const colonIndex = raw.lastIndexOf(':')
+  if (colonIndex >= 0) {
+    const id = raw.slice(colonIndex + 1).trim()
+    if (id) return id
   }
 
-
-  return String(user).split(':')[1]
+  return raw.replace(/^@/, '').trim() || null
 }
 
 /**

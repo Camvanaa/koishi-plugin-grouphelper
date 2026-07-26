@@ -115,7 +115,7 @@ export class OrderManageModule extends BaseModule {
         try {
           const milliseconds = parseTimeString(duration)
           await session.bot.muteGuildMember(targetGroup, userId, milliseconds)
-          this.recordMute(targetGroup, userId, milliseconds)
+          this.data.recordMute(targetGroup, userId, milliseconds)
 
           const timeStr = formatDuration(milliseconds)
           this.logCommand(session, 'ban', userId, `成功：已禁言 ${timeStr}，群号：${targetGroup}`)
@@ -142,7 +142,7 @@ export class OrderManageModule extends BaseModule {
     })
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
-        const userId = String(user).split(':')[1]
+        const userId = parseUserId(user)
         
         const mutes = this.data.mutes.getAll()
         const guildMutes = mutes[session.guildId] || {}
@@ -155,7 +155,7 @@ export class OrderManageModule extends BaseModule {
         
         try {
           await session.bot.muteGuildMember(session.guildId, userId, 600000)
-          this.recordMute(session.guildId, userId, 600000)
+          this.data.recordMute(session.guildId, userId, 600000)
           this.logCommand(session, 'stop', userId, `成功：已短期禁言，群号 ${session.guildId}`)
           return `已将 ${userId} 短期禁言啦喵~`
         } catch (e) {
@@ -227,7 +227,7 @@ export class OrderManageModule extends BaseModule {
 
         try {
           await session.bot.muteGuildMember(targetGroup, userId, 0)
-          this.recordMute(targetGroup, userId, 0)
+          this.data.recordMute(targetGroup, userId, 0)
           this.logCommand(session, 'unban', userId, `成功：已解除禁言，群号 ${targetGroup}`)
           return `已经把 ${userId} 的禁言解除啦喵！开心~`
         } catch (e) {
@@ -506,21 +506,6 @@ export class OrderManageModule extends BaseModule {
   }
 
   // ===== 辅助方法 =====
-
-  /**
-   * 记录禁言
-   */
-  private recordMute(guildId: string, userId: string, duration: number): void {
-    const mutes = this.data.mutes.getAll()
-    if (!mutes[guildId]) {
-      mutes[guildId] = {}
-    }
-    mutes[guildId][userId] = {
-      startTime: Date.now(),
-      duration
-    }
-    this.data.mutes.setAll(mutes)
-  }
 
   /**
    * 获取随机元素

@@ -65,19 +65,8 @@ export class MemberManageModule extends BaseModule {
 
         const [target, groupId] = args
 
-        let userId: string
-        try {
-          if (target?.startsWith('<at')) {
-            const match = target.match(/id="(\d+)"/)
-            if (match) {
-              userId = match[1]
-            }
-          } else {
-            userId = parseUserId(target)
-          }
-        } catch (e) {
-          userId = parseUserId(target)
-        }
+        // parseUserId 已统一处理 <at>、platform:id、@123 与裸 ID 四种形式
+        const userId = parseUserId(target)
 
         if (!userId) {
           this.logCommand(session, 'kick', 'none', '失败：无法读取目标用户', false)
@@ -130,7 +119,7 @@ export class MemberManageModule extends BaseModule {
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
 
-        const userId = String(user).split(':')[1]
+        const userId = parseUserId(user)
         try {
           await session.bot.internal?.setGroupAdmin(session.guildId, userId, true)
           this.logCommand(session, 'admin', userId, '成功：已设置为管理员')
@@ -153,7 +142,7 @@ export class MemberManageModule extends BaseModule {
       .action(async ({ session }, user) => {
         if (!user) return '请指定用户'
 
-        const userId = String(user).split(':')[1]
+        const userId = parseUserId(user)
         try {
           await session.bot.internal?.setGroupAdmin(session.guildId, userId, false)
           this.logCommand(session, 'unadmin', userId, '成功：已取消管理员')
@@ -189,7 +178,7 @@ export class MemberManageModule extends BaseModule {
 
         let targetId = session.userId
         if (options.u) {
-          targetId = String(options.u).split(':')[1]
+          targetId = parseUserId(options.u)
         }
 
         try {

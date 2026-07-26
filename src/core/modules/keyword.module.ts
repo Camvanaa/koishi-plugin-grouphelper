@@ -6,7 +6,7 @@ import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import type { DataManager } from '../data'
 import type { Config, GroupConfig } from '../../types'
-import { parseTimeString, formatDuration, matchesKeyword, validateKeyword, REGEX_KEYWORD_PREFIX } from '../../utils'
+import { parseTimeString, formatDuration, matchesKeyword, validateKeyword, parseBoolOption, REGEX_KEYWORD_PREFIX } from '../../utils'
 
 export class KeywordModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -117,14 +117,11 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动拒绝
     if (options.n !== undefined) {
-      const value = String(options.n).toLowerCase()
-      if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
-        groupConfig.auto = 'true'
-      } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
-        groupConfig.auto = 'false'
-      } else {
+      const parsed = parseBoolOption(options.n)
+      if (parsed === null) {
         return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
       }
+      groupConfig.auto = parsed ? 'true' : 'false'
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'auto', `已设置自动拒绝：${groupConfig.auto}`)
@@ -253,7 +250,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动撤回
     if (options.d !== undefined) {
-      const state = this.parseBooleanOption(options.d)
+      const state = parseBoolOption(options.d)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoDelete = state
@@ -265,7 +262,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动禁言
     if (options.b !== undefined) {
-      const state = this.parseBooleanOption(options.b)
+      const state = parseBoolOption(options.b)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoBan = state
@@ -277,7 +274,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动踢出
     if (options.k !== undefined) {
-      const state = this.parseBooleanOption(options.k)
+      const state = parseBoolOption(options.k)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoKick = state
@@ -305,7 +302,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置是否有触发回显
     if (options.echo !== undefined) {
-      const state = this.parseBooleanOption(options.echo)
+      const state = parseBoolOption(options.echo)
       console.log('echo state', state)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
@@ -317,19 +314,6 @@ export class KeywordModule extends BaseModule {
     }
 
     return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n--echo <true/false> 设置是否启用触发回显\n多个关键词用英文逗号分隔'
-  }
-
-  /**
-   * 解析布尔值选项
-   */
-  private parseBooleanOption(value: any): boolean | null {
-    const v = String(value).toLowerCase()
-    if (v === 'true' || v === '1' || v === 'yes' || v === 'y' || v === 'on') {
-      return true
-    } else if (v === 'false' || v === '0' || v === 'no' || v === 'n' || v === 'off') {
-      return false
-    }
-    return null
   }
 
   /**
@@ -422,7 +406,7 @@ export class KeywordModule extends BaseModule {
         }
 
         await session.bot.muteGuildMember(session.guildId, session.userId, duration)
-        this.recordMute(session.guildId, session.userId, duration)
+        this.data.recordMute(session.guildId, session.userId, duration)
 
         if (covered) {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(duration)}`)
@@ -506,20 +490,6 @@ export class KeywordModule extends BaseModule {
     }
 
     return { accepted, errors }
-  }
-
-  /**
-   * 记录禁言信息
-   */
-  private recordMute(guildId: string, userId: string, duration: number): void {
-    const guildMutes = this.data.mutes.get(guildId) || {}
-    guildMutes[userId] = {
-      startTime: Date.now(),
-      duration: duration,
-      remainingTime: duration
-    }
-    this.data.mutes.set(guildId, guildMutes)
-    this.data.mutes.flush()
   }
 
   /**
