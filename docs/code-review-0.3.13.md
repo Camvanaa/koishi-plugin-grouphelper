@@ -20,13 +20,20 @@
 - `event.module.ts` 的入群审核从不读取 `groupConfig.auto`,自动拒绝是死配置
 - `client/types.ts` 与 `src/types/index.ts` 中两处已漂移的类型声明
 
+重构部分(`b333cc3`…`24a1376`)已完成:
+
+- **API 层拆分**:`api/index.ts` 1645 行 → 12 个文件,`index.ts` 只剩 48 行装配。共享件收在 `api-utils.ts`(响应格式、`createListenerRegistrar`、机密脱敏、配置合并)
+- **举报 Prompt 单一来源**:抽出 `src/core/prompts/index.ts`。此前两份已分叉,而生效的恰是缺 `reporterPenalty` 描述的那份——「限制滥用举报者」在默认配置下从未工作过,修复后才真正激活
+- **后端去重**:`parseUserId`(3 份,各只处理一部分形式)、`recordMute`(3 份,字段不一致)、布尔解析(4 份)分别统一
+- **前端公共件**:`useConfirm` + `ConfirmDialog` 取代两份逐行相同的实现,并把三处原生 `confirm()` 一并收编;`utils/format.ts` 统一 5 份时间格式化
+
 仍未处理、留待后续的项:
 
-- 大文件拆分(5.1)——`api/index.ts` 1561 行、三个 3000 行级 Vue 组件仍未拆
-- 公共组件与 composable 提取(5.2)——确认弹窗、弹窗骨架、`formatTime` 等重复仍在
+- 三个 3000 行级 Vue 组件(RolesView / ConfigView / ChatView)仍未拆
 - `client/styles/*.css` 未接线的设计系统草案(已收敛全局选择器,未删除)
-- ChatView 的虚拟滚动与 `renderMessage` 渲染期副作用
+- ChatView 的虚拟滚动与 `renderMessage` 渲染期副作用(消息数已加 500 条上限兜底)
 - Dashboard 直连 GitHub/npm 的请求下沉到后端代理
+- 弹窗骨架 `BaseModal`、多选群组面板 `GuildGroupPicker`、`ToggleSwitch` 等仍是各视图自带
 
 ---
 
