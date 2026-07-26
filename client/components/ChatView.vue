@@ -77,7 +77,7 @@
                 <span class="username">{{ msg.username }}</span>
                 <span class="timestamp">{{ formatTimeDetail(msg.timestamp) }}</span>
               </div>
-              <div class="message-bubble" v-html="renderMessage(msg)"></div>
+              <div class="message-bubble" v-html="renderMessage(msg)" @click="handleBubbleClick"></div>
             </div>
           </div>
         </div>
@@ -855,14 +855,44 @@ const handleAvatarError = (e: Event, isSession = false) => {
   }
 }
 
+/** HTML 实体转义。任何进入 v-html 的外部数据都必须先过这一关。 */
+const escapeHtml = (text: unknown): string =>
+  String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+/**
+ * 只放行 http(s) 与 data:image，其余（javascript: 等伪协议）一律丢弃。
+ * 返回值已转义，可直接放进属性值。
+ */
+const sanitizeUrl = (url: unknown): string => {
+  const trimmed = String(url ?? '').trim()
+  if (/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed)) {
+    return escapeHtml(trimmed)
+  }
+  return ''
+}
+
+/** 暂存标记用的哨兵字符，出现在原文里会被提前剔除，避免伪造标记 */
+const FRAGMENT_MARK = '\u0000'
+
 const renderMessage = (msg: ChatMessage) => {
   if (!msg.content) return ''
-  
-  let html = msg.content
 
-  // 1. 转义 HTML 特殊字符 (除了标签) - Koishi content 已经是 XML-like 格式
-  // 如果是普通文本，可能会有 < >，但通常 Koishi 会处理。
-  // 为了安全，我们假设 content 是 Koishi 的 element string。
+  // 消息内容整体是不可信输入：昵称、引用内容、图片地址都可由群成员操控。
+  // 这里的做法是——各元素渲染出的 HTML 先暂存并留下哨兵标记，
+  // 最后对剩余原文做整体转义再把安全片段填回去。
+  // 这样任何没被识别为元素的文本都不可能作为 HTML 生效。
+  const safeFragments: string[] = []
+  const stash = (fragment: string): string => {
+    safeFragments.push(fragment)
+    return `${FRAGMENT_MARK}${safeFragments.length - 1}${FRAGMENT_MARK}`
+  }
+
+  let html = msg.content.split(FRAGMENT_MARK).join('')
 
   // 辅助函数：从属性字符串中提取 file 属性
   const extractFileAttr = (attrs: string): string | undefined => {
@@ -872,37 +902,43 @@ const renderMessage = (msg: ChatMessage) => {
 
   // 辅助函数：生成图片 HTML（支持代理）
   // file 参数用于 OneBot get_image API 获取本地缓存（解决 rkey 过期问题）
+  // 点击放大改用事件委托（见 handleBubbleClick），不再内联 onclick：
+  // 内联 handler 里拼接 URL，一个单引号就能闭合并执行任意脚本。
   const createImgTag = (src: string, file?: string) => {
+    const safeSrc = sanitizeUrl(src)
+    if (!safeSrc) return ''
+    const safeFile = file ? escapeHtml(file) : ''
+
     if (needsProxy(src)) {
-      const imgId = generateImageId()
+      const imgId = escapeHtml(generateImageId())
       const cacheKey = file ? `${src}#${file}` : src
       // 如果已缓存，直接用缓存
       if (imageCache.has(cacheKey)) {
         const cachedUrl = imageCache.get(cacheKey)!
         if (cachedUrl !== 'error') {
-          return `<img id="${imgId}" src="${cachedUrl}" class="msg-img" onclick="window.open('${src}', '_blank')">`
+          return `<img id="${imgId}" src="${sanitizeUrl(cachedUrl)}" class="msg-img" data-full-src="${safeSrc}">`
         }
         // 已知失败的图片，直接显示错误状态
-        return `<img id="${imgId}" src="" class="msg-img error" data-original="${src}" alt="图片已过期">`
+        return `<img id="${imgId}" src="" class="msg-img error" data-original="${safeSrc}" alt="图片已过期">`
       }
       // 需要代理加载，先用占位符，然后异步加载
       nextTick(() => handleProxyImage(imgId, src, file))
-      return `<img id="${imgId}" src="" class="msg-img loading" data-original="${src}"${file ? ` data-file="${file}"` : ''} onclick="window.open('${src}', '_blank')">`
+      return `<img id="${imgId}" src="" class="msg-img loading" data-original="${safeSrc}"${safeFile ? ` data-file="${safeFile}"` : ''} data-full-src="${safeSrc}">`
     }
-    return `<img src="${src}" class="msg-img" onclick="window.open('${src}', '_blank')">`
+    return `<img src="${safeSrc}" class="msg-img" data-full-src="${safeSrc}">`
   }
 
   // 2. 替换图片 <img src="..." file="..." /> 或 <img src="..." />
   html = html.replace(/<img\s+([^>]*)src="([^"]+)"([^>]*)\/?>/g, (match, before, src, after) => {
     const attrs = before + after
     const file = extractFileAttr(attrs)
-    return createImgTag(src, file)
+    return stash(createImgTag(src, file))
   })
   // 替换 <image url="..." file="..." /> 格式
   html = html.replace(/<image\s+([^>]*)url="([^"]+)"([^>]*)\/?>/g, (match, before, src, after) => {
     const attrs = before + after
     const file = extractFileAttr(attrs)
-    return createImgTag(src, file)
+    return stash(createImgTag(src, file))
   })
 
   // 3. 替换 At <at id="..." name="..." />
@@ -920,13 +956,13 @@ const renderMessage = (msg: ChatMessage) => {
         displayName = atElement.attrs.name
       }
     }
-    return `<span class="msg-at">@${displayName}</span>`
+    return stash(`<span class="msg-at">@${escapeHtml(displayName)}</span>`)
   })
 
   // 4. 替换表情 <face id="..." />
   html = html.replace(/<face\s+([^>]*)\/?>/g, (match, attrs) => {
     const idMatch = attrs.match(/id="([^"]+)"/)
-    return `<span class="msg-face">[表情:${idMatch ? idMatch[1] : '?'}]</span>`
+    return stash(`<span class="msg-face">[表情:${escapeHtml(idMatch ? idMatch[1] : '?')}]</span>`)
   })
 
   // 4.5 替换引用 <quote id="..." user="..." content="..." /> 或 <quote>...</quote>
@@ -953,7 +989,12 @@ const renderMessage = (msg: ChatMessage) => {
       }
     }
     
-    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
+    return stash(
+      `<div class="msg-quote">` +
+      `<span class="quote-user">${quotedUser ? '@' + escapeHtml(quotedUser) : ''}</span>` +
+      `<span class="quote-content">${quotedContent ? escapeHtml(quotedContent) : '[引用消息]'}</span>` +
+      `</div>`
+    )
   })
 
   // 5. 简单的 CQ 码兼容 (以防万一)
@@ -1014,7 +1055,12 @@ const renderMessage = (msg: ChatMessage) => {
       }
     }
     
-    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
+    return stash(
+      `<div class="msg-quote">` +
+      `<span class="quote-user">${quotedUser ? '@' + escapeHtml(quotedUser) : ''}</span>` +
+      `<span class="quote-content">${quotedContent ? escapeHtml(quotedContent) : '[引用消息]'}</span>` +
+      `</div>`
+    )
   })
 
   // 6. 处理 OneBot/Red 协议的特殊图片格式 (如果直接是 URL)
@@ -1022,7 +1068,23 @@ const renderMessage = (msg: ChatMessage) => {
   // 如果内容里包含 http(s) 图片链接，尝试转为 img 标签 (简单处理)
   // 注意：这可能会误伤普通链接，暂时不启用，依赖 Koishi 的解析结果
 
-  return html
+  // 7. 剩下的全是未被识别为元素的原始文本，整体转义后再把安全片段填回去。
+  // 顺序很重要：先转义，昵称里的 <img onerror=...> 之类才不会作为 HTML 生效。
+  return escapeHtml(html).replace(
+    new RegExp(`${FRAGMENT_MARK}(\\d+)${FRAGMENT_MARK}`, 'g'),
+    (_, index) => safeFragments[Number(index)] ?? ''
+  )
+}
+
+/**
+ * 图片点击放大。用事件委托取代内联 onclick——
+ * 内联 handler 需要把 URL 拼进 HTML 属性，一个单引号就能闭合并注入脚本。
+ */
+const handleBubbleClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  if (!target || target.tagName !== 'IMG') return
+  const fullSrc = target.getAttribute('data-full-src')
+  if (fullSrc) window.open(fullSrc, '_blank', 'noopener,noreferrer')
 }
 </script>
 

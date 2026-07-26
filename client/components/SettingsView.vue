@@ -734,8 +734,10 @@
       <div class="save-bar" v-if="hasChanges">
         <span class="save-bar-text">检测到未保存的修改</span>
         <div class="save-actions">
-          <button class="save-bar-btn secondary" @click="resetChanges">放弃更改</button>
-          <button class="save-bar-btn primary" @click="saveSettings">保存更改</button>
+          <button class="save-bar-btn secondary" :disabled="saving" @click="resetChanges">放弃更改</button>
+          <button class="save-bar-btn primary" :disabled="saving" @click="saveSettings">
+            {{ saving ? '保存中...' : '保存更改' }}
+          </button>
         </div>
       </div>
     </transition>
@@ -842,9 +844,17 @@ const defaultSettings = {
   }
 }
 
+/**
+ * 取一份与 defaultSettings 完全独立的副本。
+ *
+ * 表单会就地改写这些嵌套对象，浅拷贝会让编辑内容回流到 defaultSettings，
+ * 使「恢复默认」恢复出用户当前正在编辑的值。
+ */
+const cloneDefaults = () => JSON.parse(JSON.stringify(defaultSettings))
+
 const loading = ref(true)
 const saving = ref(false)
-const settings = ref<any>({ ...defaultSettings })
+const settings = ref<any>(cloneDefaults())
 const originalSettings = ref<string>('') // 原始设置的 JSON 字符串用于比较
 const activeSection = ref('warn')
 const sectionDropdownOpen = ref(false)
@@ -962,8 +972,12 @@ const loadSettings = async () => {
   loading.value = true
   try {
     const data = await settingsApi.get()
-    // 深度合并默认值和返回数据
-    settings.value = deepMerge({ ...defaultSettings }, data || {})
+    // 深度合并默认值和返回数据。
+    // 必须深拷贝 defaultSettings：展开运算符只复制第一层，
+    // deepMerge 会就地改写 forbidden / banme / openai 等嵌套对象，
+    // 那样默认值会被服务器数据（以及后续表单编辑）永久污染，
+    // 「恢复默认」拿到的就不再是默认值。
+    settings.value = deepMerge(cloneDefaults(), data || {})
     // 保存原始设置用于比较
     originalSettings.value = JSON.stringify(settings.value)
   } catch (e: any) {
@@ -1010,7 +1024,7 @@ const resetToDefault = async () => {
   
   if (confirmed) {
     // 恢复为默认设置
-    settings.value = JSON.parse(JSON.stringify(defaultSettings))
+    settings.value = cloneDefaults()
     message.success('已恢复默认设置，请保存以应用更改')
   }
 }

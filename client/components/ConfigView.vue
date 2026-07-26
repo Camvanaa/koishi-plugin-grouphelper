@@ -927,8 +927,17 @@ const editConfig = (guildId: string) => {
   showEditDialog.value = true
 }
 
+const cloneConfig = <T,>(value: T): T => JSON.parse(JSON.stringify(value || {}))
+
+/**
+ * 补齐配置的各个功能分区，返回与入参完全独立的对象。
+ *
+ * 必须深拷贝：入参往往直接来自 configs.value[guildId]，而这里只在分区“缺失”时
+ * 才新建对象——已存在的 forbidden / banme / openai 等会被原样引用出去，
+ * 于是表单的 v-model 会直接改到列表数据上，用户点「取消」也撤不回来。
+ */
 const applyConfigDefaults = (config: Partial<GroupConfig>): GroupConfig => {
-  const shaped: any = { ...config }
+  const shaped: any = cloneConfig(config)
   if (!shaped.antiRecall) shaped.antiRecall = { enabled: false }
   if (!shaped.antiRepeat) shaped.antiRepeat = { enabled: false, threshold: 0 }
   if (!shaped.forbidden) shaped.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
@@ -941,8 +950,6 @@ const applyConfigDefaults = (config: Partial<GroupConfig>): GroupConfig => {
   if (!shaped.report) shaped.report = { enabled: true, autoProcess: true, includeContext: false, contextSize: 10 }
   return shaped as GroupConfig
 }
-
-const cloneConfig = <T,>(value: T): T => JSON.parse(JSON.stringify(value || {}))
 
 const openGroupGroupConfig = (group: GuildGroup) => {
   editingMode.value = 'group'
