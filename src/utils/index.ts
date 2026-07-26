@@ -6,6 +6,28 @@ import { Context } from 'koishi'
 export const MIN_DURATION = 1000
 export const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000
 
+const BEIJING_TIME_FORMAT = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23'
+})
+
+/**
+ * 格式化为北京时间 `YYYY-MM-DD HH:mm`。
+ *
+ * 不要用 `setHours(getHours() + 8)` + `toISOString()`：那是在本地时间上再加 8 小时，
+ * 只有服务器恰好运行在 UTC 时才正确；在本就是 UTC+8 的机器上会整整快 8 小时。
+ */
+export function formatBeijingTime(date: Date = new Date()): string {
+  const parts = BEIJING_TIME_FORMAT.formatToParts(date)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`
+}
+
 /** 关键词以此前缀开头时才按正则处理，其余一律字面量匹配 */
 export const REGEX_KEYWORD_PREFIX = 're:'
 

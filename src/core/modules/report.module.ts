@@ -8,6 +8,19 @@ import type { WarnModule } from './warn.module'
 const logger = new Logger('grouphelper:report')
 
 /**
+ * 一次扫描填充 Prompt 模板中的占位符。
+ *
+ * 必须单次扫描：链式 replace 会把上一轮填进去的内容再扫一遍，
+ * 群成员只要在消息里写上字面量 {content}，被举报内容就会被塞到
+ * 由他控制的位置上。函数式替换同时规避了替换串中 $& / $' 的特殊语义。
+ */
+function fillPromptTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{(context|content)\}/g, (match, key: string) =>
+    key in values ? values[key] : match
+  )
+}
+
+/**
  * 违规等级枚举
  */
 export enum ViolationLevel {
@@ -418,11 +431,14 @@ export class ReportModule extends BaseModule {
               .map((msg, index) => `消息${index + 1} [用户${msg.userId}]: ${msg.content}`)
               .join('\n')
 
-            promptWithContent = this.getContextPrompt()
-              .replace('{context}', formattedContext)
-              .replace('{content}', reportedMessage.content)
+            promptWithContent = fillPromptTemplate(this.getContextPrompt(), {
+              context: formattedContext,
+              content: reportedMessage.content
+            })
           } else {
-            promptWithContent = this.getDefaultPrompt().replace('{content}', reportedMessage.content)
+            promptWithContent = fillPromptTemplate(this.getDefaultPrompt(), {
+              content: reportedMessage.content
+            })
           }
 
           // 调用 AI 进行审核
@@ -449,20 +465,10 @@ export class ReportModule extends BaseModule {
               throw new Error('AI响应格式不正确')
             }
           } catch (e) {
+            // AI 返回的 JSON 格式不对是模型/服务端的问题，不是举报者的问题，
+            // 不施加冷却。真正的滥用判定由下方 AI 显式返回的 reporterPenalty 负责。
             logger.error('解析AI响应失败:', e, response)
-
-            if (userAuthority < minUnlimitedAuthority) {
-              const banKey = `${session.userId}:${session.guildId}`
-              this.reportBans[banKey] = {
-                userId: session.userId,
-                guildId: session.guildId,
-                timestamp: Date.now(),
-                expireTime: Date.now() + this.getReportCooldownDuration()
-              }
-
-              await this.logCommand(session, 'report-banned', session.userId, '举报处理失败，已限制使用')
-            }
-
+            await this.logCommand(session, 'report-error', session.userId, `AI响应解析失败：${e.message}`, false)
             return h.quote(session.messageId) + '举报处理失败：AI判断结果格式有误，请重试或联系管理员手动处理。'
           }
 
@@ -508,19 +514,11 @@ export class ReportModule extends BaseModule {
         } catch (e) {
           logger.error('举报处理失败:', e)
 
-          if (userAuthority < minUnlimitedAuthority) {
-            const banKey = `${session.userId}:${session.guildId}`
-            this.reportBans[banKey] = {
-              userId: session.userId,
-              guildId: session.guildId,
-              timestamp: Date.now(),
-              expireTime: Date.now() + this.getReportCooldownDuration()
-            }
-
-            await this.logCommand(session, 'report-banned', session.userId, `举报处理失败(${e.message})，已限制使用`)
-          }
-
-          return h.quote(session.messageId) + `举报处理失败：${e.message}`
+          // 不因系统性错误惩罚举报者：网络故障、AI 服务 5xx、消息过旧取不到等
+          // 都不是举报者的问题，原先一律冷却 60 分钟，与恶意刷举报同等对待。
+          // 滥用举报的认定只由 AI 显式返回的 reporterPenalty 负责。
+          await this.logCommand(session, 'report-error', session.userId, `系统错误：${e.message}`, false)
+          return h.quote(session.messageId) + `举报处理失败：${e.message}\n这是系统错误，未计入您的举报限制。`
         }
       })
 

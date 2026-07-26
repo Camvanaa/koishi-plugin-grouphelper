@@ -18,6 +18,18 @@ export type { CommandLogRecord } from '../../types'
  */
 const MAX_COMMAND_LOGS = 5000
 
+/**
+ * 转义一个 CSV 单元格。
+ *
+ * 两件事：把内嵌的双引号翻倍，否则昵称或报错信息里带 `"` 会让整行列错位；
+ * 给 = + - @ 开头的值加前缀，避免表格软件把它当公式执行（CSV 注入）。
+ */
+function csvCell(value: unknown): string {
+  let text = String(value ?? '')
+  if (/^[=+\-@]/.test(text)) text = `'${text}`
+  return `"${text.replace(/"/g, '""')}"`
+}
+
 export class LogModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'log',
@@ -105,25 +117,28 @@ export class LogModule extends BaseModule {
 
     // 命令执行错误记录
     this.ctx.on('command-error', (argv, error) => {
+      // 打标记，避免下面的中间件把同一条命令再记一次成功——
+      // 否则一次异常会留下一条 ❌ 加一条 ✅，成功率统计失真
+      ;(argv as any)._logged = true
       this.logCommandExecution(argv, false, error?.message || 'Unknown error')
     })
 
     // 中间件记录成功执行
     this.ctx.middleware(async (session, next) => {
       const result = await next()
-      
-      if (session.argv && session.argv.command) {
+
+      if (session.argv && session.argv.command && !(session.argv as any)._logged) {
         // 检查命令是否被标记为失败
         const commandFailed = (session as any)._commandFailed
         const commandError = (session as any)._commandError
-        
+
         if (commandFailed) {
           this.logCommandExecution(session.argv, false, commandError, result)
         } else {
           this.logCommandExecution(session.argv, true, undefined, result)
         }
       }
-      
+
       return result
     }, true)
   }
@@ -400,9 +415,11 @@ export class LogModule extends BaseModule {
 
           if (options.format === 'csv') {
             const csvHeader = 'timestamp,userId,username,userAuthority,guildId,platform,command,success,executionTime,error\n'
-            const csvRows = filteredLogs.map(log =>
-              `"${log.timestamp}","${log.userId}","${log.username}","${log.userAuthority || ''}","${log.guildId || ''}","${log.platform}","${log.command}","${log.success}","${log.executionTime}","${log.error || ''}"`
-            ).join('\n')
+            const csvRows = filteredLogs.map(log => [
+              log.timestamp, log.userId, log.username, log.userAuthority ?? '',
+              log.guildId ?? '', log.platform, log.command, log.success,
+              log.executionTime, log.error ?? ''
+            ].map(csvCell).join(',')).join('\n')
 
             return `CSV格式日志 (${filteredLogs.length} 条记录)\n\n${csvHeader}${csvRows}`
           } else {

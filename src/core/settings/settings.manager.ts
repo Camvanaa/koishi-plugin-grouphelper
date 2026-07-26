@@ -297,8 +297,11 @@ export class SettingsManager {
    */
   private deepMerge<T extends Record<string, any>>(defaults: T, overrides: Partial<T>): T {
     const result = { ...defaults }
-    
+
     for (const key of Object.keys(overrides) as Array<keyof T>) {
+      // 跳过原型相关键：overrides 直接来自前端提交的 JSON，
+      // 写入这些键改动的是原型链而不是普通属性
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
       const value = overrides[key]
       if (value !== undefined) {
         if (

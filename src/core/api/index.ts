@@ -59,9 +59,16 @@ function restoreSecrets(patch: any, current: any): any {
   }
 }
 
+/**
+ * 递归合并时必须跳过的键。
+ * 这些键来自前端可控的 JSON，写入它们会改动原型链而非普通属性。
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 function mergePartialConfig<T extends Record<string, any>>(target: T, patch: Partial<T>): T {
   const result: T = { ...target }
   for (const key of Object.keys(patch) as Array<keyof T>) {
+    if (UNSAFE_KEYS.has(String(key))) continue
     const value = patch[key]
     if (typeof value === 'undefined') continue
     if (
@@ -104,7 +111,18 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     callback: (...args: any[]) => any,
     options: { authority?: number } = {}
   ) => {
-    ctx.console.addListener(event as any, callback as any, {
+    // 统一兜底 catch：未包 try/catch 的端点抛异常时会由框架返回 { error }，
+    // 与本插件约定的 { success, error } 形状不一致，前端按 ApiResponse 解析会误判
+    const guarded = async (...args: any[]) => {
+      try {
+        return await callback(...args)
+      } catch (e) {
+        ctx.logger('grouphelper').error(`API ${event} 执行失败:`, e)
+        return error(e instanceof Error ? e.message : String(e))
+      }
+    }
+
+    ctx.console.addListener(event as any, guarded as any, {
       authority: options.authority ?? ADMIN_AUTHORITY
     })
   }

@@ -7,6 +7,7 @@ import * as path from 'path'
 import { Context } from 'koishi'
 import { createWriteStream, WriteStream } from 'fs'
 import { JsonDataStore } from './json.store'
+import { formatBeijingTime } from '../../utils'
 import type {
   GroupConfig,
   WarnRecord,
@@ -274,13 +275,7 @@ export class DataManager {
    */
   writeLog(message: string): void {
     if (this.logStream) {
-      const date = new Date()
-      date.setHours(date.getHours() + 8)
-      const time = date.toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .slice(0, 16)
-      const logLine = `[${time}] ${message}\n`
+      const logLine = `[${formatBeijingTime()}] ${message}\n`
       this.logStream.write(logLine)
       console.log(logLine.trim())
     }

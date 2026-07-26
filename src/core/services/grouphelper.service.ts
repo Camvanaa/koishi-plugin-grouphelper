@@ -9,6 +9,7 @@ import { SettingsManager, PluginSettings } from '../settings'
 import { CacheService } from './cache.service'
 import { AuthService } from './auth.service'
 import type { Subscription } from '../../types'
+import { formatBeijingTime } from '../../utils'
 
 // 声明服务类型
 declare module 'koishi' {
@@ -277,12 +278,7 @@ export class GroupHelperService extends Service {
   ): Promise<void> {
     const user = session.userId || session.username
     const group = session.guildId || 'private'
-    const date = new Date()
-    date.setHours(date.getHours() + 8)
-    const time = date.toISOString()
-      .replace('T', ' ')
-      .replace('Z', '')
-      .slice(0, 16)
+    const time = formatBeijingTime()
     this._data.writeLog(`[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
 
     // 推送日志消息
