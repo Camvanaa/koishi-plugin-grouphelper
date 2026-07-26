@@ -201,6 +201,25 @@ export abstract class BaseModule {
   }
 
   /**
+   * 校验当前用户能否对目标群执行本模块的某个命令。
+   *
+   * 供接受群号参数的命令使用。registerCommand 的 before 钩子只按当前会话群
+   * 判断"有无权限"，一旦命令允许显式传别的群号，就必须再过一次作用域校验，
+   * 否则在自己有权限的群里即可对机器人所在的任意群下手。
+   *
+   * @returns 通过返回 null，未通过返回可直接回复用户的提示语
+   */
+  protected checkGuildScope(session: Session, cmdName: string, targetGuildId: string): string | null {
+    if (!targetGuildId) return '喵呜...没有指定群号喵...'
+
+    // 与 registerCommand 一致的节点命名规则
+    const permId = `${this.meta.name}.${cmdName.replace(/\./g, '-')}`
+    if (this.ctx.groupHelper.auth.canActOnGuild(session, permId, targetGuildId)) return null
+
+    return `你没有权限操作群 ${targetGuildId} 喵...`
+  }
+
+  /**
    * 注册权限节点（不绑定命令）
    * 用于注册非命令类权限，如 WebUI 操作权限
    */
@@ -214,9 +233,17 @@ export abstract class BaseModule {
     )
   }
 
+  /**
+   * 记录一条操作日志。
+   *
+   * 保持同步签名：绝大多数调用点在命令 action 里即用即走，不应为写日志阻塞回复。
+   * 但底层 log 是异步的，必须在这里兜住 rejection——服务销毁窗口期的写入失败
+   * 否则会变成 unhandledRejection。
+   */
   protected logCommand(session: any, command: string, target: string, result: string, success?: boolean): void {
-    // 使用 BaseModule 的 log 方法
-    this.log(session, command, target, result, success)
+    this.log(session, command, target, result, success).catch(err => {
+      this.ctx.logger('grouphelper').warn('记录操作日志失败:', err)
+    })
   }
   
 }

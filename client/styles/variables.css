@@ -1,6 +1,11 @@
 /* ========================================
    GitHub Dimmed / Vercel Style - Design System
    统一设计系统 - 基于 Koishi 全局变量
+
+   注意：本文件与 components.css 目前未被任何入口 import，
+   .gh-* 类在组件模板中也尚无引用，属于未接线的设计系统草案。
+   若要启用，请在 client/index.ts 中 import，并确认这里的规则
+   全部限定在 .grouphelper-app 作用域内——否则会影响整个控制台。
    ======================================== */
 
 :root {
@@ -51,30 +56,31 @@
 }
 
 /* ========== 基础重置 ========== */
-*, *::before, *::after {
+/* 限定在插件根容器内：本文件若被 import，裸的通配选择器会改写整个控制台 */
+.grouphelper-app, .grouphelper-app *, .grouphelper-app *::before, .grouphelper-app *::after {
   box-sizing: border-box;
 }
 
 /* ========== 滚动条样式 - GitHub 风格 ========== */
-::-webkit-scrollbar {
+.grouphelper-app ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
+.grouphelper-app ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+.grouphelper-app ::-webkit-scrollbar-thumb {
   background-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
   border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.grouphelper-app ::-webkit-scrollbar-thumb:hover {
   background-color: var(--fg3, rgba(255, 255, 245, 0.4));
 }
 
-::-webkit-scrollbar-corner {
+.grouphelper-app ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -111,7 +117,7 @@
 
 /* ========== 减少动画偏好 ========== */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  .grouphelper-app, .grouphelper-app *, .grouphelper-app *::before, .grouphelper-app *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

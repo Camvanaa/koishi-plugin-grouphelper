@@ -2,7 +2,7 @@ import { Context, Logger } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config } from '../../types'
-import { formatDuration } from '../../utils'
+import { formatDuration, parseUserId } from '../../utils'
 
 const logger = new Logger('grouphelper:getauth')
 
@@ -17,22 +17,6 @@ export class GetAuthModule extends BaseModule {
 
   protected async onInit(): Promise<void> {
     this.registerCommands()
-  }
-
-  /**
-   * 解析用户 ID（支持 @at 和纯数字）
-   */
-  private parseUserId(target: string): string | null {
-    if (!target) return null
-    try {
-      if (target.startsWith('<at')) {
-        const match = target.match(/id="(\d+)"/)
-        if (match) return match[1]
-      }
-      return target.replace(/^@/, '').trim() || null
-    } catch (e) {
-      return target.replace(/^@/, '').trim() || null
-    }
   }
 
   /**
@@ -54,7 +38,7 @@ export class GetAuthModule extends BaseModule {
       .action(async ({ session }, target) => {
         if (!target) return '请指定要查询的成员喵'
 
-        const userId = this.parseUserId(target)
+        const userId = parseUserId(target)
         if (!userId) return '无法解析成员喵'
 
         try {

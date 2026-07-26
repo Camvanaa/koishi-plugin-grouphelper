@@ -9,6 +9,7 @@ import { SettingsManager, PluginSettings } from '../settings'
 import { CacheService } from './cache.service'
 import { AuthService } from './auth.service'
 import type { Subscription } from '../../types'
+import { formatBeijingTime } from '../../utils'
 
 // 声明服务类型
 declare module 'koishi' {
@@ -28,6 +29,7 @@ export class GroupHelperService extends Service {
   private _settingsManager: SettingsManager
   /** 缓存服务 */
   private _cache: CacheService
+  private warmCacheTimer: NodeJS.Timeout | null = null
   /** 权限服务 */
   private _auth: AuthService
 
@@ -111,8 +113,9 @@ export class GroupHelperService extends Service {
    * 异步预热缓存（不阻塞启动）
    */
   private warmCacheAsync(): void {
-    // 使用 setTimeout 确保不阻塞主流程
-    setTimeout(async () => {
+    // 使用 setTimeout 确保不阻塞主流程；保存句柄以便 stop() 取消，
+    // 否则插件在预热窗口内被重载时，回调会操作已释放的数据层
+    this.warmCacheTimer = setTimeout(async () => {
       try {
         const allConfigs = this._data.groupConfig.getAll()
         const allWarns = this._data.warns.getAll()
@@ -233,27 +236,35 @@ export class GroupHelperService extends Service {
 
   /**
    * 向订阅者推送消息
+   * @param options.sourceGuildId 事件来源群；订阅配置了 sourceGuildIds 过滤时，仅推送列表内群的消息
    */
   async pushMessage(
     bot: any,
     message: string,
-    feature: keyof Subscription['features']
+    feature: keyof Subscription['features'],
+    options?: { sourceGuildId?: string }
   ): Promise<void> {
-    const subscriptions = this.getSubscriptions()
-    for (const sub of subscriptions) {
+    const targets = this.getSubscriptions().filter(sub => {
+      if (!sub.features?.[feature]) return false
+      // 来源群过滤：sourceGuildIds 为空/未设置时接收全部来源（向后兼容）
+      if (options?.sourceGuildId && sub.sourceGuildIds?.length
+          && !sub.sourceGuildIds.includes(options.sourceGuildId)) return false
+      return true
+    })
+
+    // 并发推送：几乎每条管理命令都会 await 本方法，串行发送会让命令响应时间
+    // 等于所有订阅者耗时之和，任一目标超时（如 bot 掉线重试）就拖慢全部命令
+    await Promise.all(targets.map(async sub => {
       try {
-        if (!sub.features) continue
-        if (sub.features[feature]) {
-          if (sub.type === 'group') {
-            await bot.sendMessage(sub.id, message)
-          } else {
-            await bot.sendPrivateMessage(sub.id, message)
-          }
+        if (sub.type === 'group') {
+          await bot.sendMessage(sub.id, message)
+        } else {
+          await bot.sendPrivateMessage(sub.id, message)
         }
       } catch (e) {
         console.error(`[GroupHelper] 推送消息失败: ${e.message}`)
       }
-    }
+    }))
   }
 
   /**
@@ -267,12 +278,7 @@ export class GroupHelperService extends Service {
   ): Promise<void> {
     const user = session.userId || session.username
     const group = session.guildId || 'private'
-    const date = new Date()
-    date.setHours(date.getHours() + 8)
-    const time = date.toISOString()
-      .replace('T', ' ')
-      .replace('Z', '')
-      .slice(0, 16)
+    const time = formatBeijingTime()
     this._data.writeLog(`[${command}] 用户(${user}) 群(${group}) 目标(${target}): ${result}`)
 
     // 推送日志消息
@@ -294,7 +300,14 @@ export class GroupHelperService extends Service {
     }
     this._modules.clear()
 
+    // 取消尚未触发的缓存预热
+    if (this.warmCacheTimer) {
+      clearTimeout(this.warmCacheTimer)
+      this.warmCacheTimer = null
+    }
+
     // 释放数据管理器
+    this._cache?.dispose()
     this._data.dispose()
     this._settingsManager.dispose()
   }

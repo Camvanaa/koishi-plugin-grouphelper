@@ -13,16 +13,24 @@ export class WelcomeModule extends BaseModule {
     version: '1.0.0'
   }
 
-  private static readonly defaultWelcomeConfig : GroupConfig = {
-  keywords: [],
-  approvalKeywords: [],
-  welcomeMsg: '',
-  goodbyeMsg: '',
-  auto: 'false',
-  reject: '答案错误，请重新申请',
-  levelLimit: 0,
-  leaveCooldown: 0
-}
+  /**
+   * 生成一份全新的默认群配置。
+   *
+   * 必须每次返回新对象：调用方会直接改写返回值再 setAll 落盘，
+   * 若共用同一个静态对象，某个群设置欢迎语会污染所有尚无配置的群。
+   */
+  private static createDefaultConfig(): GroupConfig {
+    return {
+      keywords: [],
+      approvalKeywords: [],
+      welcomeMsg: '',
+      goodbyeMsg: '',
+      auto: 'false',
+      reject: '答案错误，请重新申请',
+      levelLimit: 0,
+      leaveCooldown: 0
+    }
+  }
 
   constructor(ctx: Context, data: DataManager, config: Config) {
     super(ctx, data, config)
@@ -74,11 +82,15 @@ export class WelcomeModule extends BaseModule {
    */
   private registerEventListeners(): void {
     // 监听入群事件
+    // 注意：事件到达与否取决于协议端（LLOneBot/NapCat 等）是否上报 group_increase/group_decrease，
+    // 此处的日志用于排查"欢迎语偶尔不触发"时事件是否真正到达（issue #36）
     this.ctx.on('guild-member-added', async (session) => {
+      this.ctx.logger('grouphelper').info(`[welcome] 收到入群事件: guild=${session.guildId}, user=${session.userId}`)
       await this.handleMemberJoin(session)
     })
 
     this.ctx.on('guild-member-removed', async (session) => {
+      this.ctx.logger('grouphelper').info(`[welcome] 收到退群事件: guild=${session.guildId}, user=${session.userId}`)
       await this.handleMemberLeave(session)
     })
   }
@@ -90,7 +102,7 @@ export class WelcomeModule extends BaseModule {
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
 
     // 设置等级限制
     if (options.l !== undefined) {
@@ -177,7 +189,7 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
     
     // 设置欢送语
     if (options.s) {
@@ -235,14 +247,24 @@ goodbye -t  测试当前欢送语`
 
     const allConfigs = this.data.groupConfig.getAll()
     const groupConfig = allConfigs[session.guildId] || {}
-    
+
     // 检查开关状态：明确禁用或（未定义且无自定义消息）时视为禁用
-    if (groupConfig.welcomeEnabled === false) return
-    if (groupConfig.welcomeEnabled === undefined && !groupConfig.welcomeMsg) return
+    // 以下拦截分支记录日志，便于区分"事件未到达"与"配置拦截未发送"（issue #36）
+    if (groupConfig.welcomeEnabled === false) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 欢迎语已禁用，跳过`)
+      return
+    }
+    if (groupConfig.welcomeEnabled === undefined && !groupConfig.welcomeMsg) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 未设置欢迎语，跳过`)
+      return
+    }
 
     const welcomeMsg = groupConfig.welcomeMsg || this.config.defaultWelcome
 
-    if (!welcomeMsg) return
+    if (!welcomeMsg) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 欢迎语为空，跳过`)
+      return
+    }
 
     try {
       const formattedMsg = this.formatWelcomeMessage(welcomeMsg, session.userId, session.guildId)

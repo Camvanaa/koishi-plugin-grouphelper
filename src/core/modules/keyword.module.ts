@@ -6,7 +6,7 @@ import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import type { DataManager } from '../data'
 import type { Config, GroupConfig } from '../../types'
-import { parseTimeString, formatDuration } from '../../utils'
+import { parseTimeString, formatDuration, matchesKeyword, validateKeyword, parseBoolOption, REGEX_KEYWORD_PREFIX } from '../../utils'
 
 export class KeywordModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -71,12 +71,16 @@ export class KeywordModule extends BaseModule {
 
     // 添加关键词
     if (options.a) {
-      const newKeywords = options.a.split(',').map((k: string) => k.trim()).filter((k: string) => k)
-      groupConfig.approvalKeywords.push(...newKeywords)
+      const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.approvalKeywords)
+      if (!accepted.length) {
+        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+      }
+      groupConfig.approvalKeywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
-      this.log(session, 'verify', 'add', `已添加关键词：${newKeywords.join('、')}`)
-      return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
+      this.log(session, 'verify', 'add', `已添加关键词：${accepted.join('、')}`)
+      const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
+      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
     }
 
     // 移除关键词
@@ -113,14 +117,11 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动拒绝
     if (options.n !== undefined) {
-      const value = String(options.n).toLowerCase()
-      if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on') {
-        groupConfig.auto = 'true'
-      } else if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off') {
-        groupConfig.auto = 'false'
-      } else {
+      const parsed = parseBoolOption(options.n)
+      if (parsed === null) {
         return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
       }
+      groupConfig.auto = parsed ? 'true' : 'false'
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'auto', `已设置自动拒绝：${groupConfig.auto}`)
@@ -182,18 +183,23 @@ export class KeywordModule extends BaseModule {
 自动撤回状态：${forbiddenConfig.autoDelete ? '开启' : '关闭'}
 自动禁言状态：${forbiddenConfig.autoBan ? '开启' : '关闭'}
 自动踢出状态：${forbiddenConfig.autoKick ? '开启' : '关闭'}
-自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}`
+自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}
+匹配方式：默认按原文包含匹配，需要正则请写成 ${REGEX_KEYWORD_PREFIX}正则内容`
     }
 
     // 添加关键词
     if (options.a) {
-      const newKeywords = options.a.split(',').map((k: string) => k.trim()).filter((k: string) => k)
       groupConfig.keywords = groupConfig.keywords || []
-      groupConfig.keywords.push(...newKeywords)
+      const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.keywords)
+      if (!accepted.length) {
+        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+      }
+      groupConfig.keywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
-      this.log(session, 'forbidden', 'add', `成功：已添加关键词：${newKeywords.join('、')}`)
-      return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
+      this.log(session, 'forbidden', 'add', `成功：已添加关键词：${accepted.join('、')}`)
+      const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
+      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
     }
 
     // 移除关键词
@@ -244,7 +250,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动撤回
     if (options.d !== undefined) {
-      const state = this.parseBooleanOption(options.d)
+      const state = parseBoolOption(options.d)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoDelete = state
@@ -256,7 +262,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动禁言
     if (options.b !== undefined) {
-      const state = this.parseBooleanOption(options.b)
+      const state = parseBoolOption(options.b)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoBan = state
@@ -268,7 +274,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置自动踢出
     if (options.k !== undefined) {
-      const state = this.parseBooleanOption(options.k)
+      const state = parseBoolOption(options.k)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
       groupConfig.forbidden.autoKick = state
@@ -296,7 +302,7 @@ export class KeywordModule extends BaseModule {
 
     // 设置是否有触发回显
     if (options.echo !== undefined) {
-      const state = this.parseBooleanOption(options.echo)
+      const state = parseBoolOption(options.echo)
       console.log('echo state', state)
       if (state === null) return '无效的值，请使用 true/false'
       ensureForbiddenExists()
@@ -308,19 +314,6 @@ export class KeywordModule extends BaseModule {
     }
 
     return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n--echo <true/false> 设置是否启用触发回显\n多个关键词用英文逗号分隔'
-  }
-
-  /**
-   * 解析布尔值选项
-   */
-  private parseBooleanOption(value: any): boolean | null {
-    const v = String(value).toLowerCase()
-    if (v === 'true' || v === '1' || v === 'yes' || v === 'y' || v === 'on') {
-      return true
-    } else if (v === 'false' || v === '0' || v === 'no' || v === 'n' || v === 'off') {
-      return false
-    }
-    return null
   }
 
   /**
@@ -353,8 +346,8 @@ export class KeywordModule extends BaseModule {
         await this.handleAutoDelete(session, content, effectiveKeywords, forbiddenConfig)
       }
 
-      // 处理自动禁言
-      if (forbiddenConfig.autoBan) {
+      // 处理自动禁言/自动踢出（autoKick 分支在 handleAutoBan 内部，仅开启 autoKick 时也需进入）
+      if (forbiddenConfig.autoBan || forbiddenConfig.autoKick) {
         const matched = await this.handleAutoBan(session, content, effectiveKeywords, forbiddenConfig)
         if (matched) return
       }
@@ -378,6 +371,15 @@ export class KeywordModule extends BaseModule {
 
       // 自动踢出
       if (forbiddenConfig.autoKick) {
+        // 踢出前先撤回触发消息；autoDelete 开启时中间件已先行撤回，避免重复调用
+        if (!forbiddenConfig.autoDelete) {
+          try {
+            await session.bot.deleteMessage(session.guildId, session.messageId)
+            this.log(session, 'keyword-delete', session.userId, `成功：踢出前已撤回触发消息`)
+          } catch (e) {
+            this.log(session, 'keyword-delete', session.userId, `失败：踢出前撤回消息失败（不影响踢出）`)
+          }
+        }
         try {
           await session.bot.kickGuildMember(session.guildId, session.userId)
           this.log(session, 'keyword-kick', session.userId, `成功：关键词匹配，已踢出群聊`)
@@ -389,7 +391,8 @@ export class KeywordModule extends BaseModule {
         }
       }
 
-      // 自动禁言
+      // 自动禁言（仅在开启 autoBan 时执行；仅开启 autoKick 且踢出失败时不应转为禁言）
+      if (!forbiddenConfig.autoBan) return false
       let duration = forbiddenConfig.muteDuration
       try {
         // 检查是否已有更长的禁言
@@ -403,7 +406,7 @@ export class KeywordModule extends BaseModule {
         }
 
         await session.bot.muteGuildMember(session.guildId, session.userId, duration)
-        this.recordMute(session.guildId, session.userId, duration)
+        this.data.recordMute(session.guildId, session.userId, duration)
 
         if (covered) {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(duration)}`)
@@ -458,30 +461,35 @@ export class KeywordModule extends BaseModule {
   }
 
   /**
-   * 匹配关键词（支持正则表达式）
+   * 匹配关键词：默认字面量，`re:` 前缀才按正则处理
    */
   private matchKeyword(content: string, keyword: string): boolean {
-    try {
-      const regex = new RegExp(keyword, 'i')
-      return regex.test(content)
-    } catch (e) {
-      // 正则无效时使用普通字符串匹配
-      return content.includes(keyword)
-    }
+    return matchesKeyword(content, keyword)
   }
 
   /**
-   * 记录禁言信息
+   * 解析待添加的关键词列表，挡掉非法正则并跳过重复项。
+   *
+   * 非法正则必须在写入前拦下：一旦落盘，之后每条消息都会尝试编译它。
    */
-  private recordMute(guildId: string, userId: string, duration: number): void {
-    const guildMutes = this.data.mutes.get(guildId) || {}
-    guildMutes[userId] = {
-      startTime: Date.now(),
-      duration: duration,
-      remainingTime: duration
+  private prepareNewKeywords(
+    raw: string,
+    existing: string[]
+  ): { accepted: string[]; errors: string[] } {
+    const accepted: string[] = []
+    const errors: string[] = []
+
+    for (const keyword of raw.split(',').map(k => k.trim()).filter(Boolean)) {
+      const reason = validateKeyword(keyword)
+      if (reason) {
+        errors.push(`${keyword}（${reason}）`)
+        continue
+      }
+      if (existing.includes(keyword) || accepted.includes(keyword)) continue
+      accepted.push(keyword)
     }
-    this.data.mutes.set(guildId, guildMutes)
-    this.data.mutes.flush()
+
+    return { accepted, errors }
   }
 
   /**

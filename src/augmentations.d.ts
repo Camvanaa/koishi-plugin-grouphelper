@@ -46,8 +46,8 @@ declare module '@koishijs/plugin-console' {
     // 订阅 API
     'grouphelper/subscriptions/list'(): Promise<ApiResponse<Subscription[]>>
     'grouphelper/subscriptions/add'(params: { subscription: Subscription }): Promise<ApiResponse<{ success: boolean }>>
-    'grouphelper/subscriptions/remove'(params: { index: number }): Promise<ApiResponse<{ success: boolean }>>
-    'grouphelper/subscriptions/update'(params: { index: number, subscription: Subscription }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/subscriptions/remove'(params: { type: string, id: string }): Promise<ApiResponse<{ success: boolean }>>
+    'grouphelper/subscriptions/update'(params: { type: string, id: string, subscription: Subscription }): Promise<ApiResponse<{ success: boolean }>>
 
     // 统计 API
     'grouphelper/stats/dashboard'(): Promise<ApiResponse<{
@@ -81,5 +81,10 @@ declare module '@koishijs/plugin-console' {
     'grouphelper/settings/get'(): Promise<ApiResponse<any>>
     'grouphelper/settings/update'(params: { settings: any }): Promise<ApiResponse<{ success: boolean }>>
     'grouphelper/settings/reset'(): Promise<ApiResponse<{ success: boolean }>>
+
+    // 上游信息 API（后端代理 GitHub / npm）
+    'grouphelper/upstream/notice'(): Promise<ApiResponse<{ notice: string }>>
+    'grouphelper/upstream/versions'(): Promise<ApiResponse<{ main: string | null, dev: string | null, npm: string | null }>>
+    'grouphelper/upstream/commits'(): Promise<ApiResponse<{ commits: any[] }>>
   }
 }

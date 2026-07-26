@@ -1,31 +1,14 @@
 <template>
   <div class="roles-view-container">
     <!-- 侧边栏：角色列表 -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>角色</h2>
-        <button class="icon-btn" @click="createRole" title="创建角色">＋</button>
-      </div>
-      
-      <div class="role-list">
-        <div
-          v-for="role in roles"
-          :key="role.id"
-          class="role-item"
-          :class="{ active: currentRole?.id === role.id }"
-          @click="selectRole(role)"
-          draggable="true"
-          @dragstart="onDragStart($event, role)"
-          @dragover.prevent
-          @drop="onDrop($event, role)"
-        >
-          <span class="role-color" :style="{ backgroundColor: role.color || '#999' }"></span>
-          <span class="role-name">{{ role.name }}</span>
-          <k-icon v-if="role.builtin" name="lock" class="builtin-icon" title="内置角色" />
-          <k-icon v-else name="grip-vertical" class="drag-handle" />
-        </div>
-      </div>
-    </aside>
+    <RoleList
+      :roles="roles"
+      :current-id="currentRole?.id"
+      @select="selectRole"
+      @create="createRole"
+      @dragstart="onDragStart"
+      @drop="onDrop"
+    />
 
     <!-- 主内容区：编辑面板 -->
     <main class="main-content" v-if="currentRole">
@@ -113,6 +96,10 @@
                 <input type="radio" v-model="scopeMode" value="guilds">
                 仅指定群组生效
               </label>
+              <label class="radio-label">
+                <input type="radio" v-model="scopeMode" value="guildGroup">
+                仅指定群组组生效
+              </label>
             </div>
           </div>
 
@@ -124,6 +111,11 @@
               class="form-textarea"
               rows="4"
             ></textarea>
+          </div>
+
+          <div class="form-group" v-if="!currentRole.builtin && scopeMode === 'guildGroup'">
+            <label>指定群组组 ID（每行一个）</label>
+            <GuildGroupPicker v-model="guildGroupIdsSelected" :groups="guildGroups" />
           </div>
         </div>
 
@@ -223,12 +215,49 @@
              </div>
 
              <!-- 自定义角色：可以添加成员 -->
-             <template v-else>
-               <div class="add-member">
-                   <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
-                   <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
-                   <button class="secondary-btn" @click.stop="showImportDialog = true">导入成员</button>
-               </div>
+              <template v-else>
+                <div class="add-member">
+                    <input type="text" v-model="newMemberId" placeholder="输入用户 ID 添加..." class="form-input" @keyup.enter="addMember">
+                    <button class="primary-btn" @click.stop="handleAddMember">添加成员</button>
+                    <button class="secondary-btn" @click.stop="showImportDialog = true">导入成员</button>
+                </div>
+
+                <div class="form-group">
+                  <label>成员授予范围</label>
+                  <div class="scope-options">
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="inherit">
+                      继承角色范围
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="global">
+                      全局
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="guilds">
+                      指定群组
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="memberScopeMode" value="guildGroup">
+                      指定群组组
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group" v-if="memberScopeMode === 'guilds'">
+                  <label>指定群组 ID（每行一个）</label>
+                  <textarea
+                    v-model="memberGuildIdsText"
+                    placeholder="输入群号，每行一个"
+                    class="form-textarea"
+                    rows="3"
+                  ></textarea>
+                </div>
+
+                <div class="form-group" v-if="memberScopeMode === 'guildGroup'">
+                  <label>指定群组组 ID（每行一个）</label>
+                  <GuildGroupPicker v-model="memberGuildGroupIdsSelected" :groups="guildGroups" />
+                </div>
 
                <!-- 成员搜索框 -->
                <div class="member-search" v-if="currentRoleMembers.length > 5">
@@ -246,19 +275,19 @@
                  </span>
                </div>
 
-               <div class="member-list" v-if="filteredRoleMembers.length > 0">
-                   <div v-for="member in filteredRoleMembers" :key="member.id" class="member-item">
-                       <div class="member-info">
-                          <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
-                          <div v-else class="member-icon">👤</div>
-                          <div class="member-text">
-                            <span class="member-name">{{ member.name || member.id }}</span>
-                            <span class="member-id-sub">{{ member.id }}</span>
-                          </div>
-                       </div>
-                       <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
-                   </div>
-               </div>
+                <div class="member-list" v-if="filteredRoleMembers.length > 0">
+                    <div v-for="member in filteredRoleMembers" :key="member.id" class="member-item" @click="openMemberScope(member)">
+                        <div class="member-info">
+                           <img v-if="member.avatar" :src="member.avatar" class="member-avatar">
+                           <div v-else class="member-icon">👤</div>
+                           <div class="member-text">
+                             <span class="member-name">{{ member.name || member.id }}</span>
+                             <span class="member-id-sub">{{ member.id }}</span>
+                           </div>
+                        </div>
+                        <button class="danger-btn" @click.stop="handleRemoveMember(member.id)">移除</button>
+                    </div>
+                </div>
                <div v-else-if="memberSearchQuery && currentRoleMembers.length > 0" class="empty-tip">未找到匹配的成员</div>
                <div v-else class="empty-tip">暂无成员（输入用户 QQ 号添加）</div>
              </template>
@@ -278,23 +307,8 @@
       </transition>
     </main>
 
-    <!-- 自定义确认对话框 -->
-    <transition name="fade">
-      <div class="modal-overlay" v-if="confirmDialog.show" @click="cancelConfirm">
-        <div class="modal-dialog" @click.stop>
-          <div class="modal-header">
-            <h3>{{ confirmDialog.title }}</h3>
-          </div>
-          <div class="modal-body">
-            <p>{{ confirmDialog.message }}</p>
-          </div>
-          <div class="modal-footer">
-            <button class="secondary-btn" @click="cancelConfirm">取消</button>
-            <button :class="confirmDialog.type === 'danger' ? 'danger-btn' : 'primary-btn'" @click="doConfirm">确认</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <!-- 统一确认对话框 -->
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
 
     <!-- 导入成员对话框 -->
     <transition name="fade">
@@ -419,14 +433,73 @@
         </div>
       </div>
     </transition>
+
+    <!-- 成员作用域编辑对话框 -->
+    <transition name="fade">
+      <div class="modal-overlay" v-if="showMemberScopeDialog" @click="closeMemberScopeDialog">
+        <div class="modal-dialog" @click.stop>
+          <div class="modal-header">
+            <h3>成员角色范围（调试）</h3>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>成员</label>
+              <div class="field-hint">{{ selectedMember?.name || selectedMember?.id }}</div>
+            </div>
+            <div class="form-group">
+              <label>当前角色</label>
+              <div class="field-hint">{{ currentRole?.name }}</div>
+            </div>
+            <div class="form-group">
+              <label>生效范围</label>
+              <div class="scope-options">
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="global">
+                  全局
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="guilds">
+                  指定群组
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="editMemberScopeMode" value="guildGroup">
+                  指定群组组
+                </label>
+              </div>
+            </div>
+            <div class="form-group" v-if="editMemberScopeMode === 'guilds'">
+              <label>群聊 ID（每行一个）</label>
+              <textarea v-model="editMemberGuildIds" class="form-textarea member-scope-textarea" rows="2"></textarea>
+            </div>
+            <div class="form-group" v-if="editMemberScopeMode === 'guildGroup'">
+              <label>群组组</label>
+              <GuildGroupPicker
+                v-model="editMemberGuildGroupIds"
+                :groups="guildGroups"
+                :searchable="false"
+                empty-text="暂无群组组"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="secondary-btn" @click="closeMemberScopeDialog">取消</button>
+            <button class="primary-btn" @click="saveMemberScope">保存</button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { authApi } from '../api'
-import type { Role, PermissionNode, RoleMember } from '../types'
+import type { AuthScope, GuildGroup, Role, PermissionNode, RoleMember, UserRoleBinding } from '../types'
 import { message } from '@koishijs/client'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
+import RoleList from './roles/RoleList.vue'
+import GuildGroupPicker from './roles/GuildGroupPicker.vue'
 
 // 创建默认角色对象
 const createDefaultRole = (): Role => ({
@@ -436,11 +509,13 @@ const createDefaultRole = (): Role => ({
   color: '#999999',
   priority: 0,
   permissions: [],
-  guildIds: []
+  guildIds: [],
+  scope: { type: 'global' }
 })
 
 // 状态
 const roles = ref<Role[]>([])
+const guildGroups = ref<GuildGroup[]>([])
 const permissions = ref<PermissionNode[]>([])
 const currentRole = ref<Role | null>(null)
 const editingRole = ref<Role>(createDefaultRole())
@@ -450,6 +525,14 @@ const newMemberId = ref('')
 const currentRoleMembers = ref<RoleMember[]>([])
 const loading = ref(false)
 const memberSearchQuery = ref('')
+const memberScopeMode = ref<'inherit' | 'global' | 'guilds' | 'guildGroup'>('inherit')
+const memberGuildIdsText = ref('')
+const memberGuildGroupIdsSelected = ref<string[]>([])
+const showMemberScopeDialog = ref(false)
+const selectedMember = ref<RoleMember | null>(null)
+const editMemberScopeMode = ref<'global' | 'guilds' | 'guildGroup'>('global')
+const editMemberGuildIds = ref('')
+const editMemberGuildGroupIds = ref<string[]>([])
 
 // 过滤后的角色成员列表
 const filteredRoleMembers = computed(() => {
@@ -463,6 +546,60 @@ const filteredRoleMembers = computed(() => {
   )
 })
 
+const openMemberScope = async (member: RoleMember) => {
+  if (!currentRole.value) return
+  selectedMember.value = member
+  try {
+    const bindings = await authApi.getUserBindings(member.id)
+    const binding = bindings.find(item => item.roleId === currentRole.value?.id)
+    if (!binding) {
+      message.error('未找到该成员的角色绑定')
+      return
+    }
+    const scope = binding.scope
+    if (scope.type === 'guilds') {
+      editMemberScopeMode.value = 'guilds'
+      editMemberGuildIds.value = (scope.guildIds || []).join('\n')
+      editMemberGuildGroupIds.value = []
+    } else if (scope.type === 'guildGroup') {
+      editMemberScopeMode.value = 'guildGroup'
+      editMemberGuildGroupIds.value = [...(scope.guildGroupIds || [])]
+      editMemberGuildIds.value = ''
+    } else {
+      editMemberScopeMode.value = 'global'
+      editMemberGuildIds.value = ''
+      editMemberGuildGroupIds.value = []
+    }
+    showMemberScopeDialog.value = true
+  } catch (e) {
+    message.error('加载成员作用域失败')
+  }
+}
+
+const closeMemberScopeDialog = () => {
+  showMemberScopeDialog.value = false
+}
+
+const saveMemberScope = async () => {
+  if (!currentRole.value || !selectedMember.value) return
+  let scope: AuthScope
+  if (editMemberScopeMode.value === 'guilds') {
+    scope = { type: 'guilds', guildIds: editMemberGuildIds.value.split('\n').map(s => s.trim()).filter(Boolean) }
+  } else if (editMemberScopeMode.value === 'guildGroup') {
+    scope = { type: 'guildGroup', guildGroupIds: editMemberGuildGroupIds.value }
+  } else {
+    scope = { type: 'global' }
+  }
+
+  try {
+    await authApi.updateUserRoleScope(selectedMember.value.id, currentRole.value.id, scope)
+    message.success('已更新成员范围')
+    showMemberScopeDialog.value = false
+  } catch (e) {
+    message.error('更新失败')
+  }
+}
+
 // 导入对话框相关状态
 const showImportDialog = ref(false)
 const importSource = ref<'role' | 'authority' | 'guild-admin'>('role')
@@ -472,6 +609,7 @@ const importGuildId = ref('')
 const importPreviewMembers = ref<RoleMember[]>([])
 const importLoading = ref(false)
 const selectedImportIds = ref<Set<string>>(new Set())
+
 
 // 全选状态
 const isAllSelected = computed(() => {
@@ -517,6 +655,19 @@ const scrollToGroup = (name: string) => {
   }
 }
 
+const parseIdLines = (value: string): string[] =>
+  value.split('\n').map(s => s.trim()).filter(Boolean)
+
+const resolveMemberScope = (): AuthScope | undefined => {
+  if (memberScopeMode.value === 'inherit') return undefined
+  if (memberScopeMode.value === 'global') return { type: 'global' }
+  if (memberScopeMode.value === 'guilds') {
+    const guildIds = parseIdLines(memberGuildIdsText.value)
+    return { type: 'guilds', guildIds }
+  }
+  return { type: 'guildGroup', guildGroupIds: memberGuildGroupIdsSelected.value }
+}
+
 // 监听滚动以更新当前激活的分组
 const handlePermissionsScroll = () => {
   if (!permissionsMainRef.value) return
@@ -540,62 +691,63 @@ const handlePermissionsScroll = () => {
 }
 
 // 群组范围模式 - 使用独立的 ref 避免空数组时状态回弹
-const scopeMode = ref<'global' | 'guilds'>('global')
+const scopeMode = ref<'global' | 'guilds' | 'guildGroup'>('global')
 
 // 群组 ID 文本（用于编辑）
+const normalizeScope = (role: Role): AuthScope => {
+  if (role.scope && role.scope.type) return role.scope
+  if (Array.isArray(role.guildIds) && role.guildIds.length > 0) {
+    return { type: 'guilds', guildIds: role.guildIds }
+  }
+  return { type: 'global' }
+}
+
 const guildIdsText = computed({
-  get: () => (editingRole.value.guildIds || []).join('\n'),
+  get: () => {
+    const scope = normalizeScope(editingRole.value)
+    return scope.type === 'guilds' ? (scope.guildIds || []).join('\n') : ''
+  },
   set: (val: string) => {
     const ids = val.split('\n').map(s => s.trim()).filter(Boolean)
-    editingRole.value = { ...editingRole.value, guildIds: ids }
+    editingRole.value = { ...editingRole.value, scope: { type: 'guilds', guildIds: ids }, guildIds: ids }
+  }
+})
+
+const guildGroupIdsSelected = computed({
+  get: () => {
+    const scope = normalizeScope(editingRole.value)
+    return scope.type === 'guildGroup' ? (scope.guildGroupIds || []) : []
+  },
+  set: (ids: string[]) => {
+    editingRole.value = { ...editingRole.value, scope: { type: 'guildGroup', guildGroupIds: ids }, guildIds: [] }
   }
 })
 
 // 监听 scopeMode 变化，同步 guildIds
 watch(scopeMode, (newVal) => {
   if (newVal === 'global') {
-    // 切换到全局时清空群组列表
-    editingRole.value = { ...editingRole.value, guildIds: [] }
+    editingRole.value = { ...editingRole.value, scope: { type: 'global' }, guildIds: [] }
+    return
+  }
+
+  if (newVal === 'guilds') {
+    const ids = normalizeScope(editingRole.value).type === 'guilds'
+      ? (normalizeScope(editingRole.value).guildIds || [])
+      : []
+    editingRole.value = { ...editingRole.value, scope: { type: 'guilds', guildIds: ids }, guildIds: ids }
+    return
+  }
+
+  if (newVal === 'guildGroup') {
+    const ids = normalizeScope(editingRole.value).type === 'guildGroup'
+      ? (normalizeScope(editingRole.value).guildGroupIds || [])
+      : []
+    editingRole.value = { ...editingRole.value, scope: { type: 'guildGroup', guildGroupIds: ids }, guildIds: [] }
   }
 })
 
-// 确认对话框状态
-const confirmDialog = ref({
-  show: false,
-  title: '确认',
-  message: '',
-  type: 'normal' as 'normal' | 'danger',
-  onConfirm: () => {},
-  onCancel: () => {}
-})
-
-// 显示确认对话框
-const showConfirm = (options: { title?: string, message: string, type?: 'normal' | 'danger' }): Promise<boolean> => {
-  return new Promise((resolve) => {
-    confirmDialog.value = {
-      show: true,
-      title: options.title || '确认',
-      message: options.message,
-      type: options.type || 'normal',
-      onConfirm: () => {
-        confirmDialog.value.show = false
-        resolve(true)
-      },
-      onCancel: () => {
-        confirmDialog.value.show = false
-        resolve(false)
-      }
-    }
-  })
-}
-
-const cancelConfirm = () => {
-  confirmDialog.value.onCancel()
-}
-
-const doConfirm = () => {
-  confirmDialog.value.onConfirm()
-}
+// 确认弹窗（Promise 化，见 useConfirm）
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 
 // 获取数据
 const fetchData = async () => {
@@ -604,6 +756,7 @@ const fetchData = async () => {
     console.log('[RolesView] Fetching roles and permissions...')
     roles.value = await authApi.getRoles()
     permissions.value = await authApi.getPermissions()
+    guildGroups.value = await authApi.getGuildGroups()
     console.log('[RolesView] Loaded', roles.value.length, 'roles and', permissions.value.length, 'permissions')
   } catch (e) {
     console.error('[RolesView] Failed to fetch data:', e)
@@ -615,18 +768,26 @@ const fetchData = async () => {
 
 onMounted(() => {
   fetchData()
-  
-  // 延迟添加滚动监听器（等待 DOM 渲染）
-  setTimeout(() => {
-    if (permissionsMainRef.value) {
-      permissionsMainRef.value.addEventListener('scroll', handlePermissionsScroll)
-    }
-  }, 100)
 })
+
+// 权限面板要选中角色并切到权限 tab 才会渲染，挂载后延时 100ms 去取 ref 时它还是 null，
+// 原先的绑定从未真正生效（滚动高亮一直不工作），而且也没有对应的解绑。
+// 改为监听 ref 本身：元素出现时绑定，被替换或销毁时解绑。
+watch(permissionsMainRef, (el, prevEl) => {
+  prevEl?.removeEventListener('scroll', handlePermissionsScroll)
+  el?.addEventListener('scroll', handlePermissionsScroll)
+})
+
+onUnmounted(() => {
+  permissionsMainRef.value?.removeEventListener('scroll', handlePermissionsScroll)
+})
+
 
 // 计算属性
 const hasChanges = computed(() => {
   if (!currentRole.value) return false
+  const currentScope = normalizeScope(currentRole.value)
+  const editingScope = normalizeScope(editingRole.value)
   // 使用更可靠的比较方式
   const original = JSON.stringify({
     name: currentRole.value.name,
@@ -634,7 +795,7 @@ const hasChanges = computed(() => {
     color: currentRole.value.color,
     priority: currentRole.value.priority,
     permissions: currentRole.value.permissions || [],
-    guildIds: currentRole.value.guildIds || []
+    scope: currentScope
   })
   const current = JSON.stringify({
     name: editingRole.value.name,
@@ -642,7 +803,7 @@ const hasChanges = computed(() => {
     color: editingRole.value.color,
     priority: editingRole.value.priority,
     permissions: editingRole.value.permissions || [],
-    guildIds: editingRole.value.guildIds || []
+    scope: editingScope
   })
   return original !== current
 })
@@ -685,12 +846,21 @@ const groupedPermissions = computed(() => {
 })
 
 // 方法
+/**
+ * 请求序号：连续切换角色时，先发的请求可能后返回，
+ * 不加判别会用旧角色的成员覆盖掉当前选中角色的列表，
+ * 管理员可能因此对错误的对象执行移除操作。
+ */
+let roleMembersRequestId = 0
+
 const fetchRoleMembers = async (roleId: string) => {
+  const requestId = ++roleMembersRequestId
   try {
-    console.log('[RolesView] Fetching members for role:', roleId)
-    currentRoleMembers.value = await authApi.getRoleMembers(roleId, true)
-    console.log('[RolesView] Loaded', currentRoleMembers.value.length, 'members')
+    const members = await authApi.getRoleMembers(roleId, true)
+    if (requestId !== roleMembersRequestId) return
+    currentRoleMembers.value = members
   } catch (e) {
+    if (requestId !== roleMembersRequestId) return
     console.error('[RolesView] Failed to fetch role members:', e)
     currentRoleMembers.value = []
   }
@@ -711,11 +881,13 @@ const selectRole = async (role: Role) => {
     ...createDefaultRole(),
     ...role,
     permissions: Array.isArray(role.permissions) ? [...role.permissions] : [],
-    guildIds: Array.isArray(role.guildIds) ? [...role.guildIds] : []
+    guildIds: Array.isArray(role.guildIds) ? [...role.guildIds] : [],
+    scope: normalizeScope(role)
   }
   editingRole.value = normalizedRole
   // 同步 scopeMode
-  scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
+  if (normalizedRole.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+  else scopeMode.value = (normalizedRole.scope?.type === 'guilds') ? 'guilds' : 'global'
   console.log('[RolesView] Selected role:', normalizedRole, 'scopeMode:', scopeMode.value)
   activeTab.value = 'display'
   memberSearchQuery.value = '' // 重置成员搜索
@@ -730,7 +902,8 @@ const createRole = async () => {
     color: '#999999',
     priority: 1,
     permissions: [],
-    guildIds: []
+    guildIds: [],
+    scope: { type: 'global' }
   }
   try {
     console.log('[RolesView] Creating new role:', newRole)
@@ -765,10 +938,12 @@ const saveChanges = async () => {
         ...createDefaultRole(),
         ...updated,
         permissions: Array.isArray(updated.permissions) ? [...updated.permissions] : [],
-        guildIds: Array.isArray(updated.guildIds) ? [...updated.guildIds] : []
+        guildIds: Array.isArray(updated.guildIds) ? [...updated.guildIds] : [],
+        scope: normalizeScope(updated)
       }
       // 同步 scopeMode
-      scopeMode.value = (updated.guildIds && updated.guildIds.length > 0) ? 'guilds' : 'global'
+      if (editingRole.value.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+      else scopeMode.value = (editingRole.value.scope?.type === 'guilds') ? 'guilds' : 'global'
     }
   } catch (e) {
     console.error('[RolesView] Failed to save role:', e)
@@ -791,11 +966,13 @@ const resetChanges = async () => {
       ...createDefaultRole(),
       ...currentRole.value,
       permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
-      guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : []
+      guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
+      scope: normalizeScope(currentRole.value)
     }
     editingRole.value = normalizedRole
     // 同步 scopeMode
-    scopeMode.value = (normalizedRole.guildIds && normalizedRole.guildIds.length > 0) ? 'guilds' : 'global'
+    if (normalizedRole.scope?.type === 'guildGroup') scopeMode.value = 'guildGroup'
+    else scopeMode.value = (normalizedRole.scope?.type === 'guilds') ? 'guilds' : 'global'
     message.success('已重置更改')
   }
 }
@@ -835,6 +1012,7 @@ const cloneRole = async () => {
     // 确保数组被复制，避免引用同一对象
     permissions: Array.isArray(currentRole.value.permissions) ? [...currentRole.value.permissions] : [],
     guildIds: Array.isArray(currentRole.value.guildIds) ? [...currentRole.value.guildIds] : [],
+    scope: normalizeScope(currentRole.value),
     builtin: false
   }
 
@@ -981,7 +1159,8 @@ const addMember = async () => {
   
   try {
     console.log('[RolesView] Adding member:', userId, 'to role:', roleId)
-    await authApi.assignRole(userId, roleId)
+    const scope = resolveMemberScope()
+    await authApi.assignRole(userId, roleId, scope)
     message.success('添加成员成功')
     newMemberId.value = ''
     await fetchRoleMembers(roleId)
@@ -1126,7 +1305,8 @@ const doImportMembers = async () => {
   importLoading.value = true
   try {
     const userIds = Array.from(selectedImportIds.value)
-    const result = await authApi.importMembers(currentRole.value.id, userIds)
+    const scope = resolveMemberScope()
+    const result = await authApi.importMembers(currentRole.value.id, userIds, scope)
     message.success(`成功导入 ${result.imported} 个成员`)
     closeImportDialog()
     // 刷新成员列表
@@ -1152,14 +1332,21 @@ const onDrop = async (e: DragEvent, targetRole: Role) => {
     if (!draggedId || draggedId === targetRole.id) return
     
     const draggedRole = roles.value.find(r => r.id === draggedId)
-    if(draggedRole) {
-        // 交换 priority
-        const temp = draggedRole.priority
-        draggedRole.priority = targetRole.priority
-        targetRole.priority = temp
-        
+    if (!draggedRole) return
+
+    // 交换 priority
+    const temp = draggedRole.priority
+    draggedRole.priority = targetRole.priority
+    targetRole.priority = temp
+
+    try {
         await authApi.updateRole(draggedRole)
         await authApi.updateRole(targetRole)
+    } catch (e) {
+        // 本地 priority 已经就地改过了，失败时必须重新拉取，
+        // 否则界面显示的新顺序与服务端不一致，且用户毫无察觉
+        message.error('排序失败: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
         await fetchData()
     }
 }
@@ -1202,116 +1389,6 @@ const copyRoleId = async () => {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
 }
 
-/* 侧边栏 */
-.sidebar {
-  width: 220px;
-  background: var(--bg1, #1e1e20);
-  border-right: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-header h2 {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg3, rgba(255, 255, 245, .4));
-}
-
-.role-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.375rem;
-}
-
-/* 滚动条 - 细微克制 */
-.role-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.role-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.role-list::-webkit-scrollbar-thumb {
-  background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  border-radius: 2px;
-}
-
-.role-list::-webkit-scrollbar-thumb:hover {
-  background: var(--fg3, rgba(255, 255, 245, .4));
-}
-
-/* 角色项 */
-.role-item {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 0.625rem;
-  margin-bottom: 1px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.role-item:hover {
-  background: var(--bg3, #313136);
-}
-
-.role-item.active {
-  background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
-  border-left: 2px solid var(--k-color-primary, #7459ff);
-  margin-left: -2px;
-}
-
-/* 角色颜色指示器 - 实心小圆点 */
-.role-color {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.role-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--fg2, rgba(255, 255, 245, .6));
-}
-
-.role-item.active .role-name {
-  color: var(--fg1, rgba(255, 255, 245, .9));
-}
-
-.builtin-icon {
-  color: var(--fg3, rgba(255, 255, 245, .4));
-  font-size: 10px;
-}
-
-.drag-handle {
-  color: var(--fg3, rgba(255, 255, 245, .4));
-  cursor: grab;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.role-item:hover .drag-handle {
-  opacity: 1;
-}
 
 /* 主内容区 */
 .main-content {
@@ -1323,6 +1400,7 @@ const copyRoleId = async () => {
   background: var(--bg2, #252529);
 }
 
+
 .content-header {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
@@ -1330,6 +1408,7 @@ const copyRoleId = async () => {
   justify-content: space-between;
   align-items: center;
 }
+
 
 .content-header h1 {
   margin: 0;
@@ -1340,6 +1419,7 @@ const copyRoleId = async () => {
   gap: 8px;
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
+
 
 .builtin-badge {
   font-size: 0.6rem;
@@ -1352,6 +1432,7 @@ const copyRoleId = async () => {
   letter-spacing: 0.5px;
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
+
 
 .builtin-notice {
   display: flex;
@@ -1367,12 +1448,14 @@ const copyRoleId = async () => {
   line-height: 1.5;
 }
 
+
 .builtin-notice k-icon {
   color: var(--k-color-primary, #7459ff);
   font-size: 14px;
   margin-top: 1px;
   flex-shrink: 0;
 }
+
 
 /* Tab 导航 */
 .tabs {
@@ -1381,6 +1464,7 @@ const copyRoleId = async () => {
   border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
   background: var(--bg1, #1e1e20);
 }
+
 
 .tab-item {
   padding: 0.625rem 1rem;
@@ -1392,14 +1476,17 @@ const copyRoleId = async () => {
   font-weight: 500;
 }
 
+
 .tab-item:hover {
   color: var(--fg2, rgba(255, 255, 245, .6));
 }
+
 
 .tab-item.active {
   border-bottom-color: var(--k-color-primary, #7459ff);
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
+
 
 .tab-content {
   flex: 1;
@@ -1408,29 +1495,35 @@ const copyRoleId = async () => {
   padding-bottom: 80px;
 }
 
+
 /* Tab 内容滚动条 */
 .tab-content::-webkit-scrollbar {
   width: 4px;
 }
 
+
 .tab-content::-webkit-scrollbar-track {
   background: transparent;
 }
+
 
 .tab-content::-webkit-scrollbar-thumb {
   background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
   border-radius: 2px;
 }
 
+
 .tab-content::-webkit-scrollbar-thumb:hover {
   background: var(--fg3, rgba(255, 255, 245, .4));
 }
+
 
 /* 表单组件 */
 .form-group {
   margin-bottom: 1.25rem;
   max-width: 480px;
 }
+
 
 .form-group label {
   display: block;
@@ -1441,6 +1534,7 @@ const copyRoleId = async () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 
 .form-input {
   width: 100%;
@@ -1454,15 +1548,18 @@ const copyRoleId = async () => {
   transition: border-color 0.15s ease;
 }
 
+
 .form-input:focus {
   outline: none;
   border-color: var(--k-color-primary, #7459ff);
 }
 
+
 .form-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 
 /* 颜色选择器 */
 .color-picker-wrapper {
@@ -1476,6 +1573,7 @@ const copyRoleId = async () => {
   width: fit-content;
 }
 
+
 .color-input {
   width: 32px;
   height: 32px;
@@ -1486,6 +1584,7 @@ const copyRoleId = async () => {
   border-radius: 4px;
 }
 
+
 .color-text {
   border: none !important;
   background: transparent !important;
@@ -1495,12 +1594,14 @@ const copyRoleId = async () => {
   font-size: 0.75rem;
 }
 
+
 /* 范围选项 */
 .scope-options {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
 }
+
 
 .radio-label {
   display: flex;
@@ -1511,10 +1612,12 @@ const copyRoleId = async () => {
   font-size: 0.8rem;
 }
 
+
 .radio-label input[type="radio"] {
   margin: 0;
   accent-color: var(--k-color-primary, #7459ff);
 }
+
 
 .scope-readonly {
   padding: 0.5rem 0.75rem;
@@ -1523,10 +1626,12 @@ const copyRoleId = async () => {
   border-radius: 4px;
 }
 
+
 .scope-badge {
   font-size: 0.8rem;
   color: var(--fg3, rgba(255, 255, 245, .4));
 }
+
 
 .form-textarea {
   width: 100%;
@@ -1541,10 +1646,12 @@ const copyRoleId = async () => {
   min-height: 72px;
 }
 
+
 .form-textarea:focus {
   outline: none;
   border-color: var(--k-color-primary, #7459ff);
 }
+
 
 /* 角色 ID 显示 */
 .id-display {
@@ -1558,6 +1665,7 @@ const copyRoleId = async () => {
   width: fit-content;
 }
 
+
 .role-id-code {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
   font-size: 0.75rem;
@@ -1566,6 +1674,7 @@ const copyRoleId = async () => {
   padding: 0;
   user-select: all;
 }
+
 
 .copy-btn {
   background: transparent;
@@ -1577,9 +1686,11 @@ const copyRoleId = async () => {
   transition: opacity 0.15s ease;
 }
 
+
 .copy-btn:hover {
   opacity: 1;
 }
+
 
 .field-hint {
   margin-top: 4px;
@@ -1587,6 +1698,19 @@ const copyRoleId = async () => {
   color: var(--fg3, rgba(255, 255, 245, .4));
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
+
+
+.hint-tag {
+  display: inline-block;
+  margin: 4px 6px 0 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg1, #1e1e20);
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  font-size: 0.7rem;
+  color: var(--fg2, rgba(255, 255, 245, .6));
+}
+
 
 /* 当前已选权限显示 */
 .current-perms {
@@ -1601,6 +1725,7 @@ const copyRoleId = async () => {
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
+
 .perms-label {
   font-size: 0.7rem;
   color: var(--fg3, rgba(255, 255, 245, .4));
@@ -1608,6 +1733,7 @@ const copyRoleId = async () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 
 .perm-tag {
   padding: 2px 8px;
@@ -1619,6 +1745,7 @@ const copyRoleId = async () => {
   border: 1px solid rgba(63, 185, 80, 0.3);
 }
 
+
 /* 权限列表搜索栏 */
 .search-bar {
   display: flex;
@@ -1626,9 +1753,11 @@ const copyRoleId = async () => {
   margin-bottom: 1rem;
 }
 
+
 .search-input {
   flex: 1;
 }
+
 
 /* 权限布局 */
 .permissions-layout {
@@ -1637,24 +1766,29 @@ const copyRoleId = async () => {
   height: 100%;
 }
 
+
 .permissions-main {
   flex: 1;
   overflow-y: auto;
   padding-right: 0.75rem;
 }
 
+
 .permissions-main::-webkit-scrollbar {
   width: 4px;
 }
+
 
 .permissions-main::-webkit-scrollbar-track {
   background: transparent;
 }
 
+
 .permissions-main::-webkit-scrollbar-thumb {
   background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
   border-radius: 2px;
 }
+
 
 /* 快速导航 */
 .permissions-nav {
@@ -1667,6 +1801,7 @@ const copyRoleId = async () => {
   overflow-y: auto;
 }
 
+
 .nav-title {
   font-size: 0.65rem;
   font-weight: 600;
@@ -1677,11 +1812,13 @@ const copyRoleId = async () => {
   padding-left: 10px;
 }
 
+
 .nav-list {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
+
 
 .nav-item {
   display: flex;
@@ -1695,15 +1832,18 @@ const copyRoleId = async () => {
   font-size: 0.75rem;
 }
 
+
 .nav-item:hover {
   background: var(--bg3, #313136);
   color: var(--fg2, rgba(255, 255, 245, .6));
 }
 
+
 .nav-item.active {
   background: var(--k-color-primary-fade, rgba(116, 89, 255, 0.1));
   color: var(--k-color-primary, #7459ff);
 }
+
 
 .nav-dot {
   width: 4px;
@@ -1713,9 +1853,11 @@ const copyRoleId = async () => {
   flex-shrink: 0;
 }
 
+
 .nav-item.active .nav-dot {
   background: var(--k-color-primary, #7459ff);
 }
+
 
 .nav-name {
   flex: 1;
@@ -1723,6 +1865,7 @@ const copyRoleId = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 
 .nav-count {
   font-size: 0.65rem;
@@ -1733,10 +1876,12 @@ const copyRoleId = async () => {
   color: var(--fg3, rgba(255, 255, 245, .4));
 }
 
+
 .nav-item.active .nav-count {
   background: var(--k-color-primary, #7459ff);
   color: #fff;
 }
+
 
 @media (max-width: 900px) {
   .permissions-nav {
@@ -1747,12 +1892,14 @@ const copyRoleId = async () => {
   }
 }
 
+
 /* 权限分组 */
 .permission-groups {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
+
 
 .group-header {
   font-size: 0.7rem;
@@ -1764,6 +1911,7 @@ const copyRoleId = async () => {
   padding-bottom: 0.25rem;
   border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
+
 
 /* 权限项 - hover 效果 */
 .permission-item {
@@ -1778,16 +1926,19 @@ const copyRoleId = async () => {
   transition: all 0.15s ease;
 }
 
+
 .permission-item:hover {
   border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
   background: var(--bg3, #313136);
 }
+
 
 .perm-info .perm-name {
   font-weight: 500;
   font-size: 0.85rem;
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
+
 
 .perm-id {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
@@ -1796,11 +1947,13 @@ const copyRoleId = async () => {
   margin-top: 3px;
 }
 
+
 .perm-desc {
   font-size: 0.75rem;
   color: var(--fg2, rgba(255, 255, 245, .6));
   margin-top: 3px;
 }
+
 
 /* Toggle 开关 - 更简洁 */
 .toggle-switch {
@@ -1811,6 +1964,7 @@ const copyRoleId = async () => {
   cursor: pointer;
   flex-shrink: 0;
 }
+
 
 .toggle-switch .slider {
   position: absolute;
@@ -1825,6 +1979,7 @@ const copyRoleId = async () => {
   border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
 
+
 .toggle-switch .slider:before {
   position: absolute;
   content: "";
@@ -1837,25 +1992,30 @@ const copyRoleId = async () => {
   border-radius: 50%;
 }
 
+
 .toggle-switch.active .slider {
   background: rgba(63, 185, 80, 0.2);
   border-color: rgba(63, 185, 80, 0.4);
 }
+
 
 .toggle-switch.active .slider:before {
   transform: translateX(16px);
   background: #3fb950;
 }
 
+
 .toggle-switch:hover .slider {
   border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
 }
+
 
 /* 锁定状态 */
 .toggle-switch.locked {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
 
 .toggle-switch .lock-icon {
   position: absolute;
@@ -1865,9 +2025,11 @@ const copyRoleId = async () => {
   font-size: 10px;
 }
 
+
 .permission-item.covered {
   opacity: 0.6;
 }
+
 
 .covered-hint {
   color: #3fb950;
@@ -1875,6 +2037,7 @@ const copyRoleId = async () => {
   margin-left: 6px;
   font-weight: 400;
 }
+
 
 /* 成员管理 */
 .add-member {
@@ -1884,6 +2047,7 @@ const copyRoleId = async () => {
   max-width: 400px;
 }
 
+
 .member-search {
   display: flex;
   align-items: center;
@@ -1892,9 +2056,11 @@ const copyRoleId = async () => {
   max-width: 400px;
 }
 
+
 .member-search .form-input {
   flex: 1;
 }
+
 
 .member-count {
   font-size: 0.75rem;
@@ -1902,11 +2068,14 @@ const copyRoleId = async () => {
   white-space: nowrap;
 }
 
+
 .member-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0.75rem;
 }
+
+
 
 /* 成员项 - hover 效果 */
 .member-item {
@@ -1920,10 +2089,12 @@ const copyRoleId = async () => {
   transition: all 0.15s ease;
 }
 
+
 .member-item:hover {
   border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
   background: var(--bg3, #313136);
 }
+
 
 .member-info {
   display: flex;
@@ -1931,12 +2102,14 @@ const copyRoleId = async () => {
   gap: 8px;
 }
 
+
 .member-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   object-fit: cover;
 }
+
 
 .member-icon {
   width: 28px;
@@ -1950,10 +2123,12 @@ const copyRoleId = async () => {
   font-size: 12px;
 }
 
+
 .member-text {
   display: flex;
   flex-direction: column;
 }
+
 
 .member-name {
   font-weight: 500;
@@ -1961,11 +2136,13 @@ const copyRoleId = async () => {
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
+
 .member-id-sub {
   font-size: 0.65rem;
   color: var(--fg3, rgba(255, 255, 245, .4));
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
+
 
 /* 保存浮动条 - Discord 风格 */
 .save-bar {
@@ -1988,11 +2165,13 @@ const copyRoleId = async () => {
   font-size: 0.8125rem;
 }
 
+
 .save-actions {
   display: flex;
   gap: 10px;
   align-items: center;
 }
+
 
 .reset-btn {
   background: transparent;
@@ -2005,9 +2184,11 @@ const copyRoleId = async () => {
   transition: text-decoration 0.1s ease;
 }
 
+
 .reset-btn:hover {
   text-decoration: underline;
 }
+
 
 .save-btn {
   background: #248046;
@@ -2021,20 +2202,24 @@ const copyRoleId = async () => {
   transition: background 0.15s ease;
 }
 
+
 .save-btn:hover {
   background: #1a6334;
 }
+
 
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translate(-50%, 20px);
   opacity: 0;
 }
+
 
 .empty-state, .empty-tip {
   display: flex;
@@ -2046,31 +2231,13 @@ const copyRoleId = async () => {
   font-size: 0.85rem;
 }
 
+
 .empty-icon {
   font-size: 48px;
   margin-bottom: 0.75rem;
   opacity: 0.3;
 }
 
-/* 通用按钮 - GitHub 风格 */
-.icon-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: var(--k-color-primary, #7459ff);
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s ease;
-}
-
-.icon-btn:hover {
-  opacity: 0.85;
-}
 
 .primary-btn {
   padding: 6px 12px;
@@ -2084,9 +2251,11 @@ const copyRoleId = async () => {
   white-space: nowrap;
 }
 
+
 .primary-btn:hover {
   background: rgba(116, 89, 255, 0.25);
 }
+
 
 .secondary-btn {
   padding: 6px 12px;
@@ -2100,10 +2269,12 @@ const copyRoleId = async () => {
   white-space: nowrap;
 }
 
+
 .secondary-btn:hover {
   border-color: var(--k-color-border, rgba(82, 82, 89, 0.8));
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
+
 
 .danger-btn {
   padding: 6px 12px;
@@ -2117,10 +2288,12 @@ const copyRoleId = async () => {
   white-space: nowrap;
 }
 
+
 .danger-btn:hover {
   background: rgba(248, 81, 73, 0.25);
   border-color: rgba(248, 81, 73, 0.5);
 }
+
 
 .clone-btn {
   padding: 6px 12px;
@@ -2134,10 +2307,12 @@ const copyRoleId = async () => {
   white-space: nowrap;
 }
 
+
 .clone-btn:hover {
   background: rgba(88, 166, 255, 0.25);
   border-color: rgba(88, 166, 255, 0.5);
 }
+
 
 /* 模态框 - GitHub 风格 */
 .modal-overlay {
@@ -2154,6 +2329,7 @@ const copyRoleId = async () => {
   z-index: 1000;
 }
 
+
 .modal-dialog {
   background: var(--bg2, #252529);
   border-radius: 8px;
@@ -2164,6 +2340,7 @@ const copyRoleId = async () => {
   overflow: hidden;
   animation: modal-enter 0.2s ease-out;
 }
+
 
 @keyframes modal-enter {
   from {
@@ -2176,10 +2353,12 @@ const copyRoleId = async () => {
   }
 }
 
+
 .modal-header {
   padding: 1rem;
   border-bottom: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
 }
+
 
 .modal-header h3 {
   margin: 0;
@@ -2188,9 +2367,11 @@ const copyRoleId = async () => {
   color: var(--fg1, rgba(255, 255, 245, .9));
 }
 
+
 .modal-body {
   padding: 1rem;
 }
+
 
 .modal-body p {
   margin: 0;
@@ -2198,6 +2379,7 @@ const copyRoleId = async () => {
   font-size: 0.8rem;
   line-height: 1.6;
 }
+
 
 .modal-footer {
   padding: 0.75rem 1rem;
@@ -2208,22 +2390,73 @@ const copyRoleId = async () => {
   background: var(--bg1, #1e1e20);
 }
 
+
+/* 成员范围弹窗 */
+.member-scope-panel {
+  background: var(--bg2, #252529);
+  border-radius: 8px;
+  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  width: 680px;
+  height: 520px;
+  overflow: hidden;
+  animation: modal-enter 0.2s ease-out;
+}
+
+
+.member-scope-panel .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 420px;
+  overflow-y: auto;
+}
+
+
+.member-scope-panel .form-input {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+
+.member-scope-panel .form-textarea {
+  min-height: 56px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+
+.member-scope-textarea {
+  max-width: 200px;
+}
+
+
+.member-scope-panel .scope-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+
 /* 淡入淡出动画 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.15s ease;
 }
 
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
+
 
 /* 导入成员对话框 */
 .import-dialog {
   min-width: 400px;
   max-width: 520px;
 }
+
 
 .import-source-options {
   display: flex;
@@ -2232,14 +2465,17 @@ const copyRoleId = async () => {
   margin-top: 0.5rem;
 }
 
+
 .guild-input-row {
   display: flex;
   gap: 0.5rem;
 }
 
+
 .guild-input-row .form-input {
   flex: 1;
 }
+
 
 .import-preview {
   margin-top: 1rem;
@@ -2247,6 +2483,7 @@ const copyRoleId = async () => {
   border-radius: 6px;
   overflow: hidden;
 }
+
 
 .preview-header {
   padding: 0.5rem 0.75rem;
@@ -2260,6 +2497,7 @@ const copyRoleId = async () => {
   gap: 0.5rem;
 }
 
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -2267,38 +2505,46 @@ const copyRoleId = async () => {
   cursor: pointer;
 }
 
+
 .checkbox-label input[type="checkbox"] {
   margin: 0;
   accent-color: var(--k-color-primary, #7459ff);
   cursor: pointer;
 }
 
+
 .select-all {
   font-weight: 500;
 }
+
 
 .preview-count {
   color: var(--fg3, rgba(255, 255, 245, .4));
   font-size: 0.7rem;
 }
 
+
 .preview-list {
   max-height: 200px;
   overflow-y: auto;
 }
 
+
 .preview-list::-webkit-scrollbar {
   width: 4px;
 }
+
 
 .preview-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
+
 .preview-list::-webkit-scrollbar-thumb {
   background: var(--k-color-divider, rgba(82, 82, 89, 0.5));
   border-radius: 2px;
 }
+
 
 .preview-item {
   display: flex;
@@ -2310,21 +2556,26 @@ const copyRoleId = async () => {
   transition: background 0.15s ease;
 }
 
+
 .preview-item:hover {
   background: var(--bg3, #313136);
 }
+
 
 .preview-item.selected {
   background: rgba(116, 89, 255, 0.1);
 }
 
+
 .preview-item.selected:hover {
   background: rgba(116, 89, 255, 0.15);
 }
 
+
 .preview-item:last-child {
   border-bottom: none;
 }
+
 
 .preview-item input[type="checkbox"] {
   margin: 0;
@@ -2333,12 +2584,14 @@ const copyRoleId = async () => {
   flex-shrink: 0;
 }
 
+
 .preview-avatar {
   width: 24px;
   height: 24px;
   border-radius: 50%;
   object-fit: cover;
 }
+
 
 .preview-icon {
   width: 24px;
@@ -2352,6 +2605,7 @@ const copyRoleId = async () => {
   font-size: 10px;
 }
 
+
 .preview-name {
   flex: 1;
   font-size: 0.8rem;
@@ -2361,11 +2615,13 @@ const copyRoleId = async () => {
   text-overflow: ellipsis;
 }
 
+
 .preview-id {
   font-size: 0.7rem;
   color: var(--fg3, rgba(255, 255, 245, .4));
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
+
 
 .import-empty,
 .import-loading {
@@ -2375,11 +2631,13 @@ const copyRoleId = async () => {
   font-size: 0.8rem;
 }
 
+
 .primary-btn:disabled,
 .secondary-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 
 /* ========================================
    移动端适配 (< 768px)
@@ -2625,6 +2883,12 @@ const copyRoleId = async () => {
     margin: 16px;
   }
 
+  .member-scope-panel {
+    width: 680px;
+    height: 520px;
+    margin: 0;
+  }
+
   .import-dialog {
     min-width: auto;
     max-width: calc(100vw - 32px);
@@ -2673,6 +2937,7 @@ const copyRoleId = async () => {
     font-size: 0.65rem;
   }
 }
+
 
 /* 小屏手机适配 (< 480px) */
 @media (max-width: 480px) {

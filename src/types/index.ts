@@ -1,82 +1,11 @@
 
 import { Context } from 'koishi'
-import { deprecate } from 'util'
 
 
-declare module 'koishi' {
-  interface Config {
-    keywords: string[]
-    warnLimit: number
-    banTimes: {
-      expression: string
-    }
-    forbidden: {
-      autoDelete: boolean
-      autoBan: boolean
-      autoKick: boolean
-      muteDuration: number
-      keywords: string[]
-    }
-    defaultWelcome: string
-    banme: {
-      enabled: boolean
-      baseMin: number
-      baseMax: number
-      growthRate: number
-      autoBan?: boolean
-      jackpot: {
-        enabled: boolean
-        baseProb: number
-        softPity: number
-        hardPity: number
-        upDuration: string
-        loseDuration: string
-      }
-    }
-    friendRequest: {
-      enabled: boolean
-      keywords: string[]
-      rejectMessage: string
-    }
-    guildRequest: {
-      enabled: boolean
-      keywords: string[]
-      rejectMessage: string
-    }
-    setEssenceMsg: {
-      enabled: boolean
-      authority: number
-    }
-    setTitle: {
-      enabled: boolean
-      authority: number
-      maxLength: number
-    }
-    antiRepeat: {
-      enabled: boolean
-      threshold: number
-    }
-    openai: {
-      enabled: boolean
-      apiKey: string
-      apiUrl: string
-      maxTokens: number
-      temperature: number
-      model: string
-      systemPrompt: string
-      contextLimit: number
-      translatePrompt: string
-    }
-    antiRecall: {
-      enabled: boolean
-      retentionDays: number
-      maxRecordsPerUser: number
-      showOriginalTime: boolean
-      authority: number
-    }
-  }
-}
-
+// 说明：此处原本用 declare module 'koishi' 把插件字段并入 Koishi 全局 App Config
+// 类型。那既不正确（插件配置不属于全局 App Config），内容也已与下方本地
+// Config 接口漂移（缺 dice / report / status 等字段），已移除。
+// 插件配置类型以本文件导出的 Config 为准。
 
 export interface Config {
   /** 入群审核关键词列表 */
@@ -130,6 +59,8 @@ export interface Config {
   /** 入群邀请设置 */
   guildRequest: {
     enabled: boolean
+    /** 手动处理模式：收到群邀请时不自动同意/拒绝，仅推送通知给订阅者，由管理员手动处理 */
+    manual?: boolean
     rejectMessage: string
   }
   /** 精华消息设置 */
@@ -167,6 +98,8 @@ export interface Config {
     enabled: boolean
     authority: number
     autoProcess: boolean
+    /** 处罚成功后自动撤回被举报消息 */
+    autoRecall?: boolean
     defaultPrompt: string
     contextPrompt: string
     maxReportTime: number
@@ -175,6 +108,7 @@ export interface Config {
       includeContext: boolean
       contextSize: number
       autoProcess: boolean
+      autoRecall?: boolean
     }>
     maxReportCooldown: number
     minAuthorityNoLimit: number
@@ -186,12 +120,18 @@ export interface Config {
     maxRecordsPerUser: number
     showOriginalTime: boolean
   }
+  /** 状态图设置 */
+  status?: {
+    /** 状态图渲染超时（毫秒，0 表示不限制） */
+    renderTimeout: number
+  }
 }
 
 export interface ReportConfig {
   enabled: boolean
   authority: number
   autoProcess: boolean
+  autoRecall?: boolean
   maxReportCooldown: number
   minAuthorityNoLimit: number
   maxReportTime: number
@@ -203,26 +143,44 @@ export interface ReportConfig {
 export interface ReportGuildConfig {
   enabled: boolean
   autoProcess?: boolean
+  autoRecall?: boolean
   includeContext?: boolean
   contextSize?: number
 }
 
-export interface CommandLogEntry {
-  timestamp: string | number
-  guildId: string
+/** 一条命令执行记录，由 LogModule 独占写入 command_logs.json */
+export interface CommandLogRecord {
+  id: string
+  timestamp: string
   userId: string
+  username?: string
+  userAuthority?: number
+  guildId?: string
+  guildName?: string
+  channelId?: string
+  platform: string
   command: string
-  target: string
-  details: string
+  args: string[]
+  options: Record<string, any>
+  success: boolean
+  error?: string
+  executionTime: number
+  result?: string
+  messageId?: string
+  isPrivate: boolean
 }
 
 export interface CommandLogData {
-  logs: CommandLogEntry[]
+  logs: CommandLogRecord[]
   [key: string]: unknown
 }
 
 
 export interface GroupConfig {
+  /** 群名称，仅由 config/list 在开启解析时附加下发，不参与持久化 */
+  guildName?: string
+  /** 群头像，同上 */
+  guildAvatar?: string
   keywords?: string[]
   approvalKeywords?: string[]
   auto?: string  // 自动拒绝状态：'true' | 'false'
@@ -260,6 +218,7 @@ export interface GroupConfig {
   report?: {
     enabled: boolean
     autoProcess?: boolean
+    autoRecall?: boolean
     includeContext?: boolean
     contextSize?: number
   }
@@ -341,6 +300,11 @@ export interface Subscription {
     warning?: boolean
     antiRecall?: boolean
   }
+  /**
+   * 来源群过滤：仅接收列表内群产生的推送。
+   * undefined 或空数组表示接收全部来源（向后兼容）。
+   */
+  sourceGuildIds?: string[]
 }
 
 
@@ -423,6 +387,8 @@ export interface RecalledMessage {
   content: string
   timestamp: number
   recallTime: number
+  /** 撤回操作者（与 userId 不同时说明是管理员/群主撤回） */
+  operatorId?: string
   elements?: any[]
 }
 
@@ -445,6 +411,29 @@ export interface PermissionNode {
   group?: string // 用于前端分组显示
 }
 
+export type ScopeType = 'global' | 'guildGroup' | 'guilds'
+
+export interface AuthScope {
+  type: ScopeType
+  guildGroupIds?: string[]
+  guildIds?: string[]
+}
+
+export interface GuildGroup {
+  id: string
+  name: string
+  description?: string
+  guildIds: string[]
+}
+
+export interface GuildGroupsData extends Record<string, unknown> {
+  groups: Record<string, GuildGroup>
+}
+
+export interface GroupGroupConfigData extends Record<string, unknown> {
+  configs: Record<string, Partial<GroupConfig>>
+}
+
 export interface Role {
   id: string
   name: string
@@ -453,7 +442,9 @@ export interface Role {
   color?: string
   priority: number
   permissions: string[]
-  /** 角色生效的群组 ID 列表（空数组或 undefined 表示全局生效） */
+  /** 角色生效范围（空或 undefined 表示全局） */
+  scope?: AuthScope
+  /** 兼容旧版：角色生效的群组 ID 列表 */
   guildIds?: string[]
   /** 是否为内置角色（内置角色不可删除） */
   builtin?: boolean
@@ -465,7 +456,14 @@ export interface AuthRolesData extends Record<string, unknown> {
 }
 
 export interface AuthUsersData extends Record<string, unknown> {
-  users: Record<string, string[]> // userId -> roleIds
+  users: Record<string, UserRoleBinding[]> // userId -> role bindings
+}
+
+export interface UserRoleBinding {
+  roleId: string
+  scope: AuthScope
+  assignedBy?: string
+  assignedAt?: number
 }
 
 /** 已注册的命令信息（用于动态生成帮助） */

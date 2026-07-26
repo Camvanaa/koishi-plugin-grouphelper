@@ -6,7 +6,7 @@ import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import type { DataManager } from '../data'
 import type { Config, WarnRecord } from '../../types'
-import { parseTimeString, formatDuration } from '../../utils'
+import { parseTimeString, formatDuration, parseUserId } from '../../utils'
 
 export class WarnModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -170,8 +170,23 @@ export class WarnModule extends BaseModule {
       return '请指定要警告的用户喵！'
     }
 
-    const userId = String(user).split(':')[1]
-    const warnCount = this.addWarn(session.guildId, userId, count)
+    const userId = parseUserId(user)
+    if (!userId) return '请指定要警告的用户喵！'
+
+    return this.applyWarn(session, userId, count)
+  }
+
+  /**
+   * 施加警告并在达到阈值时自动禁言。
+   *
+   * 对外公开是为了让举报模块等内部调用方直接复用这段逻辑，
+   * 而不必伪造提权去执行 warn 命令——那条路径既绕不过权限检查，
+   * 失败了还会被误判成成功。调用方需自行完成权限校验。
+   */
+  async applyWarn(session: Session, userId: string, count: number): Promise<string> {
+    // 次数必须是正整数：负数会反向抵扣，使累计值变负后永远触发不了阈值
+    const times = Math.max(1, Math.floor(Number(count) || 1))
+    const warnCount = this.addWarn(session.guildId, userId, times)
 
     // 获取警告阈值：优先使用分群配置，否则使用全局配置
     const groupConfig = this.getGroupConfig(session.guildId)
@@ -179,14 +194,14 @@ export class WarnModule extends BaseModule {
 
     // 检查是否达到警告阈值（阈值为0时表示每次警告都触发自动禁言）
     if (warnLimit === 0 || warnCount >= warnLimit) {
-      return await this.executeAutoBan(session, userId, warnCount, count)
+      return await this.executeAutoBan(session, userId, warnCount, times)
     } else {
       await this.ctx.groupHelper.pushMessage(
         session.bot,
-        `[警告] 用户 ${userId} 在群 ${session.guildId} 被警告 ${count} 次，累计 ${warnCount} 次，未触发自动禁言`,
+        `[警告] 用户 ${userId} 在群 ${session.guildId} 被警告 ${times} 次，累计 ${warnCount} 次，未触发自动禁言`,
         'warning'
       )
-      this.log(session, 'warn', userId, `已警告 ${count} 次，累计 ${warnCount} 次`)
+      this.log(session, 'warn', userId, `已警告 ${times} 次，累计 ${warnCount} 次`)
       return `已警告用户 ${userId}\n本群警告：${warnCount} 次`
     }
   }
@@ -230,7 +245,7 @@ export class WarnModule extends BaseModule {
       await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
 
       // 记录禁言
-      this.recordMute(session.guildId, userId, milliseconds)
+      this.data.recordMute(session.guildId, userId, milliseconds)
 
       await this.ctx.groupHelper.pushMessage(
         session.bot,
@@ -253,21 +268,6 @@ export class WarnModule extends BaseModule {
   }
 
   /**
-   * 记录禁言信息
-   */
-  private recordMute(guildId: string, userId: string, duration: number): void {
-    // mutes 结构: Record<guildId, Record<userId, MuteRecord>>
-    const guildMutes = this.data.mutes.get(guildId) || {}
-    guildMutes[userId] = {
-      startTime: Date.now(),
-      duration: duration,
-      remainingTime: duration
-    }
-    this.data.mutes.set(guildId, guildMutes)
-    this.data.mutes.flush()
-  }
-
-  /**
    * 处理清除警告命令
    */
   private async handleClearWarn(session: Session, user: any): Promise<string> {
@@ -280,7 +280,7 @@ export class WarnModule extends BaseModule {
       return '请指定要清除警告的用户喵！'
     }
 
-    const userId = String(user).split(':')[1]
+    const userId = parseUserId(user)
     const guildWarns = this.data.warns.get(session.guildId)
 
     if (!guildWarns || !guildWarns[userId]) {
@@ -316,7 +316,7 @@ export class WarnModule extends BaseModule {
 
     if (user) {
       // 查看指定用户的警告
-      const userId = String(user).split(':')[1]
+      const userId = parseUserId(user)
       
       if (!guildWarns || !guildWarns[userId]) {
         return `用户 ${userId} 在本群没有警告记录`

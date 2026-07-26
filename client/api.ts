@@ -4,10 +4,21 @@
  */
 
 import { send } from '@koishijs/client'
-import type { GroupConfig, WarnRecord, BlacklistRecord, Subscription, Role, PermissionNode, RoleMember } from './types'
+import type {
+  GroupConfig,
+  WarnRecord,
+  BlacklistRecord,
+  Subscription,
+  Role,
+  PermissionNode,
+  RoleMember,
+  AuthScope,
+  UserRoleBinding,
+  GuildGroup
+} from './types'
 
 // 重新导出类型
-export type { GroupConfig, WarnRecord, BlacklistRecord, Subscription, Role, PermissionNode, RoleMember }
+export type { GroupConfig, WarnRecord, BlacklistRecord, Subscription, Role, PermissionNode, RoleMember, AuthScope, UserRoleBinding, GuildGroup }
 
 // 仪表盘统计数据类型
 export interface DashboardStats {
@@ -15,6 +26,8 @@ export interface DashboardStats {
   totalWarns: number
   totalBlacklisted: number
   totalSubscriptions: number
+  /** 插件版本号，由后端 stats/dashboard 返回 */
+  version?: string
   timestamp: number
 }
 
@@ -26,14 +39,17 @@ interface ApiResponse<T> {
 }
 
 // 通用调用封装
-async function call<T>(event: keyof any, params?: any): Promise<T> {
-  // @ts-ignore
-  const result = await send(event, params) as ApiResponse<T>
+async function call<T>(event: string, params?: any): Promise<T> {
+  // send 在 WebSocket 未连接时直接返回 undefined 而不是 Promise，
+  // 不先判空的话下面取 .success 会抛出难以理解的 TypeError
+  const result = await send(event as any, params) as ApiResponse<T> | undefined
+  if (!result) {
+    throw new Error('与后端的连接已断开，请刷新页面重试')
+  }
   if (!result.success) {
     throw new Error(result.error || '请求失败')
   }
-  // @ts-ignore
-  return result.data
+  return result.data as T
 }
 
 // 群组配置 API
@@ -41,6 +57,10 @@ export const configApi = {
   list: (fetchNames?: boolean) => call<Record<string, GroupConfig>>('grouphelper/config/list', { fetchNames }),
   get: (guildId: string) => call<GroupConfig | undefined>('grouphelper/config/get', { guildId }),
   update: (guildId: string, config: GroupConfig) => call<{ success: boolean }>('grouphelper/config/update', { guildId, config }),
+  groupGroupConfigList: () => call<Record<string, Partial<GroupConfig>>>('grouphelper/config/group-group-config/list'),
+  groupGroupConfigGet: (groupId: string) => call<Partial<GroupConfig>>('grouphelper/config/group-group-config/get', { groupId }),
+  groupGroupConfigUpdate: (groupId: string, config: Partial<GroupConfig>) =>
+    call<{ success: boolean }>('grouphelper/config/group-group-config/update', { groupId, config }),
   create: (guildId: string) => call<{ success: boolean }>('grouphelper/config/create', { guildId }),
   delete: (guildId: string) => call<{ success: boolean }>('grouphelper/config/delete', { guildId }),
   /** 重新从文件加载配置 */
@@ -69,8 +89,10 @@ export const blacklistApi = {
 export const subscriptionApi = {
   list: (fetchNames?: boolean) => call<Subscription[]>('grouphelper/subscriptions/list', { fetchNames }),
   add: (subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/add', { subscription }),
-  remove: (index: number) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { index }),
-  update: (index: number, subscription: Subscription) => call<{ success: boolean }>('grouphelper/subscriptions/update', { index, subscription }),
+  // 按 type+id 定位，不用数组下标——下标会因他人增删而指向错误的订阅
+  remove: (type: string, id: string) => call<{ success: boolean }>('grouphelper/subscriptions/remove', { type, id }),
+  update: (type: string, id: string, subscription: Subscription) =>
+    call<{ success: boolean }>('grouphelper/subscriptions/update', { type, id, subscription }),
 }
 
 export interface ModuleStatus {
@@ -215,14 +237,31 @@ export const authApi = {
   updateRole: (role: Role) => call<{ success: boolean }>('grouphelper/auth/role/update', { role }),
   deleteRole: (roleId: string) => call<{ success: boolean }>('grouphelper/auth/role/delete', { roleId }),
   getUserRoles: (userId: string) => call<string[]>('grouphelper/auth/user/get', { userId }),
-  assignRole: (userId: string, roleId: string) => call<{ success: boolean }>('grouphelper/auth/user/assign', { userId, roleId }),
+  getUserBindings: (userId: string) => call<UserRoleBinding[]>('grouphelper/auth/user/bindings', { userId }),
+  assignRole: (userId: string, roleId: string, scope?: AuthScope, assignedBy?: string) =>
+    call<{ success: boolean }>('grouphelper/auth/user/assign', { userId, roleId, scope, assignedBy }),
   revokeRole: (userId: string, roleId: string) => call<{ success: boolean }>('grouphelper/auth/user/revoke', { userId, roleId }),
+  updateUserRoleScope: (userId: string, roleId: string, scope: AuthScope, updatedBy?: string) =>
+    call<{ success: boolean }>('grouphelper/auth/user/scope-update', { userId, roleId, scope, updatedBy }),
   getPermissions: () => call<PermissionNode[]>('grouphelper/auth/permission/list'),
   getRoleMembers: (roleId: string, fetchNames?: boolean) => call<RoleMember[]>('grouphelper/auth/role/members', { roleId, fetchNames }),
   /** 批量导入成员到角色 */
-  importMembers: (roleId: string, userIds: string[]) => call<{ success: boolean; imported: number }>('grouphelper/auth/role/import-members', { roleId, userIds }),
+  importMembers: (roleId: string, userIds: string[], scope?: AuthScope, assignedBy?: string) =>
+    call<{ success: boolean; imported: number }>('grouphelper/auth/role/import-members', { roleId, userIds, scope, assignedBy }),
   /** 获取指定 authority 等级的用户列表 */
   getUsersByAuthority: (authority: number) => call<RoleMember[]>('grouphelper/auth/users-by-authority', { authority }),
   /** 获取指定群的管理员列表 */
   getGuildAdmins: (guildId: string) => call<RoleMember[]>('grouphelper/auth/guild-admins', { guildId }),
+  /** 群组组管理 */
+  getGuildGroups: () => call<GuildGroup[]>('grouphelper/auth/guild-group/list'),
+  updateGuildGroup: (group: GuildGroup) => call<{ success: boolean }>('grouphelper/auth/guild-group/update', { group }),
+  deleteGuildGroup: (groupId: string) => call<{ success: boolean }>('grouphelper/auth/guild-group/delete', { groupId }),
+}
+
+/** 上游信息 API（公告 / 版本 / 更新日志，均由后端代理并缓存） */
+export const upstreamApi = {
+  notice: () => call<{ notice: string }>('grouphelper/upstream/notice'),
+  versions: () =>
+    call<{ main: string | null; dev: string | null; npm: string | null }>('grouphelper/upstream/versions'),
+  commits: () => call<{ commits: any[] }>('grouphelper/upstream/commits'),
 }

@@ -98,7 +98,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { statsApi } from '../api'
+import { message } from '@koishijs/client'
+import { statsApi, upstreamApi } from '../api'
+import { formatTime } from '../utils/format'
 import type { ChartData } from '../api'
 
 // 同步引入组件（修复生产构建问题）
@@ -314,39 +316,47 @@ function dragEnd(e: DragEvent) {
   dragIndex.value = null
 }
 
-// --- 数据加载逻辑 (保持原有) ---
+// --- 数据加载逻辑 ---
+// 公告 / 版本 / 提交记录都经后端代理获取：前端直连 GitHub 与 npm 时没有超时，
+// 国内环境会一直挂起；GitHub 未鉴权接口还按 IP 限流。后端侧有超时与缓存。
 const loadNotice = async () => {
   try {
-    const timestamp = Date.now()
-    const res = await fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/notice.md?t=${timestamp}`, { cache: 'no-store' })
-    if (res.ok) notice.value = await res.text()
-  } catch (e) { console.error(e) }
+    const { notice: text } = await upstreamApi.notice()
+    notice.value = text
+  } catch (e) {
+    console.error('加载公告失败:', e)
+  }
 }
 
 const loadVersions = async () => {
-  const timestamp = Date.now()
-  const fetchOptions = { cache: 'no-store' as RequestCache }
   try {
-    fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/main/package.json?t=${timestamp}`, fetchOptions).then(res => res.json()).then(pkg => versions.main = pkg.version).catch(() => versions.main = 'Fail')
-    fetch(`https://raw.githubusercontent.com/Camvanaa/koishi-plugin-grouphelper/dev/package.json?t=${timestamp}`, fetchOptions).then(res => res.json()).then(pkg => versions.dev = pkg.version).catch(() => versions.dev = 'Fail')
-    fetch('https://registry.npmjs.org/koishi-plugin-grouphelper/latest', fetchOptions).then(res => res.json()).then(pkg => versions.npm = pkg.version).catch(() => versions.npm = 'Fail')
-  } catch (e) {}
+    const data = await upstreamApi.versions()
+    versions.main = data.main ?? 'Fail'
+    versions.dev = data.dev ?? 'Fail'
+    versions.npm = data.npm ?? 'Fail'
+  } catch (e) {
+    versions.main = versions.dev = versions.npm = 'Fail'
+  }
 }
 
 const loadCommits = async () => {
+  commitsError.value = ''
   try {
-    commitsError.value = ''
-    const res = await fetch('https://api.github.com/repos/Camvanaa/koishi-plugin-grouphelper/commits?sha=dev&per_page=5')
-    if (res.ok) commits.value = await res.json()
-    else commitsError.value = `HTTP ${res.status}`
-  } catch (e: any) { commitsError.value = e.message }
+    const data = await upstreamApi.commits()
+    commits.value = data.commits
+    if (!data.commits.length) commitsError.value = '暂时获取不到更新记录'
+  } catch (e: any) {
+    commitsError.value = e.message || '获取失败'
+  }
 }
 
 const loadStats = async () => {
   loading.value = true
   try {
     Object.assign(stats, await statsApi.dashboard())
-  } catch (e) {} finally { loading.value = false }
+  } catch (e: any) {
+    message.error(e.message || '加载统计数据失败')
+  } finally { loading.value = false }
 }
 
 const loadCharts = async () => {
@@ -354,10 +364,10 @@ const loadCharts = async () => {
   try {
     const data = await statsApi.charts(7)
     Object.assign(chartData, data)
-  } catch (e) {} finally { chartLoading.value = false }
+  } catch (e: any) {
+    message.error(e.message || '加载图表数据失败')
+  } finally { chartLoading.value = false }
 }
-
-const formatTime = (ts: number) => new Date(ts).toLocaleString('zh-CN')
 
 onMounted(() => {
   loadStats(); loadNotice(); loadVersions(); loadCommits(); loadCharts()

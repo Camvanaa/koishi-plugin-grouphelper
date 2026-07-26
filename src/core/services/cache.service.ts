@@ -44,10 +44,49 @@ interface CacheData {
   [key: string]: unknown
 }
 
+/**
+ * 各类缓存的条目上限。超出后按 lastUpdate 淘汰最旧的一批。
+ *
+ * 过期时间只决定"要不要刷新"，从不删除条目，因此没有上限的话
+ * cache.json 会随机器人见过的群/用户/成员组合无限增长；
+ * members 是 guildId×userId 组合，增长最快，给的配额也最大。
+ */
+const CACHE_LIMITS = {
+  guilds: 1000,
+  users: 5000,
+  members: 20000
+} as const
+
+/** 触发淘汰时一次清理到上限的比例，避免每次写入都要排序 */
+const CACHE_EVICT_RATIO = 0.9
+
 export class CacheService {
   private store: JsonDataStore<CacheData>
   private logger: any
   private cacheExpiry = 7 * 24 * 60 * 60 * 1000 // 7天过期
+
+  /** 释放底层存储：落盘挂起的写入并停掉定时器 */
+  dispose(): void {
+    this.store.dispose()
+  }
+
+  /**
+   * 若某类缓存超出上限，按 lastUpdate 从旧到新淘汰到 90%。
+   * 就地修改传入的 data，由调用方负责写回。
+   */
+  private evictIfNeeded(data: CacheData, kind: keyof typeof CACHE_LIMITS): void {
+    const limit = CACHE_LIMITS[kind]
+    const bucket = data[kind] as Record<string, { lastUpdate: number }>
+    const keys = Object.keys(bucket)
+    if (keys.length <= limit) return
+
+    const keepCount = Math.floor(limit * CACHE_EVICT_RATIO)
+    const sorted = keys.sort((a, b) => (bucket[b]?.lastUpdate || 0) - (bucket[a]?.lastUpdate || 0))
+    for (const key of sorted.slice(keepCount)) {
+      delete bucket[key]
+    }
+    this.logger.debug(`缓存 ${kind} 超出上限 ${limit}，已淘汰 ${keys.length - keepCount} 条`)
+  }
 
   constructor(private ctx: Context, dataDir: string) {
     this.logger = ctx.logger('grouphelper:cache')
@@ -95,6 +134,7 @@ export class CacheService {
 
           const data = this.store.getAll()
           data.guilds[guildId] = info
+          this.evictIfNeeded(data, 'guilds')
           this.store.setAll(data)
           return info
         }
@@ -141,6 +181,7 @@ export class CacheService {
 
           const data = this.store.getAll()
           data.users[userId] = info
+          this.evictIfNeeded(data, 'users')
           this.store.setAll(data)
           return info
         }
@@ -189,6 +230,7 @@ export class CacheService {
 
           const data = this.store.getAll()
           data.members[key] = info
+          this.evictIfNeeded(data, 'members')
           this.store.setAll(data)
           return info
         }

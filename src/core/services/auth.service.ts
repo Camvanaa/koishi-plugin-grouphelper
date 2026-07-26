@@ -1,6 +1,6 @@
 import { Context, Service, Session } from 'koishi'
 import { DataManager } from '../data'
-import { Role, PermissionNode, RegisteredCommand } from '../../types'
+import { AuthScope, Role, PermissionNode, RegisteredCommand, UserRoleBinding } from '../../types'
 
 /** 内置角色 ID 列表 */
 export const BUILTIN_ROLE_IDS = [
@@ -30,6 +30,259 @@ export class AuthService {
     
     // 初始化内置角色
     this.initBuiltinRoles()
+
+    // 迁移旧版权限数据
+    this.migrateAuthData()
+  }
+
+  private normalizeScope(scope?: AuthScope): AuthScope {
+    if (!scope || !scope.type) return { type: 'global' }
+    if (scope.type === 'guilds') {
+      return {
+        type: 'guilds',
+        guildIds: Array.isArray(scope.guildIds) ? scope.guildIds : []
+      }
+    }
+    if (scope.type === 'guildGroup') {
+      return {
+        type: 'guildGroup',
+        guildGroupIds: Array.isArray(scope.guildGroupIds) ? scope.guildGroupIds : []
+      }
+    }
+    return { type: 'global' }
+  }
+
+  private getRoleScope(role: Role): AuthScope {
+    if (role.scope) return this.normalizeScope(role.scope)
+    if (Array.isArray(role.guildIds) && role.guildIds.length > 0) {
+      return { type: 'guilds', guildIds: role.guildIds }
+    }
+    return { type: 'global' }
+  }
+
+  private intersectScopes(a?: AuthScope, b?: AuthScope): AuthScope | null {
+    const left = this.normalizeScope(a)
+    const right = this.normalizeScope(b)
+
+    if (left.type === 'global') return right
+    if (right.type === 'global') return left
+
+    if (left.type !== right.type) return null
+
+    if (left.type === 'guilds') {
+      const set = new Set(left.guildIds || [])
+      const intersected = (right.guildIds || []).filter(id => set.has(id))
+      return intersected.length ? { type: 'guilds', guildIds: intersected } : null
+    }
+
+    if (left.type === 'guildGroup') {
+      const set = new Set(left.guildGroupIds || [])
+      const intersected = (right.guildGroupIds || []).filter(id => set.has(id))
+      return intersected.length ? { type: 'guildGroup', guildGroupIds: intersected } : null
+    }
+
+    return null
+  }
+
+  private isGuildInScope(scope: AuthScope, guildId?: string): boolean {
+    if (!guildId) return false
+    if (scope.type === 'global') return true
+    if (scope.type === 'guilds') {
+      return (scope.guildIds || []).includes(guildId)
+    }
+    if (scope.type === 'guildGroup') {
+      const groups = this.data.guildGroups.get('groups') || {}
+      const targetIds = scope.guildGroupIds || []
+      for (const groupId of targetIds) {
+        const group = groups[groupId]
+        if (group && Array.isArray(group.guildIds) && group.guildIds.includes(guildId)) {
+          return true
+        }
+      }
+      return false
+    }
+    return false
+  }
+
+  private roleHasPermission(role: Role, node: string): boolean {
+    const perms = role.permissions || []
+    if (perms.includes(node)) return true
+    if (perms.includes('*')) return true
+
+    const parts = node.split('.')
+    let current = ''
+    for (let i = 0; i < parts.length - 1; i++) {
+      current += (i === 0 ? '' : '.') + parts[i]
+      if (perms.includes(current + '.*')) return true
+    }
+
+    return false
+  }
+
+  private mergeScopes(scopes: AuthScope[]): AuthScope[] {
+    if (scopes.some(scope => scope.type === 'global')) {
+      return [{ type: 'global' }]
+    }
+
+    const guilds = new Set<string>()
+    const groups = new Set<string>()
+
+    for (const scope of scopes) {
+      if (scope.type === 'guilds') {
+        for (const id of scope.guildIds || []) guilds.add(id)
+      } else if (scope.type === 'guildGroup') {
+        for (const id of scope.guildGroupIds || []) groups.add(id)
+      }
+    }
+
+    const merged: AuthScope[] = []
+    if (guilds.size) merged.push({ type: 'guilds', guildIds: Array.from(guilds) })
+    if (groups.size) merged.push({ type: 'guildGroup', guildGroupIds: Array.from(groups) })
+    return merged
+  }
+
+  getPermissionScopes(session: Session, node: string): AuthScope[] {
+    const scopes: AuthScope[] = []
+    const roles = this.data.authRoles.get('roles') || {}
+    const authority = (session.user as any)?.authority || 0
+    const guildId = session.guildId
+    const userId = session.userId
+
+    const addRoleScope = (roleId: string, bindingScope?: AuthScope, overrideScope?: AuthScope) => {
+      const role = roles[roleId]
+      if (!role) return
+      if (!this.roleHasPermission(role, node)) return
+
+      const roleScope = overrideScope || this.getRoleScope(role)
+      const effectiveScope = bindingScope ? this.intersectScopes(roleScope, bindingScope) : roleScope
+      if (!effectiveScope) return
+      scopes.push(effectiveScope)
+    }
+
+    if (authority >= 1) addRoleScope('authority1')
+    if (authority >= 2) addRoleScope('authority2')
+    if (authority >= 3) addRoleScope('authority3')
+    if (authority >= 4) addRoleScope('authority4+')
+
+    const isGuildAdmin = this.checkGuildAdmin(session)
+    if (isGuildAdmin && guildId) {
+      addRoleScope('guild-admin', undefined, { type: 'guilds', guildIds: [guildId] })
+    }
+
+    if (userId) {
+      const userBindings = this.getUserRoleBindings(userId)
+      for (const binding of userBindings) {
+        addRoleScope(binding.roleId, binding.scope)
+      }
+    }
+
+    return this.mergeScopes(scopes)
+  }
+
+  /**
+   * 判断用户能否对指定群执行该权限节点的操作。
+   *
+   * check() 只回答"有没有这个权限"，而带群号参数的命令（kick / ban / send / quit-group 等）
+   * 还必须回答"能不能对这个群用"——权限往往是在某个群里获得的（如 guild-admin），
+   * 若不校验作用域，在 A 群拿到权限即可操作机器人所在的任意群。
+   */
+  canActOnGuild(session: Session, node: string, guildId: string): boolean {
+    if (!guildId) return false
+    const scopes = this.getPermissionScopes(session, node)
+    return scopes.some(scope => this.isGuildInScope(scope, guildId))
+  }
+
+  getDefaultScopeForPermission(session: Session, node: string): AuthScope | null {
+    const scopes = this.getPermissionScopes(session, node)
+    if (scopes.length === 1) return scopes[0]
+    return null
+  }
+
+  isScopeAllowed(allowedScopes: AuthScope[], requestedScope: AuthScope): boolean {
+    if (requestedScope.type === 'global') {
+      return allowedScopes.some(scope => scope.type === 'global')
+    }
+
+    for (const scope of allowedScopes) {
+      if (scope.type === 'global') return true
+      if (scope.type !== requestedScope.type) continue
+      if (scope.type === 'guilds') {
+        const allowed = new Set(scope.guildIds || [])
+        const reqIds = requestedScope.guildIds || []
+        if (reqIds.every(id => allowed.has(id))) return true
+      } else if (scope.type === 'guildGroup') {
+        const allowed = new Set(scope.guildGroupIds || [])
+        const reqIds = requestedScope.guildGroupIds || []
+        if (reqIds.every(id => allowed.has(id))) return true
+      }
+    }
+
+    return false
+  }
+
+  private migrateAuthData(): void {
+    const roles = this.data.authRoles.get('roles') || {}
+    let rolesChanged = false
+    const fallbackScope: AuthScope = { type: 'global' }
+
+    for (const roleId of Object.keys(roles)) {
+      const role = roles[roleId]
+      if (!role.scope) {
+        role.scope = this.getRoleScope(role)
+        rolesChanged = true
+      }
+    }
+
+    if (rolesChanged) {
+      this.data.authRoles.set('roles', roles)
+      this.data.authRoles.flush()
+    }
+
+    const users = this.data.authUsers.get('users') || {}
+    let usersChanged = false
+
+    for (const userId of Object.keys(users)) {
+      const bindings = users[userId]
+      if (!Array.isArray(bindings)) continue
+
+      if (bindings.length === 0) {
+        users[userId] = [] as UserRoleBinding[]
+        continue
+      }
+
+      if (typeof bindings[0] === 'string') {
+        const roleIds = bindings as unknown as string[]
+        const migrated = roleIds.map(roleId => {
+          const role = roles[roleId]
+          return {
+            roleId,
+            scope: role ? this.getRoleScope(role) : fallbackScope
+          }
+        })
+        users[userId] = migrated as unknown as UserRoleBinding[]
+        usersChanged = true
+        continue
+      }
+
+      const normalized: UserRoleBinding[] = []
+      let changed = false
+      for (const item of bindings as unknown as UserRoleBinding[]) {
+        if (!item || typeof item !== 'object') continue
+        const role = roles[item.roleId]
+        const scope = item.scope ? this.normalizeScope(item.scope) : (role ? this.getRoleScope(role) : fallbackScope)
+        if (!item.scope) changed = true
+        normalized.push({ ...item, scope })
+      }
+      if (changed) {
+        users[userId] = normalized
+        usersChanged = true
+      }
+    }
+
+    if (usersChanged) {
+      this.data.authUsers.set('users', users)
+      this.data.authUsers.flush()
+    }
   }
 
   /**
@@ -203,9 +456,9 @@ export class AuthService {
       const users = this.data.authUsers.get('users') || {}
       let changed = false
       for (const userId in users) {
-        const userRoles = users[userId]
-        if (userRoles.includes(roleId)) {
-          users[userId] = userRoles.filter(id => id !== roleId)
+        const userRoles = users[userId] || []
+        if (userRoles.some(binding => binding.roleId === roleId)) {
+          users[userId] = userRoles.filter(binding => binding.roleId !== roleId)
           changed = true
         }
       }
@@ -230,13 +483,17 @@ export class AuthService {
    * - 简短格式: "123456" (纯 QQ 号)
    */
   getUserRoleIds(userId: string): string[] {
+    return this.getUserRoleBindings(userId).map(binding => binding.roleId)
+  }
+
+  getUserRoleBindings(userId: string): UserRoleBinding[] {
     const users = this.data.authUsers.get('users') || {}
-    
+
     // 优先精确匹配
     if (users[userId]) {
       return users[userId]
     }
-    
+
     // 如果是 "platform:id" 格式，尝试匹配纯 id
     if (userId.includes(':')) {
       const pureId = userId.split(':').pop()
@@ -244,14 +501,14 @@ export class AuthService {
         return users[pureId]
       }
     }
-    
+
     // 如果是纯 id 格式，尝试匹配各平台的完整格式
     for (const storedId in users) {
       if (storedId.endsWith(':' + userId)) {
         return users[storedId]
       }
     }
-    
+
     return []
   }
 
@@ -262,7 +519,7 @@ export class AuthService {
     const users = this.data.authUsers.get('users') || {}
     const memberIds: string[] = []
     for (const userId in users) {
-      if (users[userId].includes(roleId)) {
+      if ((users[userId] || []).some(binding => binding.roleId === roleId)) {
         memberIds.push(userId)
       }
     }
@@ -272,7 +529,7 @@ export class AuthService {
   /**
    * 给用户分配角色（内置角色不可手动分配）
    */
-  async assignRole(userId: string, roleId: string): Promise<void> {
+  async assignRole(userId: string, roleId: string, scope?: AuthScope, assignedBy?: string): Promise<void> {
     // 内置角色不可手动分配
     if (this.isBuiltinRole(roleId)) {
       throw new Error('内置角色由系统自动分配，不支持手动添加成员')
@@ -280,8 +537,21 @@ export class AuthService {
     
     const users = this.data.authUsers.get('users') || {}
     const userRoles = users[userId] || []
-    if (!userRoles.includes(roleId)) {
-      userRoles.push(roleId)
+    if (!userRoles.some(binding => binding.roleId === roleId)) {
+      const roles = this.data.authRoles.get('roles') || {}
+      const role = roles[roleId]
+      const roleScope = role ? this.getRoleScope(role) : { type: 'global' as const }
+      const requestedScope = scope ? this.normalizeScope(scope) : roleScope
+      const finalScope = this.intersectScopes(roleScope, requestedScope)
+      if (!finalScope) {
+        throw new Error('角色范围与分配范围无交集')
+      }
+      userRoles.push({
+        roleId,
+        scope: finalScope,
+        assignedBy,
+        assignedAt: Date.now()
+      })
       users[userId] = userRoles
       this.data.authUsers.set('users', users)
     }
@@ -298,10 +568,37 @@ export class AuthService {
     
     const users = this.data.authUsers.get('users') || {}
     const userRoles = users[userId] || []
-    if (userRoles.includes(roleId)) {
-      users[userId] = userRoles.filter(id => id !== roleId)
+    if (userRoles.some(binding => binding.roleId === roleId)) {
+      users[userId] = userRoles.filter(binding => binding.roleId !== roleId)
       this.data.authUsers.set('users', users)
     }
+  }
+
+  async updateUserRoleScope(userId: string, roleId: string, scope: AuthScope, updatedBy?: string): Promise<void> {
+    const users = this.data.authUsers.get('users') || {}
+    const userRoles = users[userId] || []
+    const index = userRoles.findIndex(binding => binding.roleId === roleId)
+    if (index === -1) {
+      throw new Error('用户未绑定该角色')
+    }
+
+    const roles = this.data.authRoles.get('roles') || {}
+    const role = roles[roleId]
+    const roleScope = role ? this.getRoleScope(role) : { type: 'global' as const }
+    const requestedScope = this.normalizeScope(scope)
+    const finalScope = this.intersectScopes(roleScope, requestedScope)
+    if (!finalScope) {
+      throw new Error('角色范围与分配范围无交集')
+    }
+
+    userRoles[index] = {
+      ...userRoles[index],
+      scope: finalScope,
+      assignedBy: updatedBy || userRoles[index].assignedBy,
+      assignedAt: Date.now()
+    }
+    users[userId] = userRoles
+    this.data.authUsers.set('users', users)
   }
 
   /**
@@ -323,36 +620,38 @@ export class AuthService {
     const authority = (session.user as any)?.authority || 0
 
     // 辅助函数：添加角色权限
-    const addRolePermissions = (roleId: string, checkGuildScope = true) => {
+    const addRolePermissions = (roleId: string, bindingScope?: AuthScope, checkGuildScope = true) => {
       const role = roles[roleId]
       if (!role) return
+
+      const roleScope = this.getRoleScope(role)
+      const effectiveScope = bindingScope ? this.intersectScopes(roleScope, bindingScope) : roleScope
+      if (bindingScope && !effectiveScope) return
       
       if (checkGuildScope) {
-        const roleGuildIds = role.guildIds || []
-        const isGlobal = roleGuildIds.length === 0
-        const isInScope = guildId && roleGuildIds.includes(guildId)
-        if (!isGlobal && !isInScope) return
+        const scopeToCheck = effectiveScope || roleScope
+        if (!this.isGuildInScope(scopeToCheck, guildId)) return
       }
       
       role.permissions?.forEach(p => perms.add(p))
     }
 
     // 1. 内置 Authority 角色（根据 Koishi 权限等级自动分配，全局生效）
-    if (authority >= 1) addRolePermissions('authority1', false)
-    if (authority >= 2) addRolePermissions('authority2', false)
-    if (authority >= 3) addRolePermissions('authority3', false)
-    if (authority >= 4) addRolePermissions('authority4+', false)
+    if (authority >= 1) addRolePermissions('authority1', undefined, false)
+    if (authority >= 2) addRolePermissions('authority2', undefined, false)
+    if (authority >= 3) addRolePermissions('authority3', undefined, false)
+    if (authority >= 4) addRolePermissions('authority4+', undefined, false)
 
     // 2. 群管理员角色（根据群内身份自动分配，仅当前群生效）
     // 检查用户是否为群管理员或群主
     const isGuildAdmin = this.checkGuildAdmin(session)
     if (isGuildAdmin && guildId) {
-      addRolePermissions('guild-admin', false) // guild-admin 的权限仅在群内触发
+      addRolePermissions('guild-admin', undefined, false) // guild-admin 的权限仅在群内触发
     }
 
     // 3. 用户手动分配的角色
-    const userRoleIds = this.getUserRoleIds(user)
-    userRoleIds.forEach(roleId => addRolePermissions(roleId, true))
+    const userBindings = this.getUserRoleBindings(user)
+    userBindings.forEach(binding => addRolePermissions(binding.roleId, binding.scope, true))
 
     return perms
   }

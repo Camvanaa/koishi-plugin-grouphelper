@@ -2,6 +2,7 @@ import { Context, Session, Element } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config, RecalledMessage, GroupConfig } from '../../types'
+import { parseBoolOption } from '../../utils'
 
 interface CachedMessage {
   content: string
@@ -185,10 +186,20 @@ export class AntiRecallModule extends BaseModule {
       content,
       timestamp: originalTimestamp,
       recallTime: Date.now(),
+      // OneBot 的 group_recall 事件携带 operator_id；与 userId 不同时说明是管理员/群主撤回
+      operatorId: session.operatorId,
       elements: session.elements || []
     }
 
     this.saveRecalledMessage(recalledMessage)
+
+    // bot 自己执行的撤回（举报自动撤回、踢出前撤回等处置动作）只记录不推送，
+    // 避免把刚处置掉的违规内容再次扩散给订阅者
+    if (recalledMessage.operatorId && recalledMessage.operatorId === session.selfId) {
+      this.logInfo(`bot 处置撤回已记录（不推送）: guild=${session.guildId}, user=${recalledMessage.userId}`)
+      return
+    }
+
     await this.sendRecallNotification(session, recalledMessage)
   }
 
@@ -222,15 +233,28 @@ export class AntiRecallModule extends BaseModule {
       const config = this.getAntiRecallConfig(session.guildId)
       const timeStr = config?.showOriginalTime ? new Date(recalledMessage.timestamp).toLocaleString('zh-CN') : ''
 
-      let notification = `检测到撤回消息\n`
+      // 来源群标识：优先显示群名，失败时降级为纯群号
+      let guildLabel = session.guildId
+      try {
+        const info = await this.ctx.groupHelper.cache.getGuildInfo(session.guildId)
+        if (info?.name) guildLabel = `${info.name}(${session.guildId})`
+      } catch {}
+
+      let notification = `[防撤回] 来源群: ${guildLabel}\n`
       notification += `用户: ${recalledMessage.username}(${recalledMessage.userId})\n`
+      // 操作者与发送者不同时，说明是管理员/群主撤回
+      if (recalledMessage.operatorId && recalledMessage.operatorId !== recalledMessage.userId) {
+        notification += `操作者: ${recalledMessage.operatorId}（管理员/群主撤回）\n`
+      }
       if (timeStr) {
         notification += `发送时间: ${timeStr}\n`
       }
-      notification += `内容: ${recalledMessage.content}`
+      // 必须净化：原文若含 <at id="all"/> 或图片元素，直接推送会被 Koishi 当元素解析，
+      // 等于在订阅群里真的 @全体成员、重发图片——撤回内容反而二次扩散
+      notification += `内容: ${this.sanitizeContentForDisplay(recalledMessage.content)}`
 
-      // 使用统一的推送服务
-      await this.ctx.groupHelper.pushMessage(session.bot, notification, 'antiRecall')
+      // 使用统一的推送服务（携带来源群，供订阅方按群过滤）
+      await this.ctx.groupHelper.pushMessage(session.bot, notification, 'antiRecall', { sourceGuildId: session.guildId })
     } catch (e) {
       this.data.writeLog(`[antirecall] 发送撤回通知失败: ${e}`)
     }
@@ -416,6 +440,9 @@ export class AntiRecallModule extends BaseModule {
               const originalTime = new Date(record.timestamp).toLocaleString('zh-CN')
               message += `   发送于: ${originalTime}\n`
             }
+            if (record.operatorId && record.operatorId !== record.userId) {
+              message += `   由管理员 ${record.operatorId} 撤回\n`
+            }
             message += `   撤回于: ${recallTime}\n\n`
           })
 
@@ -454,11 +481,9 @@ export class AntiRecallModule extends BaseModule {
 
         if (options.enabled !== undefined) {
           const enabledStr = options.enabled.toString().toLowerCase()
-          if (['true', '1', 'yes', 'y', 'on'].includes(enabledStr)) {
-            updates.enabled = true
-            messages.push('已启用防撤回')
-          } else if (['false', '0', 'no', 'n', 'off'].includes(enabledStr)) {
-            updates.enabled = false
+          const parsed_enabledStr = parseBoolOption(enabledStr)
+          if (parsed_enabledStr !== null) {
+            updates.enabled = parsed_enabledStr
             messages.push('已禁用防撤回')
           }
         }

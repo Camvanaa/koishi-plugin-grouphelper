@@ -7,6 +7,7 @@ import * as path from 'path'
 import { Context } from 'koishi'
 import { createWriteStream, WriteStream } from 'fs'
 import { JsonDataStore } from './json.store'
+import { formatBeijingTime } from '../../utils'
 import type {
   GroupConfig,
   WarnRecord,
@@ -20,7 +21,9 @@ import type {
   CommandLogData,
   LeaveRecord,
   AuthRolesData,
-  AuthUsersData
+  AuthUsersData,
+  GuildGroupsData,
+  GroupGroupConfigData
 } from '../../types'
 
 /** 数据存储映射类型 */
@@ -28,6 +31,8 @@ export interface DataStores {
   warns: JsonDataStore<Record<string, WarnRecord>>
   blacklist: JsonDataStore<Record<string, BlacklistRecord>>
   groupConfig: JsonDataStore<Record<string, GroupConfig>>
+  guildGroups: JsonDataStore<GuildGroupsData>
+  groupGroupConfig: JsonDataStore<GroupGroupConfigData>
   mutes: JsonDataStore<Record<string, Record<string, MuteRecord>>>
   banmeRecords: JsonDataStore<Record<string, BanMeRecord>>
   lockedNames: JsonDataStore<Record<string, LockedName>>
@@ -109,8 +114,54 @@ export class DataManager {
   }
 
   /**
+   * 获取群组组存储
+   */
+  get guildGroups(): JsonDataStore<GuildGroupsData> {
+    if (!this.stores.guildGroups) {
+      this.stores.guildGroups = new JsonDataStore(
+        path.resolve(this.dataPath, 'guild_groups.json'),
+        { groups: {} }
+      )
+    }
+    return this.stores.guildGroups
+  }
+
+  /**
+   * 获取群组组配置存储
+   */
+  get groupGroupConfig(): JsonDataStore<GroupGroupConfigData> {
+    if (!this.stores.groupGroupConfig) {
+      this.stores.groupGroupConfig = new JsonDataStore(
+        path.resolve(this.dataPath, 'group_group_config.json'),
+        { configs: {} }
+      )
+    }
+    return this.stores.groupGroupConfig
+  }
+
+  /**
    * 获取禁言记录存储
    */
+  /**
+   * 登记一条禁言记录。
+   *
+   * 此前 warn / keyword / orderManage / report 各写一份，字段已经分叉：
+   * orderManage 那份漏了 remainingTime 也不 flush。禁言到期检查依赖这些字段，
+   * 因此统一收在数据层，杜绝再次漂移。
+   *
+   * @param duration 禁言时长（毫秒）；传 0 表示解除禁言
+   */
+  recordMute(guildId: string, userId: string, duration: number): void {
+    const guildMutes = this.mutes.get(guildId) || {}
+    guildMutes[userId] = {
+      startTime: Date.now(),
+      duration,
+      remainingTime: duration
+    }
+    this.mutes.set(guildId, guildMutes)
+    this.mutes.flush()
+  }
+
   get mutes(): JsonDataStore<Record<string, Record<string, MuteRecord>>> {
     if (!this.stores.mutes) {
       this.stores.mutes = new JsonDataStore(
@@ -244,13 +295,7 @@ export class DataManager {
    */
   writeLog(message: string): void {
     if (this.logStream) {
-      const date = new Date()
-      date.setHours(date.getHours() + 8)
-      const time = date.toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .slice(0, 16)
-      const logLine = `[${time}] ${message}\n`
+      const logLine = `[${formatBeijingTime()}] ${message}\n`
       this.logStream.write(logLine)
       console.log(logLine.trim())
     }
@@ -277,7 +322,9 @@ export class DataManager {
         store.dispose()
       }
     }
-    this.stores = {}
+    // 刻意保留 this.stores：懒加载 getter 见到空对象会重新 new 一个 store 出来，
+    // 那个新实例会重新读文件、带上自己的定时器，并与重载后新 DataManager 的
+    // 内存快照争抢同一个文件，形成互相覆盖。保留已释放的实例可让写入被安全忽略。
 
     // 关闭日志流
     if (this.logStream) {

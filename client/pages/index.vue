@@ -97,6 +97,7 @@ const menuItems = [
 .grouphelper-app {
   background: var(--bg1);
   height: 100vh;
+  height: 100dvh;
   min-height: 0;
   font-family: var(--gh-font-sans, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif);
 }
@@ -303,8 +304,15 @@ const menuItems = [
   }
 
   .main-content {
-    height: calc(100vh - 52px);
+    /* 移动端：内容区必须是"有界高度 + 自身滚动"（issue #34-2）。
+       k-layout 的祖先容器均为 overflow:hidden，height:auto 无法形成滚动；
+       需扣除移动端恢复显示的 Koishi layout-header（--header-height）与本页 52px 顶部导航；
+       100dvh 适配移动端浏览器地址栏收缩 */
+    height: calc(100vh - 52px - var(--header-height, 3rem));
+    height: calc(100dvh - 52px - var(--header-height, 3rem));
     padding: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -332,43 +340,54 @@ const menuItems = [
     right: 0;
   }
 }
+
+/* 定义在 scoped 块内，Vue 会给关键帧名加上作用域后缀，
+   不会与控制台其它插件的同名动画冲突 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 </style>
 
 <style>
-/* 隐藏 Koishi 控制台自带的 layout-header */
-.grouphelper-app .layout-header {
-  display: none !important;
+/* 隐藏 Koishi 控制台自带的 layout-header —— 仅在桌面端隐藏；
+   移动端必须保留：其中的菜单按钮是切换回控制台其他页面的唯一入口（issue #34-1）。
+   使用 not (max-width) 与移动端断点严格互补，避免 768~769px 小数宽度出现双头部 */
+@media not all and (max-width: 768px) {
+  .grouphelper-app .layout-header {
+    display: none !important;
+  }
 }
 
-/* 全局滚动条样式 - GitHub 风格 */
-::-webkit-scrollbar {
+/* 以下规则一律限定在 .grouphelper-app 内。
+   这是个非 scoped 的样式块，裸写 ::-webkit-scrollbar / :root / * 会影响
+   整个 Koishi 控制台以及其它插件的页面。 */
+
+/* 滚动条样式 - GitHub 风格 */
+.grouphelper-app ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
+.grouphelper-app ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+.grouphelper-app ::-webkit-scrollbar-thumb {
   background-color: var(--k-color-border);
   border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.grouphelper-app ::-webkit-scrollbar-thumb:hover {
   background-color: var(--fg3);
 }
 
-::-webkit-scrollbar-corner {
+.grouphelper-app ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* ========================================
-   全局动画规范 - 克制平衡
-   ======================================== */
-
 /* 统一的过渡时间变量 */
-:root {
+.grouphelper-app {
   --gh-transition-fast: 0.12s ease;
   --gh-transition-normal: 0.15s ease;
   --gh-transition-slow: 0.2s ease;
@@ -376,40 +395,13 @@ const menuItems = [
 
 /* 减少运动偏好支持 */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .grouphelper-app,
+  .grouphelper-app *,
+  .grouphelper-app *::before,
+  .grouphelper-app *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* 统一的入场动画 - 简洁版本 */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes fadeInSubtle {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 统一的加载动画 */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* 统一的骨架屏动画 */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
 }
 </style>

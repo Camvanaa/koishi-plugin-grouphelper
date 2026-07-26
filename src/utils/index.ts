@@ -6,6 +6,126 @@ import { Context } from 'koishi'
 export const MIN_DURATION = 1000
 export const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000
 
+const BEIJING_TIME_FORMAT = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23'
+})
+
+/**
+ * 格式化为北京时间 `YYYY-MM-DD HH:mm`。
+ *
+ * 不要用 `setHours(getHours() + 8)` + `toISOString()`：那是在本地时间上再加 8 小时，
+ * 只有服务器恰好运行在 UTC 时才正确；在本就是 UTC+8 的机器上会整整快 8 小时。
+ */
+export function formatBeijingTime(date: Date = new Date()): string {
+  const parts = BEIJING_TIME_FORMAT.formatToParts(date)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`
+}
+
+const TRUTHY_VALUES = new Set(['true', '1', 'yes', 'y', 'on'])
+const FALSY_VALUES = new Set(['false', '0', 'no', 'n', 'off'])
+
+/**
+ * 解析命令里的布尔开关值。
+ *
+ * 各模块此前各写一份判断，接受的字面量集合已开始不一致。
+ *
+ * @returns true / false，无法识别时返回 null（调用方据此提示格式错误，
+ *          而不是把无法识别的输入静默当成 false）
+ */
+export function parseBoolOption(value: unknown): boolean | null {
+  const text = String(value ?? '').trim().toLowerCase()
+  if (TRUTHY_VALUES.has(text)) return true
+  if (FALSY_VALUES.has(text)) return false
+  return null
+}
+
+/** 关键词以此前缀开头时才按正则处理，其余一律字面量匹配 */
+export const REGEX_KEYWORD_PREFIX = 're:'
+
+/** 显式正则关键词的长度上限，压缩灾难性回溯模式的构造空间 */
+const MAX_REGEX_KEYWORD_LENGTH = 200
+
+/** 编译缓存上限，超出后整体清空（关键词由管理员配置，正常规模远低于此） */
+const REGEX_CACHE_LIMIT = 500
+
+const regexKeywordCache = new Map<string, RegExp | null>()
+
+/**
+ * 把关键词编译成正则。
+ *
+ * 只有以 `re:` 开头的关键词才当正则处理；返回 null 表示调用方应走字面量匹配。
+ * 编译失败或超长的模式同样返回 null，避免把非法输入升级成异常。
+ */
+function compileKeyword(keyword: string): RegExp | null {
+  const cached = regexKeywordCache.get(keyword)
+  if (cached !== undefined) return cached
+
+  let regex: RegExp | null = null
+  if (keyword.startsWith(REGEX_KEYWORD_PREFIX)) {
+    const pattern = keyword.slice(REGEX_KEYWORD_PREFIX.length)
+    if (pattern && pattern.length <= MAX_REGEX_KEYWORD_LENGTH) {
+      try {
+        regex = new RegExp(pattern, 'i')
+      } catch {
+        regex = null
+      }
+    }
+  }
+
+  if (regexKeywordCache.size >= REGEX_CACHE_LIMIT) regexKeywordCache.clear()
+  regexKeywordCache.set(keyword, regex)
+  return regex
+}
+
+/**
+ * 校验一条关键词是否可用，返回错误原因（null 表示合法）。
+ * 供添加关键词的命令在写入前调用，把非法正则挡在配置之外。
+ */
+export function validateKeyword(keyword: string): string | null {
+  if (!keyword) return '关键词不能为空'
+  if (!keyword.startsWith(REGEX_KEYWORD_PREFIX)) return null
+
+  const pattern = keyword.slice(REGEX_KEYWORD_PREFIX.length)
+  if (!pattern) return `${REGEX_KEYWORD_PREFIX} 后面需要跟正则表达式`
+  if (pattern.length > MAX_REGEX_KEYWORD_LENGTH) {
+    return `正则关键词过长（上限 ${MAX_REGEX_KEYWORD_LENGTH} 字符）`
+  }
+  try {
+    new RegExp(pattern, 'i')
+  } catch (e) {
+    return `正则表达式无效：${e instanceof Error ? e.message : String(e)}`
+  }
+  return null
+}
+
+/**
+ * 判断内容是否命中关键词。
+ *
+ * 默认按字面量、大小写不敏感匹配；只有显式以 `re:` 开头的关键词才当正则用。
+ * 这一区分是必要的：关键词由管理员自由输入并对每条消息求值，
+ * 若一律当正则，一条 `(a+)+$` 就足以让任意成员用一串 a 触发灾难性回溯、
+ * 阻塞事件循环拖垮整个机器人；且 `.` 这类模式会误伤全部消息。
+ */
+export function matchesKeyword(content: string, keyword: string): boolean {
+  if (!content || !keyword) return false
+
+  const regex = compileKeyword(keyword)
+  if (regex) return regex.test(content)
+
+  const literal = keyword.startsWith(REGEX_KEYWORD_PREFIX)
+    ? keyword.slice(REGEX_KEYWORD_PREFIX.length)
+    : keyword
+  if (!literal) return false
+  return content.toLowerCase().includes(literal.toLowerCase())
+}
+
 /**
  * 读取数据文件
  * @param filePath 文件路径
@@ -29,21 +149,31 @@ export function saveData(filePath: string, data: any): void {
 }
 
 /**
- * 解析用户ID
- * @param user 用户ID或用户对象
- * @returns 解析后的用户ID
+ * 从各种形式中解析出用户 ID。
+ *
+ * 需要同时覆盖三种来源，此前三个模块各写一份、各只处理其中一部分：
+ *   - Koishi `user:user` 参数传入的 `platform:id`
+ *   - 消息里的 `<at id="123"/>` 元素
+ *   - 用户手输的 `@123` 或裸 `123`
+ *
+ * @returns 解析出的纯 ID，无法解析时返回 null
  */
-export function parseUserId(user: string | any): string {
+export function parseUserId(user: string | any): string | null {
   if (!user) return null
+  const raw = String(user).trim()
+  if (!raw) return null
 
+  const atMatch = raw.match(/<at[^>]*id="([^"]+)"/)
+  if (atMatch) return atMatch[1]
 
-  if (typeof user === 'string') {
-
-    return user.replace(/^@/, '').trim()
+  // platform:id —— 取最后一段，兼容 id 本身不含冒号的所有平台
+  const colonIndex = raw.lastIndexOf(':')
+  if (colonIndex >= 0) {
+    const id = raw.slice(colonIndex + 1).trim()
+    if (id) return id
   }
 
-
-  return String(user).split(':')[1]
+  return raw.replace(/^@/, '').trim() || null
 }
 
 /**
@@ -332,73 +462,6 @@ export function formatDuration(milliseconds: number): string {
   if (seconds % 60 > 0) parts.push(`${seconds % 60}秒`)
 
   return parts.join('')
-}
-
-/**
- * 执行命令的通用函数
- * @param ctx Koishi上下文
- * @param session 会话对象
- * @param commandName 命令名称
- * @param args 命令参数
- * @param options 命令选项
- * @param useAdmin 是否使用管理员权限执行，默认为false
- * @returns 命令执行结果
- */
-export async function executeCommand(
-  ctx: Context,
-  session: any,
-  commandName: string,
-  args: string[] = [],
-  options: Record<string, any> = {},
-  useAdmin: boolean = true
-) {
-  try {
-    console.log(`准备执行命令: ${commandName}，参数: ${JSON.stringify(args)}`)
-
-
-    const command = ctx.$commander.get(commandName, session)
-    if (!command) {
-      const error = `命令 ${commandName} 不存在`
-      console.error(error)
-      return `执行失败: ${error}`
-    }
-
-
-    const originalAuthority = session.user?.authority || 1
-
-
-    if (useAdmin) {
-      if (!session.user) {
-        session.user = { authority: 5 }
-      } else {
-        session.user.authority = 5
-      }
-      console.log(`已临时提升权限至管理员权限(5)执行命令: ${commandName}`)
-    }
-
-    try {
-
-      console.log(`正在执行命令: ${commandName}`)
-      const result = await command.execute({
-        session,
-        args,
-        options
-      })
-
-      console.log(`命令 ${commandName} 执行结果:`, result)
-      return result
-    } finally {
-
-      if (useAdmin && session.user) {
-        session.user.authority = originalAuthority
-        console.log(`已恢复原始权限级别(${originalAuthority})`)
-      }
-    }
-  } catch (error) {
-    const errorMsg = `执行命令 ${commandName} 失败: ${error.message || error}`
-    console.error(errorMsg, error)
-    return `执行失败: ${error.message || '未知错误'}`
-  }
 }
 
 /**

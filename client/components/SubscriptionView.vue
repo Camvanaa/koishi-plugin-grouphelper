@@ -35,10 +35,10 @@
       </div>
 
       <div
-        v-for="(sub, index) in subscriptions"
-        :key="index"
+        v-for="sub in subscriptions"
+        :key="sub.type + ':' + sub.id"
         class="sub-card"
-        @click="editSubscription(sub, index)"
+        @click="editSubscription(sub)"
       >
         <div class="card-header">
           <div class="sub-info">
@@ -156,10 +156,19 @@
               </label>
             </div>
           </div>
+          <div class="form-group" v-if="newSub.features.antiRecall">
+            <label class="form-label">防撤回来源群过滤</label>
+            <input
+              v-model="sourceGuildsInput"
+              type="text"
+              placeholder="群号，逗号/空格分隔；留空 = 接收全部来源群"
+              class="form-input mono"
+            />
+          </div>
         </div>
         <div class="dialog-footer">
           <div class="footer-left">
-            <k-button v-if="editMode" type="danger" @click="removeSubscription(editingIndex)">删除</k-button>
+            <k-button v-if="editMode" type="danger" @click="removeSubscription()">删除</k-button>
           </div>
           <div class="footer-right">
             <k-button @click="showAddDialog = false">取消</k-button>
@@ -208,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { message } from '@koishijs/client'
 import { subscriptionApi } from '../api'
 import type { Subscription } from '../types'
@@ -222,7 +231,7 @@ const showDeleteDialog = ref(false)
 const deleteConfirmId = ref('')
 const subscriptions = ref<Subscription[]>([])
 const editMode = ref(false)
-const editingIndex = ref(-1)
+const editingTarget = ref<{ type: string; id: string } | null>(null)
 
 const newSub = reactive<Subscription>({
   type: 'group',
@@ -237,6 +246,9 @@ const newSub = reactive<Subscription>({
   }
 })
 
+// 防撤回来源群过滤输入（逗号/空格分隔的群号，留空 = 接收全部）
+const sourceGuildsInput = ref('')
+
 const refreshSubscriptions = async () => {
   loading.value = true
   try {
@@ -249,21 +261,43 @@ const refreshSubscriptions = async () => {
 }
 
 const saveSubscription = async () => {
-  if (!newSub.id.trim()) {
+  const targetId = newSub.id.trim()
+  if (!targetId) {
     message.warning('请输入目标ID')
+    return
+  }
+  if (!/^\d+$/.test(targetId)) {
+    message.warning('目标ID应为纯数字')
+    return
+  }
+  newSub.id = targetId
+
+  // 解析防撤回来源群过滤：非法片段要明确报错，
+  // 静默丢弃会让"只收这两个群"悄悄变成"接收全部来源群"
+  const tokens = sourceGuildsInput.value.split(/[,，\s]+/).filter(Boolean)
+  const guildIds = tokens.filter(s => /^\d+$/.test(s))
+  if (tokens.length !== guildIds.length) {
+    const invalid = tokens.filter(s => !/^\d+$/.test(s))
+    message.warning(`来源群号格式不正确：${invalid.join('、')}`)
     return
   }
 
   adding.value = true
   try {
-    if (editMode.value) {
-      await subscriptionApi.update(editingIndex.value, { ...newSub })
+    if (newSub.features.antiRecall && guildIds.length > 0) {
+      newSub.sourceGuildIds = guildIds
+    } else {
+      delete newSub.sourceGuildIds
+    }
+
+    if (editMode.value && editingTarget.value) {
+      await subscriptionApi.update(editingTarget.value.type, editingTarget.value.id, { ...newSub })
       message.success('更新成功')
     } else {
       await subscriptionApi.add({ ...newSub })
       message.success('添加成功')
     }
-    
+
     showAddDialog.value = false
     await refreshSubscriptions()
   } catch (e: any) {
@@ -273,22 +307,32 @@ const saveSubscription = async () => {
   }
 }
 
-const editSubscription = (sub: Subscription, index: number) => {
+const editSubscription = (sub: Subscription) => {
   editMode.value = true
-  editingIndex.value = index
+  // 记录原始 type+id 作为定位依据，即便用户在弹窗里改了 id 也能找回原记录
+  editingTarget.value = { type: sub.type, id: sub.id }
   newSub.type = sub.type
   newSub.id = sub.id
   newSub.features = { ...sub.features }
+  sourceGuildsInput.value = (sub.sourceGuildIds || []).join(', ')
   showAddDialog.value = true
 }
 
 // 监听弹窗关闭，重置状态
 import { watch } from 'vue'
+// 延时重置是为了等过渡动画结束；必须持有句柄，
+// 否则关闭后 300ms 内重新打开另一条订阅，残留的定时器会把表单清空并退出编辑模式
+let resetTimer: ReturnType<typeof setTimeout> | null = null
 watch(showAddDialog, (val) => {
+  if (resetTimer) {
+    clearTimeout(resetTimer)
+    resetTimer = null
+  }
   if (!val) {
-    setTimeout(() => {
+    resetTimer = setTimeout(() => {
+      resetTimer = null
       editMode.value = false
-      editingIndex.value = -1
+      editingTarget.value = null
       newSub.id = ''
       newSub.type = 'group'
       newSub.features = {
@@ -299,31 +343,33 @@ watch(showAddDialog, (val) => {
         memberChange: false,
         antiRecall: false
       }
+      delete newSub.sourceGuildIds
+      sourceGuildsInput.value = ''
     }, 300)
   }
 })
 
-const removeSubscription = (index: number) => {
-  // 如果是从编辑弹窗触发，直接使用当前的 newSub.id
-  // 如果是从列表卡片触发，需要先设置 id
-  if (!editMode.value) {
-    // 列表触发（其实列表触发也应该进入编辑模式或者直接删除，这里假设列表删除按钮逻辑）
-    // 为了统一，我们暂时不支持从列表直接删除，或者在列表点击删除时，先填充 info
-    const sub = subscriptions.value[index]
+onUnmounted(() => {
+  if (resetTimer) clearTimeout(resetTimer)
+})
+
+const removeSubscription = (sub?: Subscription) => {
+  // 从列表卡片触发时先填充目标；从编辑弹窗触发时沿用当前编辑对象
+  if (sub) {
+    editingTarget.value = { type: sub.type, id: sub.id }
     newSub.id = sub.id
-    editingIndex.value = index
   }
-  
+
   deleteConfirmId.value = ''
   showDeleteDialog.value = true
 }
 
 const confirmRemove = async () => {
-  if (deleteConfirmId.value !== newSub.id) return
+  if (deleteConfirmId.value !== newSub.id || !editingTarget.value) return
 
   deleting.value = true
   try {
-    await subscriptionApi.remove(editingIndex.value)
+    await subscriptionApi.remove(editingTarget.value.type, editingTarget.value.id)
     message.success('删除成功')
     showDeleteDialog.value = false
     showAddDialog.value = false
@@ -335,9 +381,15 @@ const confirmRemove = async () => {
   }
 }
 
-const copySubId = () => {
-  navigator.clipboard.writeText(newSub.id)
-  message.success('已复制目标ID')
+const copySubId = async () => {
+  try {
+    await navigator.clipboard.writeText(newSub.id)
+    message.success('已复制目标ID')
+  } catch {
+    // 非 HTTPS 环境或用户拒绝授权时 clipboard 不可用，此处需要明确告知，
+    // 否则用户以为已复制，而删除确认恰好要求手输该 ID
+    message.error('复制失败，请手动复制')
+  }
 }
 
 onMounted(() => {

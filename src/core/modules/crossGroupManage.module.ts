@@ -1,5 +1,5 @@
 /**
- * crossGroupModule - 跨群管理命令模块
+ * CrossGroupManageModule - 跨群管理命令模块
  * 
  * 包含核心群管功能：
  * - quit-group: 退出群聊
@@ -11,7 +11,7 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { Config, MuteRecord } from '../../types'
 import { parseUserId, parseTimeString, formatDuration } from '../../utils'
 
-export class crossGroupModule extends BaseModule {
+export class CrossGroupManageModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'manage-cross-group',
     description: '跨群管理命令模块',
@@ -39,6 +39,13 @@ export class crossGroupModule extends BaseModule {
       .example('quit-group 123456789')
       .action(async ({ session }, groupId) => {
         if (!groupId) return '喵呜...请指定要退出的群聊ID喵~'
+
+        const scopeError = this.checkGuildScope(session, 'quit-group', groupId)
+        if (scopeError) {
+          this.logCommand(session, 'quit-group', groupId, `失败：越权操作群 ${groupId}`, false)
+          return scopeError
+        }
+
         try {
           await session.bot.internal.setGroupLeave(groupId, false)
           this.logCommand(session, 'quit-group', groupId, `成功：已退出群聊 ${groupId}`)
@@ -67,6 +74,13 @@ export class crossGroupModule extends BaseModule {
       .option('s', '-s 静默发送，不显示发送者信息')
       .action(async ({ session, options }, groupId) => {
         if (!session.quote) return '喵喵！请回复要发送的消息呀~'
+        if (!groupId) return '喵呜...请指定目标群号喵~'
+
+        const scopeError = this.checkGuildScope(session, 'send', groupId)
+        if (scopeError) {
+          this.logCommand(session, 'send', groupId, `失败：越权操作群 ${groupId}`, false)
+          return scopeError
+        }
 
         try {
           if (options.s) {

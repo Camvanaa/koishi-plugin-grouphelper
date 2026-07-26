@@ -1,47 +1,12 @@
 <template>
   <div class="chat-view">
     <!-- 侧边栏：会话列表 -->
-    <div class="chat-sidebar">
-      <div class="sidebar-header">
-        <h3>实时消息</h3>
-        <div class="status-indicator">
-          <span class="dot"></span> 实时接收中
-        </div>
-      </div>
-      
-      <!-- 连接群聊按钮 -->
-      <div class="connect-group-bar">
-        <button class="connect-btn" @click="showConnectDialog = true">
-          <k-icon name="plus" /> 新建会话
-        </button>
-      </div>
-
-      <div class="session-list">
-        <div v-if="sessions.length === 0" class="empty-sessions">
-          等待消息...
-        </div>
-        <div
-          v-for="session in sessions"
-          :key="session.id"
-          class="session-item"
-          :class="{ active: currentSessionId === session.id }"
-          @click="selectSession(session.id)"
-        >
-          <div class="session-icon">
-            <img v-if="session.avatar" :src="session.avatar" @error="handleAvatarError($event, true)" />
-            <k-icon v-else :name="session.type === 'group' ? 'users' : 'user'" />
-          </div>
-          <div class="session-info">
-            <div class="session-name" :title="session.name">{{ session.name }}</div>
-            <div class="session-preview">{{ session.lastMessage?.content || '' }}</div>
-          </div>
-          <div class="session-meta">
-            <span class="time">{{ formatTimeShort(session.lastMessage?.timestamp) }}</span>
-            <span class="badge" v-if="session.unread > 0">{{ session.unread }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <SessionList
+      :sessions="sessions"
+      :current-id="currentSessionId"
+      @select="selectSession"
+      @create="showConnectDialog = true"
+    />
 
     <!-- 主区域：聊天窗口 -->
     <div class="chat-main">
@@ -61,8 +26,14 @@
         </div>
 
         <div class="message-list" ref="messageListRef">
+          <div v-if="hiddenMessageCount > 0" class="load-earlier">
+            <button class="load-earlier-btn" @click="showEarlierMessages">
+              查看更早的 {{ Math.min(hiddenMessageCount, MESSAGE_WINDOW_STEP) }} 条消息
+              <span class="load-earlier-hint">（还有 {{ hiddenMessageCount }} 条）</span>
+            </button>
+          </div>
           <div
-            v-for="msg in currentSession.messages"
+            v-for="msg in visibleMessages"
             :key="msg.id"
             class="message-row"
             :class="{ self: isSelf(msg) }"
@@ -70,14 +41,14 @@
           >
             <div class="message-avatar">
               <img v-if="msg.avatar" :src="msg.avatar" @error="handleAvatarError" />
-              <div v-else class="avatar-placeholder">{{ msg.username[0]?.toUpperCase() }}</div>
+              <div v-else class="avatar-placeholder">{{ (msg.username || msg.userId || '?')[0].toUpperCase() }}</div>
             </div>
             <div class="message-content-wrapper">
               <div class="message-meta">
                 <span class="username">{{ msg.username }}</span>
                 <span class="timestamp">{{ formatTimeDetail(msg.timestamp) }}</span>
               </div>
-              <div class="message-bubble" v-html="renderMessage(msg)"></div>
+              <div class="message-bubble" v-html="renderMessage(msg)" @click="handleBubbleClick"></div>
             </div>
           </div>
         </div>
@@ -121,106 +92,18 @@
     </div>
 
     <!-- 右侧：群成员列表（仅群聊显示） -->
-    <div class="members-sidebar" v-if="currentSession?.type === 'group'" :class="{ collapsed: membersSidebarCollapsed }">
-      <div class="members-header">
-        <div class="members-title">
-          <h3>群成员</h3>
-          <span class="member-count" v-if="!loadingMembers">{{ members.length }}</span>
-        </div>
-        <button class="collapse-btn" @click="membersSidebarCollapsed = !membersSidebarCollapsed">
-          {{ membersSidebarCollapsed ? '◀' : '▶' }}
-        </button>
-      </div>
-      
-      <template v-if="!membersSidebarCollapsed">
-        <!-- 搜索框 -->
-        <div class="members-search">
-          <input
-            type="text"
-            v-model="memberSearch"
-            placeholder="搜索成员..."
-            class="search-input"
-          />
-        </div>
-
-        <!-- 成员列表 -->
-        <div class="members-list" v-if="!loadingMembers">
-          <!-- 群主分组 -->
-          <template v-if="filteredOwners.length > 0">
-            <div class="member-group-header">
-              <span class="crown-icon">👑</span> 群主 — {{ filteredOwners.length }}
-            </div>
-            <div
-              v-for="member in filteredOwners"
-              :key="member.id"
-              class="member-item owner"
-              @click="onMemberClick(member)"
-            >
-              <div class="member-avatar">
-                <img :src="member.avatar" @error="handleMemberAvatarError" />
-              </div>
-              <div class="member-info">
-                <div class="member-name">{{ member.name }}</div>
-                <div class="member-title" v-if="member.title">{{ member.title }}</div>
-              </div>
-            </div>
-          </template>
-
-          <!-- 管理员分组 -->
-          <template v-if="filteredAdmins.length > 0">
-            <div class="member-group-header">
-              <span class="admin-icon">⚙️</span> 管理员 — {{ filteredAdmins.length }}
-            </div>
-            <div
-              v-for="member in filteredAdmins"
-              :key="member.id"
-              class="member-item admin"
-              @click="onMemberClick(member)"
-            >
-              <div class="member-avatar">
-                <img :src="member.avatar" @error="handleMemberAvatarError" />
-              </div>
-              <div class="member-info">
-                <div class="member-name">{{ member.name }}</div>
-                <div class="member-title" v-if="member.title">{{ member.title }}</div>
-              </div>
-            </div>
-          </template>
-
-          <!-- 普通成员分组 -->
-          <template v-if="filteredNormalMembers.length > 0">
-            <div class="member-group-header">
-              <span class="member-icon">👤</span> 成员 — {{ filteredNormalMembers.length }}
-            </div>
-            <div
-              v-for="member in filteredNormalMembers"
-              :key="member.id"
-              class="member-item"
-              @click="onMemberClick(member)"
-            >
-              <div class="member-avatar">
-                <img :src="member.avatar" @error="handleMemberAvatarError" />
-              </div>
-              <div class="member-info">
-                <div class="member-name">{{ member.name }}</div>
-                <div class="member-title" v-if="member.title">{{ member.title }}</div>
-              </div>
-            </div>
-          </template>
-
-          <!-- 无搜索结果 -->
-          <div v-if="memberSearch && filteredMembers.length === 0" class="no-members">
-            未找到匹配的成员
-          </div>
-        </div>
-
-        <!-- 加载中 -->
-        <div class="members-loading" v-else>
-          <k-icon name="loader" class="spin" />
-          <span>加载中...</span>
-        </div>
-      </template>
-    </div>
+    <MembersSidebar
+      v-if="currentSession?.type === 'group'"
+      :members="members"
+      :filtered-owners="filteredOwners"
+      :filtered-admins="filteredAdmins"
+      :filtered-normal-members="filteredNormalMembers"
+      :filtered-members="filteredMembers"
+      :loading="loadingMembers"
+      v-model:collapsed="membersSidebarCollapsed"
+      v-model:search="memberSearch"
+      @select="onMemberClick"
+    />
 
     <!-- 右键菜单 -->
     <Teleport to="body">
@@ -318,11 +201,18 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { receive, message } from '@koishijs/client'
 import { chatApi, imageApi, GuildMember } from '../api'
 import type { ChatMessage } from '../types'
+import MembersSidebar from './chat/MembersSidebar.vue'
+import SessionList from './chat/SessionList.vue'
+import { formatTimeDetail } from '../utils/format'
 
 // 图片缓存 - URL -> dataUrl
-const imageCache = reactive<Map<string, string>>(new Map())
+// 刻意不用 reactive：renderMessage 会读它，一旦具备响应性，
+// 任何一张图片代理完成都会触发全部消息重渲染，进而给仍在加载的图片
+// 重新分配 id 并再排一次代理请求，形成自我放大的循环。
+// 图片就位是由 handleProxyImage 直接改 DOM 完成的，不需要响应式。
+const imageCache = new Map<string, string>()
 // 正在加载的图片 URLs
-const loadingImages = reactive<Set<string>>(new Set())
+const loadingImages = new Set<string>()
 
 // 检查 URL 是否需要代理
 const needsProxy = (url: string): boolean => {
@@ -460,24 +350,31 @@ const filteredAdmins = computed(() => filteredMembers.value.filter(m => m.isAdmi
 const filteredNormalMembers = computed(() => filteredMembers.value.filter(m => !m.isAdmin && !m.isOwner))
 
 // 加载群成员
+/**
+ * 请求序号：快速切换会话时先发的请求可能后返回，
+ * 不加判别会让成员列表停留在上一个群，与标题显示的群不一致。
+ */
+let guildMembersRequestId = 0
+
 const loadGuildMembers = async (guildId: string) => {
+  const requestId = ++guildMembersRequestId
   loadingMembers.value = true
   members.value = []
-  
+
   try {
     const result = await chatApi.getGuildMembers(guildId)
+    if (requestId !== guildMembersRequestId) return
     members.value = result.members || []
+    // at 的显示名依赖成员列表，成员到位后已渲染的消息需要重算
+    invalidateRenderCache()
   } catch (e) {
+    if (requestId !== guildMembersRequestId) return
     console.warn('Failed to load guild members:', e)
   } finally {
-    loadingMembers.value = false
+    if (requestId === guildMembersRequestId) {
+      loadingMembers.value = false
+    }
   }
-}
-
-// 处理成员头像加载错误
-const handleMemberAvatarError = (e: Event) => {
-  const img = e.target as HTMLImageElement
-  img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/%3E%3C/svg%3E'
 }
 
 // 点击成员
@@ -632,10 +529,19 @@ const isSelf = (msg: ChatMessage) => {
 }
 
 // 接收消息监听
+// @koishijs/client 的 receive 是 listeners[event] = listener 的单槽实现，
+// 既不能叠加也没有反注册 API。用一个存活标记把回调与组件生命周期绑定，
+// 组件销毁后不再处理推送，也不会继续 mutate 已废弃的 sessions。
+let listenerActive = true
 onMounted(() => {
   receive('grouphelper/chat/message', (data: ChatMessage) => {
+    if (!listenerActive) return
     handleIncomingMessage(data)
   })
+})
+
+onUnmounted(() => {
+  listenerActive = false
 })
 
 const handleIncomingMessage = async (msg: ChatMessage) => {
@@ -690,20 +596,52 @@ const handleIncomingMessage = async (msg: ChatMessage) => {
   }
 
   session.messages.push(msg)
+  // 会话消息只增不删的话，长时间挂机会让内存与 DOM 无界增长并明显卡顿
+  if (session.messages.length > MAX_SESSION_MESSAGES) {
+    session.messages.splice(0, session.messages.length - MAX_SESSION_MESSAGES)
+  }
   session.lastMessage = msg
   
   // 如果不是当前会话，增加未读
   if (currentSessionId.value !== sessionId) {
     session.unread++
-  } else {
+  } else if (isNearBottom()) {
+    // 只有本来就在底部时才跟随新消息；用户上翻查看历史时不应被拽回去
     scrollToBottom()
   }
 }
 
 const currentSession = ref<Session | undefined>(undefined)
 
+/**
+ * 窗口化渲染：只渲染最近若干条消息。
+ *
+ * 消息高度不定（文本与图片混排），定高虚拟滚动不适用；
+ * 这里用聊天软件常见的做法——默认只挂最近一屏多一点的 DOM，
+ * 更早的内容按需展开，把节点数从「会话全部消息」压到常数级。
+ */
+const MESSAGE_WINDOW_INITIAL = 80
+const MESSAGE_WINDOW_STEP = 80
+const visibleCount = ref(MESSAGE_WINDOW_INITIAL)
+
+const visibleMessages = computed(() => {
+  const all = currentSession.value?.messages || []
+  return all.length > visibleCount.value ? all.slice(-visibleCount.value) : all
+})
+
+const hiddenMessageCount = computed(() => {
+  const total = currentSession.value?.messages.length || 0
+  return Math.max(0, total - visibleCount.value)
+})
+
+const showEarlierMessages = () => {
+  visibleCount.value += MESSAGE_WINDOW_STEP
+}
+
 watch(currentSessionId, (newId) => {
   const session = sessions.value.find(s => s.id === newId)
+  // 换会话时收回展开的窗口，否则会带着上一个会话的展开量渲染
+  visibleCount.value = MESSAGE_WINDOW_INITIAL
   if (session) {
     session.unread = 0
     currentSession.value = session
@@ -788,6 +726,15 @@ const connectToChat = async () => {
   connectForm.type = 'group'
 }
 
+/** 距底部多少像素以内算作「在底部」，留出一点余量以容忍行高误差 */
+const NEAR_BOTTOM_THRESHOLD = 80
+
+const isNearBottom = (): boolean => {
+  const el = messageListRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD
+}
+
 const scrollToBottom = () => {
   if (messageListRef.value) {
     messageListRef.value.scrollTop = messageListRef.value.scrollHeight
@@ -828,20 +775,6 @@ const sendMessage = async () => {
   }
 }
 
-const formatTimeShort = (ts?: number) => {
-  if (!ts) return ''
-  const date = new Date(ts)
-  const now = new Date()
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
-}
-
-const formatTimeDetail = (ts: number) => {
-  return new Date(ts).toLocaleString('zh-CN')
-}
-
 const handleAvatarError = (e: Event, isSession = false) => {
   const img = e.target as HTMLImageElement
   img.style.display = 'none'
@@ -855,14 +788,83 @@ const handleAvatarError = (e: Event, isSession = false) => {
   }
 }
 
+/** HTML 实体转义。任何进入 v-html 的外部数据都必须先过这一关。 */
+const escapeHtml = (text: unknown): string =>
+  String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+/**
+ * 只放行 http(s) 与 data:image，其余（javascript: 等伪协议）一律丢弃。
+ * 返回值已转义，可直接放进属性值。
+ */
+const sanitizeUrl = (url: unknown): string => {
+  const trimmed = String(url ?? '').trim()
+  if (/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed)) {
+    return escapeHtml(trimmed)
+  }
+  return ''
+}
+
+/** 单个会话保留的最大消息条数 */
+const MAX_SESSION_MESSAGES = 500
+
+/** 暂存标记用的哨兵字符，出现在原文里会被提前剔除，避免伪造标记 */
+const FRAGMENT_MARK = '\u0000'
+
+/**
+ * 已渲染消息的记忆化缓存。
+ *
+ * renderMessage 在模板里被调用，每次组件重渲染都会对全部消息重跑一遍。
+ * 而它并非纯函数——内部会自增图片 id 计数器并用 nextTick 排代理请求，
+ * 于是每来一条新消息，历史所有图片都会重新拉一次代理、并且刚设好的 src
+ * 会被新生成的占位符覆盖成空白。
+ *
+ * 消息内容一旦收到就不再变化，因此按 id 缓存渲染结果既能消除这些副作用，
+ * 又能让 v-html 拿到完全相同的字符串、从而不去动已经加载好图片的 DOM。
+ */
+const renderCache = new Map<string, string>()
+
+/** 缓存上限，配合会话消息上限，避免长期运行后无界增长 */
+const MAX_RENDER_CACHE = MAX_SESSION_MESSAGES * 4
+
+/** 成员名称等外部依赖变化后，已渲染内容需要重算 */
+const invalidateRenderCache = () => renderCache.clear()
+
 const renderMessage = (msg: ChatMessage) => {
   if (!msg.content) return ''
-  
-  let html = msg.content
 
-  // 1. 转义 HTML 特殊字符 (除了标签) - Koishi content 已经是 XML-like 格式
-  // 如果是普通文本，可能会有 < >，但通常 Koishi 会处理。
-  // 为了安全，我们假设 content 是 Koishi 的 element string。
+  const cacheKey = String(msg.id ?? '')
+  if (cacheKey) {
+    const cached = renderCache.get(cacheKey)
+    if (cached !== undefined) return cached
+  }
+
+  const rendered = renderMessageUncached(msg)
+
+  if (cacheKey) {
+    if (renderCache.size >= MAX_RENDER_CACHE) renderCache.clear()
+    renderCache.set(cacheKey, rendered)
+  }
+  return rendered
+}
+
+const renderMessageUncached = (msg: ChatMessage) => {
+
+  // 消息内容整体是不可信输入：昵称、引用内容、图片地址都可由群成员操控。
+  // 这里的做法是——各元素渲染出的 HTML 先暂存并留下哨兵标记，
+  // 最后对剩余原文做整体转义再把安全片段填回去。
+  // 这样任何没被识别为元素的文本都不可能作为 HTML 生效。
+  const safeFragments: string[] = []
+  const stash = (fragment: string): string => {
+    safeFragments.push(fragment)
+    return `${FRAGMENT_MARK}${safeFragments.length - 1}${FRAGMENT_MARK}`
+  }
+
+  let html = msg.content.split(FRAGMENT_MARK).join('')
 
   // 辅助函数：从属性字符串中提取 file 属性
   const extractFileAttr = (attrs: string): string | undefined => {
@@ -872,37 +874,43 @@ const renderMessage = (msg: ChatMessage) => {
 
   // 辅助函数：生成图片 HTML（支持代理）
   // file 参数用于 OneBot get_image API 获取本地缓存（解决 rkey 过期问题）
+  // 点击放大改用事件委托（见 handleBubbleClick），不再内联 onclick：
+  // 内联 handler 里拼接 URL，一个单引号就能闭合并执行任意脚本。
   const createImgTag = (src: string, file?: string) => {
+    const safeSrc = sanitizeUrl(src)
+    if (!safeSrc) return ''
+    const safeFile = file ? escapeHtml(file) : ''
+
     if (needsProxy(src)) {
-      const imgId = generateImageId()
+      const imgId = escapeHtml(generateImageId())
       const cacheKey = file ? `${src}#${file}` : src
       // 如果已缓存，直接用缓存
       if (imageCache.has(cacheKey)) {
         const cachedUrl = imageCache.get(cacheKey)!
         if (cachedUrl !== 'error') {
-          return `<img id="${imgId}" src="${cachedUrl}" class="msg-img" onclick="window.open('${src}', '_blank')">`
+          return `<img id="${imgId}" src="${sanitizeUrl(cachedUrl)}" class="msg-img" data-full-src="${safeSrc}">`
         }
         // 已知失败的图片，直接显示错误状态
-        return `<img id="${imgId}" src="" class="msg-img error" data-original="${src}" alt="图片已过期">`
+        return `<img id="${imgId}" src="" class="msg-img error" data-original="${safeSrc}" alt="图片已过期">`
       }
       // 需要代理加载，先用占位符，然后异步加载
       nextTick(() => handleProxyImage(imgId, src, file))
-      return `<img id="${imgId}" src="" class="msg-img loading" data-original="${src}"${file ? ` data-file="${file}"` : ''} onclick="window.open('${src}', '_blank')">`
+      return `<img id="${imgId}" src="" class="msg-img loading" data-original="${safeSrc}"${safeFile ? ` data-file="${safeFile}"` : ''} data-full-src="${safeSrc}">`
     }
-    return `<img src="${src}" class="msg-img" onclick="window.open('${src}', '_blank')">`
+    return `<img src="${safeSrc}" class="msg-img" data-full-src="${safeSrc}">`
   }
 
   // 2. 替换图片 <img src="..." file="..." /> 或 <img src="..." />
   html = html.replace(/<img\s+([^>]*)src="([^"]+)"([^>]*)\/?>/g, (match, before, src, after) => {
     const attrs = before + after
     const file = extractFileAttr(attrs)
-    return createImgTag(src, file)
+    return stash(createImgTag(src, file))
   })
   // 替换 <image url="..." file="..." /> 格式
   html = html.replace(/<image\s+([^>]*)url="([^"]+)"([^>]*)\/?>/g, (match, before, src, after) => {
     const attrs = before + after
     const file = extractFileAttr(attrs)
-    return createImgTag(src, file)
+    return stash(createImgTag(src, file))
   })
 
   // 3. 替换 At <at id="..." name="..." />
@@ -920,13 +928,13 @@ const renderMessage = (msg: ChatMessage) => {
         displayName = atElement.attrs.name
       }
     }
-    return `<span class="msg-at">@${displayName}</span>`
+    return stash(`<span class="msg-at">@${escapeHtml(displayName)}</span>`)
   })
 
   // 4. 替换表情 <face id="..." />
   html = html.replace(/<face\s+([^>]*)\/?>/g, (match, attrs) => {
     const idMatch = attrs.match(/id="([^"]+)"/)
-    return `<span class="msg-face">[表情:${idMatch ? idMatch[1] : '?'}]</span>`
+    return stash(`<span class="msg-face">[表情:${escapeHtml(idMatch ? idMatch[1] : '?')}]</span>`)
   })
 
   // 4.5 替换引用 <quote id="..." user="..." content="..." /> 或 <quote>...</quote>
@@ -953,7 +961,12 @@ const renderMessage = (msg: ChatMessage) => {
       }
     }
     
-    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
+    return stash(
+      `<div class="msg-quote">` +
+      `<span class="quote-user">${quotedUser ? '@' + escapeHtml(quotedUser) : ''}</span>` +
+      `<span class="quote-content">${quotedContent ? escapeHtml(quotedContent) : '[引用消息]'}</span>` +
+      `</div>`
+    )
   })
 
   // 5. 简单的 CQ 码兼容 (以防万一)
@@ -1014,7 +1027,12 @@ const renderMessage = (msg: ChatMessage) => {
       }
     }
     
-    return `<div class="msg-quote"><span class="quote-user">${quotedUser ? '@' + quotedUser : ''}</span><span class="quote-content">${quotedContent || '[引用消息]'}</span></div>`
+    return stash(
+      `<div class="msg-quote">` +
+      `<span class="quote-user">${quotedUser ? '@' + escapeHtml(quotedUser) : ''}</span>` +
+      `<span class="quote-content">${quotedContent ? escapeHtml(quotedContent) : '[引用消息]'}</span>` +
+      `</div>`
+    )
   })
 
   // 6. 处理 OneBot/Red 协议的特殊图片格式 (如果直接是 URL)
@@ -1022,7 +1040,23 @@ const renderMessage = (msg: ChatMessage) => {
   // 如果内容里包含 http(s) 图片链接，尝试转为 img 标签 (简单处理)
   // 注意：这可能会误伤普通链接，暂时不启用，依赖 Koishi 的解析结果
 
-  return html
+  // 7. 剩下的全是未被识别为元素的原始文本，整体转义后再把安全片段填回去。
+  // 顺序很重要：先转义，昵称里的 <img onerror=...> 之类才不会作为 HTML 生效。
+  return escapeHtml(html).replace(
+    new RegExp(`${FRAGMENT_MARK}(\\d+)${FRAGMENT_MARK}`, 'g'),
+    (_, index) => safeFragments[Number(index)] ?? ''
+  )
+}
+
+/**
+ * 图片点击放大。用事件委托取代内联 onclick——
+ * 内联 handler 需要把 URL 拼进 HTML 属性，一个单引号就能闭合并注入脚本。
+ */
+const handleBubbleClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  if (!target || target.tagName !== 'IMG') return
+  const fullSrc = target.getAttribute('data-full-src')
+  if (fullSrc) window.open(fullSrc, '_blank', 'noopener,noreferrer')
 }
 </script>
 
@@ -1046,6 +1080,8 @@ const renderMessage = (msg: ChatMessage) => {
   --status-danger: #f85149;
 }
 
+
+
 .chat-view {
   height: 100%;
   display: flex;
@@ -1056,151 +1092,7 @@ const renderMessage = (msg: ChatMessage) => {
   font-family: var(--font-sans);
 }
 
-/* Sidebar */
-.chat-sidebar {
-  width: 240px;
-  border-right: 1px solid var(--k-color-divider);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg2);
-}
 
-.sidebar-header {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--k-color-divider);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg1);
-  letter-spacing: -0.01em;
-}
-
-.status-indicator {
-  font-size: 11px;
-  color: var(--k-color-success);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-weight: 500;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--k-color-success);
-  /* 实心小圆点，无发光效果 */
-}
-
-/* Session List */
-.session-list {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.empty-sessions {
-  padding: 32px 16px;
-  text-align: center;
-  color: var(--fg3);
-  font-size: 12px;
-}
-
-.session-item {
-  display: flex;
-  padding: 10px 12px;
-  gap: 10px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  border-left: 2px solid transparent;
-}
-
-.session-item:hover {
-  background: var(--bg3);
-}
-
-.session-item.active {
-  background: var(--k-color-primary-fade);
-  border-left-color: var(--k-color-primary);
-}
-
-.session-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--bg3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--fg3);
-  flex-shrink: 0;
-  overflow: hidden;
-  border: 1px solid var(--k-color-divider);
-}
-
-.session-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.session-info {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-}
-
-.session-name {
-  font-weight: 500;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 13px;
-}
-
-.session-preview {
-  font-size: 11px;
-  color: var(--fg3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.session-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.session-meta .time {
-  font-size: 10px;
-  color: var(--fg3);
-  font-family: var(--font-mono);
-}
-
-.badge {
-  background: var(--k-color-danger);
-  color: #fff;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  min-width: 16px;
-  text-align: center;
-}
 
 /* Main Chat Area */
 .chat-main {
@@ -1210,6 +1102,8 @@ const renderMessage = (msg: ChatMessage) => {
   background: var(--bg1);
 }
 
+
+
 .empty-chat {
   flex: 1;
   display: flex;
@@ -1218,9 +1112,13 @@ const renderMessage = (msg: ChatMessage) => {
   color: var(--fg3);
 }
 
+
+
 .empty-content {
   text-align: center;
 }
+
+
 
 .empty-content h3 {
   margin: 12px 0 8px;
@@ -1229,22 +1127,30 @@ const renderMessage = (msg: ChatMessage) => {
   color: var(--fg2);
 }
 
+
+
 .empty-content p {
   margin: 0;
   font-size: 12px;
   color: var(--fg3);
 }
 
+
+
 .large-icon {
   font-size: 40px;
   opacity: 0.3;
 }
+
+
 
 .chat-container {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
+
+
 
 /* Chat Header */
 .chat-header {
@@ -1256,11 +1162,15 @@ const renderMessage = (msg: ChatMessage) => {
   background: var(--bg2);
 }
 
+
+
 .header-info {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
+
 
 .header-icon {
   width: 28px;
@@ -1274,17 +1184,23 @@ const renderMessage = (msg: ChatMessage) => {
   border: 1px solid var(--k-color-divider);
 }
 
+
+
 .header-icon img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+
+
 .header-name {
   font-weight: 600;
   font-size: 14px;
   color: var(--fg1);
 }
+
+
 
 .header-id {
   font-size: 11px;
@@ -1294,6 +1210,8 @@ const renderMessage = (msg: ChatMessage) => {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
 }
+
+
 
 .platform-tag {
   background: var(--bg3);
@@ -1307,6 +1225,8 @@ const renderMessage = (msg: ChatMessage) => {
   border: 1px solid var(--k-color-divider);
 }
 
+
+
 /* Message List */
 .message-list {
   flex: 1;
@@ -1317,22 +1237,65 @@ const renderMessage = (msg: ChatMessage) => {
   gap: 12px;
 }
 
+
+
+.load-earlier {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 8px;
+}
+
+
+
+.load-earlier-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--fg2);
+  background: transparent;
+  border: 1px solid var(--k-color-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+
+
+.load-earlier-btn:hover {
+  background: var(--bg3);
+  color: var(--fg1);
+}
+
+
+
+.load-earlier-hint {
+  margin-left: 4px;
+  opacity: 0.65;
+}
+
+
+
 .message-row {
   display: flex;
   gap: 10px;
   max-width: 80%;
 }
 
+
+
 .message-row.self {
   align-self: flex-end;
   flex-direction: row-reverse;
 }
+
+
 
 .message-avatar {
   width: 32px;
   height: 32px;
   flex-shrink: 0;
 }
+
+
 
 .message-avatar img {
   width: 100%;
@@ -1341,6 +1304,8 @@ const renderMessage = (msg: ChatMessage) => {
   object-fit: cover;
   border: 1px solid var(--k-color-divider);
 }
+
+
 
 .avatar-placeholder {
   width: 100%;
@@ -1355,15 +1320,21 @@ const renderMessage = (msg: ChatMessage) => {
   font-size: 13px;
 }
 
+
+
 .message-content-wrapper {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
+
+
 .message-row.self .message-content-wrapper {
   align-items: flex-end;
 }
+
+
 
 .message-meta {
   display: flex;
@@ -1373,24 +1344,34 @@ const renderMessage = (msg: ChatMessage) => {
   align-items: baseline;
 }
 
+
+
 .message-row.self .message-meta {
   flex-direction: row-reverse;
 }
+
+
 
 .message-row.self :deep(.msg-at) {
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.15);
 }
 
+
+
 .username {
   font-weight: 500;
   color: var(--fg2);
 }
 
+
+
 .timestamp {
   font-family: var(--font-mono);
   font-size: 10px;
 }
+
+
 
 .message-bubble {
   background: var(--bg3);
@@ -1406,6 +1387,8 @@ const renderMessage = (msg: ChatMessage) => {
   font-size: 13px;
 }
 
+
+
 /* Deep selector required for v-html content in scoped css */
 .message-bubble :deep(.msg-img) {
   max-width: 180px;
@@ -1417,6 +1400,8 @@ const renderMessage = (msg: ChatMessage) => {
   border: 1px solid var(--k-color-divider);
 }
 
+
+
 .message-bubble :deep(.msg-img.loading) {
   width: 80px;
   height: 80px;
@@ -1425,6 +1410,8 @@ const renderMessage = (msg: ChatMessage) => {
   animation: shimmer 1.5s infinite;
   border: 1px dashed var(--k-color-divider);
 }
+
+
 
 .message-bubble :deep(.msg-img.error) {
   width: 80px;
@@ -1439,15 +1426,21 @@ const renderMessage = (msg: ChatMessage) => {
   font-size: 10px;
 }
 
+
+
 .message-bubble :deep(.msg-img.error)::before {
   content: '图片已过期';
   display: block;
 }
 
+
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+
 
 .message-bubble :deep(.msg-at) {
   color: var(--k-color-primary);
@@ -1460,11 +1453,15 @@ const renderMessage = (msg: ChatMessage) => {
   display: inline-block;
 }
 
+
+
 .message-bubble :deep(.msg-face) {
   display: inline-block;
   color: var(--fg3);
   font-size: 12px;
 }
+
+
 
 .message-bubble :deep(.msg-quote) {
   background: var(--bg2);
@@ -1479,11 +1476,15 @@ const renderMessage = (msg: ChatMessage) => {
   gap: 2px;
 }
 
+
+
 .message-bubble :deep(.msg-quote .quote-user) {
   font-weight: 600;
   color: var(--k-color-primary);
   font-size: 10px;
 }
+
+
 
 .message-bubble :deep(.msg-quote .quote-content) {
   white-space: nowrap;
@@ -1492,24 +1493,34 @@ const renderMessage = (msg: ChatMessage) => {
   max-width: 260px;
 }
 
+
+
 .message-row.self .message-bubble :deep(.msg-quote) {
   background: rgba(255, 255, 255, 0.1);
   border-left-color: rgba(255, 255, 255, 0.4);
 }
 
+
+
 .message-row.self .message-bubble :deep(.msg-quote .quote-user) {
   color: rgba(255, 255, 255, 0.9);
 }
 
+
+
 .message-row.self .message-bubble :deep(.msg-quote .quote-content) {
   color: rgba(255, 255, 255, 0.7);
 }
+
+
 
 .message-row.self .message-bubble {
   background: var(--k-color-primary);
   color: #fff;
   border-color: transparent;
 }
+
+
 
 /* Input Area */
 .chat-input-area {
@@ -1521,11 +1532,15 @@ const renderMessage = (msg: ChatMessage) => {
   gap: 10px;
 }
 
+
+
 .pending-images {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
+
 
 .pending-image-item {
   position: relative;
@@ -1536,11 +1551,15 @@ const renderMessage = (msg: ChatMessage) => {
   border: 1px solid var(--k-color-divider);
 }
 
+
+
 .pending-image-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
+
 
 .remove-image-btn {
   position: absolute;
@@ -1561,15 +1580,21 @@ const renderMessage = (msg: ChatMessage) => {
   transition: background 0.15s;
 }
 
+
+
 .remove-image-btn:hover {
   background: var(--k-color-danger);
 }
+
+
 
 .input-row {
   display: flex;
   gap: 10px;
   align-items: flex-end;
 }
+
+
 
 .chat-input {
   flex: 1;
@@ -1584,14 +1609,20 @@ const renderMessage = (msg: ChatMessage) => {
   font-size: 13px;
 }
 
+
+
 .chat-input:focus {
   outline: none;
   border-color: var(--k-color-primary);
 }
 
+
+
 .chat-input::placeholder {
   color: var(--fg3);
 }
+
+
 
 .send-btn {
   width: 40px;
@@ -1607,9 +1638,13 @@ const renderMessage = (msg: ChatMessage) => {
   transition: opacity 0.15s ease;
 }
 
+
+
 .send-btn:hover {
   opacity: 0.85;
 }
+
+
 
 .send-btn:disabled {
   background: var(--bg3);
@@ -1617,57 +1652,42 @@ const renderMessage = (msg: ChatMessage) => {
   cursor: not-allowed;
 }
 
+
+
 .spin {
   animation: spin 1s linear infinite;
 }
+
+
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
+
+
 /* Scrollbar - 简洁细窄 */
 ::-webkit-scrollbar {
   width: 5px;
 }
+
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+
 ::-webkit-scrollbar-thumb {
   background-color: var(--k-color-divider);
   border-radius: 3px;
 }
+
+
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--fg3);
 }
 
-/* Connect Group Button */
-.connect-group-bar {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--k-color-divider);
-}
 
-.connect-btn {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px dashed var(--k-color-divider);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--fg3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  font-family: var(--font-sans);
-  transition: all 0.15s ease;
-}
-
-.connect-btn:hover {
-  border-color: var(--k-color-primary);
-  color: var(--k-color-primary);
-  background: var(--k-color-primary-fade);
-}
 
 /* Connect Dialog */
 .connect-dialog-overlay {
@@ -1684,6 +1704,8 @@ const renderMessage = (msg: ChatMessage) => {
   z-index: 1000;
 }
 
+
+
 .connect-dialog {
   background: var(--bg2);
   border-radius: var(--radius-lg);
@@ -1693,6 +1715,8 @@ const renderMessage = (msg: ChatMessage) => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
+
+
 .dialog-header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--k-color-divider);
@@ -1701,12 +1725,16 @@ const renderMessage = (msg: ChatMessage) => {
   justify-content: space-between;
 }
 
+
+
 .dialog-header h3 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--fg1);
 }
+
+
 
 .close-btn {
   width: 24px;
@@ -1723,10 +1751,14 @@ const renderMessage = (msg: ChatMessage) => {
   transition: background-color 0.15s ease;
 }
 
+
+
 .close-btn:hover {
   background: var(--bg3);
   color: var(--fg1);
 }
+
+
 
 .dialog-body {
   padding: 16px;
@@ -1735,11 +1767,15 @@ const renderMessage = (msg: ChatMessage) => {
   gap: 14px;
 }
 
+
+
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
+
 
 .form-group label {
   font-size: 11px;
@@ -1748,6 +1784,8 @@ const renderMessage = (msg: ChatMessage) => {
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+
+
 
 .form-group input,
 .form-group select {
@@ -1760,6 +1798,8 @@ const renderMessage = (msg: ChatMessage) => {
   font-family: var(--font-sans);
 }
 
+
+
 .form-group select {
   cursor: pointer;
   appearance: none;
@@ -1769,10 +1809,14 @@ const renderMessage = (msg: ChatMessage) => {
   padding-right: 28px;
 }
 
+
+
 .form-group select option {
   background: var(--bg1);
   color: var(--fg1);
 }
+
+
 
 .form-group input:focus,
 .form-group select:focus {
@@ -1780,14 +1824,20 @@ const renderMessage = (msg: ChatMessage) => {
   border-color: var(--k-color-primary);
 }
 
+
+
 .form-group input::placeholder {
   color: var(--fg3);
 }
+
+
 
 .radio-group {
   display: flex;
   gap: 16px;
 }
+
+
 
 .radio-label {
   display: flex;
@@ -1798,9 +1848,13 @@ const renderMessage = (msg: ChatMessage) => {
   font-size: 13px;
 }
 
+
+
 .radio-label input[type="radio"] {
   accent-color: var(--k-color-primary);
 }
+
+
 
 .dialog-footer {
   padding: 12px 16px;
@@ -1809,6 +1863,8 @@ const renderMessage = (msg: ChatMessage) => {
   justify-content: flex-end;
   gap: 8px;
 }
+
+
 
 .cancel-btn,
 .confirm-btn {
@@ -1821,16 +1877,22 @@ const renderMessage = (msg: ChatMessage) => {
   font-family: var(--font-sans);
 }
 
+
+
 .cancel-btn {
   border: 1px solid var(--k-color-divider);
   background: transparent;
   color: var(--fg2);
 }
 
+
+
 .cancel-btn:hover {
   background: var(--bg3);
   color: var(--fg1);
 }
+
+
 
 .confirm-btn {
   border: none;
@@ -1838,9 +1900,13 @@ const renderMessage = (msg: ChatMessage) => {
   color: #fff;
 }
 
+
+
 .confirm-btn:hover {
   opacity: 0.85;
 }
+
+
 
 .confirm-btn:disabled {
   background: var(--bg3);
@@ -1848,204 +1914,7 @@ const renderMessage = (msg: ChatMessage) => {
   cursor: not-allowed;
 }
 
-/* Members Sidebar */
-.members-sidebar {
-  width: 200px;
-  border-left: 1px solid var(--k-color-divider);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg2);
-  transition: width 0.2s ease;
-}
 
-.members-sidebar.collapsed {
-  width: 36px;
-}
-
-.members-header {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--k-color-divider);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.members-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.members-sidebar.collapsed .members-title {
-  display: none;
-}
-
-.members-header h3 {
-  margin: 0;
-  font-size: 11px;
-  color: var(--fg2);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.member-count {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  background: var(--bg3);
-  color: var(--fg2);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--k-color-divider);
-}
-
-.collapse-btn {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--fg3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.15s ease;
-}
-
-.collapse-btn:hover {
-  background: var(--bg3);
-  color: var(--fg1);
-}
-
-.members-search {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--k-color-divider);
-}
-
-.members-search .search-input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--k-color-divider);
-  border-radius: var(--radius-md);
-  background: var(--bg1);
-  color: var(--fg1);
-  font-size: 11px;
-  font-family: var(--font-sans);
-}
-
-.members-search .search-input:focus {
-  outline: none;
-  border-color: var(--k-color-primary);
-}
-
-.members-search .search-input::placeholder {
-  color: var(--fg3);
-}
-
-.members-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 0;
-}
-
-.member-group-header {
-  padding: 8px 10px 4px;
-  font-size: 10px;
-  color: var(--fg3);
-  font-weight: 600;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  letter-spacing: 0.02em;
-}
-
-.crown-icon,
-.admin-icon,
-.member-icon {
-  font-size: 10px;
-}
-
-.member-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.member-item:hover {
-  background: var(--bg3);
-}
-
-.member-item.owner .member-name {
-  color: var(--k-color-warning);
-  font-weight: 600;
-}
-
-.member-item.admin .member-name {
-  color: var(--k-color-success);
-  font-weight: 500;
-}
-
-.member-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: var(--bg3);
-  border: 1px solid var(--k-color-divider);
-}
-
-.member-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.member-info {
-  flex: 1;
-  overflow: hidden;
-}
-
-.member-name {
-  font-size: 12px;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.member-title {
-  font-size: 10px;
-  color: var(--fg3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
-}
-
-.members-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  gap: 6px;
-  color: var(--fg3);
-  font-size: 11px;
-}
-
-.no-members {
-  padding: 24px;
-  text-align: center;
-  color: var(--fg3);
-  font-size: 11px;
-}
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -2053,6 +1922,8 @@ const renderMessage = (msg: ChatMessage) => {
     display: none;
   }
 }
+
+
 
 /* Context Menu */
 .context-menu-overlay {
@@ -2063,6 +1934,8 @@ const renderMessage = (msg: ChatMessage) => {
   bottom: 0;
   z-index: 9999;
 }
+
+
 
 .context-menu {
   position: fixed;
@@ -2075,6 +1948,8 @@ const renderMessage = (msg: ChatMessage) => {
   padding: 4px 0;
 }
 
+
+
 .context-menu-item {
   display: flex;
   align-items: center;
@@ -2086,17 +1961,25 @@ const renderMessage = (msg: ChatMessage) => {
   transition: background-color 0.1s ease;
 }
 
+
+
 .context-menu-item:hover {
   background: var(--bg3);
 }
+
+
 
 .context-menu-item.danger {
   color: var(--k-color-danger);
 }
 
+
+
 .context-menu-item.danger:hover {
   background: var(--k-color-danger-fade);
 }
+
+
 
 .menu-icon {
   font-size: 12px;
@@ -2105,11 +1988,15 @@ const renderMessage = (msg: ChatMessage) => {
   opacity: 0.7;
 }
 
+
+
 .context-menu-divider {
   height: 1px;
   background: var(--k-color-divider);
   margin: 4px 0;
 }
+
+
 
 /* ========== Mobile Responsive ========== */
 @media (max-width: 768px) {
@@ -2356,6 +2243,8 @@ const renderMessage = (msg: ChatMessage) => {
     font-size: 13px;
   }
 }
+
+
 
 @media (max-width: 480px) {
   .chat-sidebar {

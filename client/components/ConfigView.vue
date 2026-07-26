@@ -14,6 +14,11 @@
         </div>
       </div>
       <div class="header-actions">
+        <div class="filter-tabs">
+          <button class="filter-btn" :class="{ active: listFilter === 'all' }" @click="listFilter = 'all'">全部</button>
+          <button class="filter-btn" :class="{ active: listFilter === 'guild' }" @click="listFilter = 'guild'">群组</button>
+          <button class="filter-btn" :class="{ active: listFilter === 'group' }" @click="listFilter = 'group'">群组组</button>
+        </div>
         <div class="toggle-wrapper" title="自动获取群名称和头像">
           <label>解析群名</label>
           <el-switch v-model="fetchNames" @change="refreshConfigs" />
@@ -44,6 +49,10 @@
           <k-icon name="plus" />
           新建配置
         </button>
+        <button class="btn btn-primary" @click="createGroupGroup">
+          <k-icon name="layers" />
+          新建群组组
+        </button>
       </div>
     </div>
 
@@ -54,133 +63,17 @@
     </div>
 
     <!-- 群组列表 -->
-    <div v-else class="config-list">
-      <div v-if="Object.keys(filteredConfigs).length === 0" class="empty-state">
-        <k-icon name="inbox" class="empty-icon" />
-        <p>{{ searchQuery ? '未找到匹配的群组' : '暂无群组配置' }}</p>
-      </div>
-
-      <!-- 列表视图 (使用 v-show 让 CSS 可以控制) -->
-      <div v-show="viewMode === 'list'" class="list-table">
-          <div class="list-header">
-            <span class="col-guild">群组信息</span>
-            <span class="col-features">功能开关</span>
-            <span class="col-stats">统计</span>
-            <span class="col-actions">操作</span>
-          </div>
-          <div
-            v-for="(config, guildId) in filteredConfigs"
-            :key="guildId"
-            class="list-row"
-            @click="editConfig(guildId as string)"
-          >
-            <div class="col-guild">
-              <img
-                v-if="fetchNames && config.guildAvatar"
-                :src="config.guildAvatar"
-                class="guild-avatar-sm"
-                @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-              />
-              <k-icon v-else name="users" class="guild-icon-sm" />
-              <div class="guild-text">
-                <span class="guild-name">{{ config.guildName || guildId }}</span>
-                <span class="guild-id-sub" v-if="config.guildName">{{ guildId }}</span>
-              </div>
-            </div>
-            <div class="col-features">
-              <span class="badge-sm" :class="{ active: config.welcomeEnabled }" title="入群欢迎">迎</span>
-              <span class="badge-sm" :class="{ active: config.goodbyeEnabled }" title="退群欢送">送</span>
-              <span class="badge-sm" :class="{ active: config.antiRecall?.enabled }" title="防撤回">撤</span>
-              <span class="badge-sm" :class="{ active: config.antiRepeat?.enabled }" title="复读检测">复</span>
-              <span class="badge-sm" :class="{ active: config.dice?.enabled }" title="掷骰子">骰</span>
-              <span class="badge-sm" :class="{ active: config.banme?.enabled }" title="自我禁言">禁</span>
-              <span class="badge-sm" :class="{ active: config.openai?.enabled }" title="AI助手">AI</span>
-              <span class="badge-sm" :class="{ active: config.report?.enabled }" title="举报功能">报</span>
-            </div>
-            <div class="col-stats">
-              <span v-if="config.approvalKeywords?.length" title="入群验证词"><b>{{ config.approvalKeywords.length }}</b> 验证</span>
-              <span v-if="config.keywords?.length" title="违规词"><b>{{ config.keywords.length }}</b> 违规</span>
-              <span v-if="!config.approvalKeywords?.length && !config.keywords?.length" class="muted">-</span>
-            </div>
-            <div class="col-actions" @click.stop>
-              <button class="action-btn" @click="copyGuildId(guildId as string)" title="复制群号">
-                <k-icon name="copy" />
-                <span>复制</span>
-              </button>
-              <button class="action-btn" @click="editConfig(guildId as string)" title="编辑配置">
-                <k-icon name="edit-2" />
-                <span>编辑</span>
-              </button>
-              <button class="action-btn danger" @click="deleteConfig(guildId as string)" title="删除配置">
-                <k-icon name="trash-2" />
-                <span>删除</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-      <!-- 卡片视图 (使用 v-show 让 CSS 可以控制) -->
-      <div v-show="viewMode === 'grid'" class="card-grid">
-          <div
-            v-for="(config, guildId) in filteredConfigs"
-            :key="guildId"
-            class="config-card"
-            @click="editConfig(guildId as string)"
-          >
-            <div class="card-header">
-              <div class="guild-info">
-                <img
-                  v-if="fetchNames && config.guildAvatar"
-                  :src="config.guildAvatar"
-                  class="guild-avatar"
-                  @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
-                />
-                <k-icon v-else name="users" class="guild-icon" />
-                <span class="guild-id">{{ config.guildName ? `${config.guildName} (${guildId})` : guildId }}</span>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- 简化的功能指示器 -->
-              <div class="feature-badges">
-                <span class="badge" :class="{ active: config.welcomeEnabled }" title="欢迎消息">迎</span>
-                <span class="badge" :class="{ active: config.goodbyeEnabled }" title="欢送消息">送</span>
-                <span class="badge" :class="{ active: config.antiRecall?.enabled }" title="防撤回">撤</span>
-                <span class="badge" :class="{ active: config.antiRepeat?.enabled }" title="复读检测">复</span>
-                <span class="badge" :class="{ active: config.openai?.enabled }" title="AI助手">AI</span>
-                <span class="badge" :class="{ active: config.report?.enabled }" title="举报功能">报</span>
-              </div>
-
-              <!-- 统计信息单行 -->
-              <div class="card-stats">
-                <span class="stat-item" v-if="config.approvalKeywords?.length">
-                  <span class="stat-num">{{ config.approvalKeywords.length }}</span> 入群词
-                </span>
-                <span class="stat-item" v-if="config.keywords?.length">
-                  <span class="stat-num">{{ config.keywords.length }}</span> 禁言词
-                </span>
-                <span class="stat-item placeholder" v-if="!config.approvalKeywords?.length && !config.keywords?.length">
-                  暂无配置
-                </span>
-              </div>
-            </div>
-
-            <div class="card-footer">
-              <k-button size="small" @click.stop="copyGuildId(guildId as string)" title="复制群号">
-                <template #icon><k-icon name="copy" /></template>
-                复制
-              </k-button>
-              <k-button size="small" @click.stop="editConfig(guildId as string)" title="编辑配置">
-                <template #icon><k-icon name="edit-2" /></template>
-                编辑
-              </k-button>
-              <k-button size="small" type="danger" @click.stop="deleteConfig(guildId as string)" title="删除配置">
-                <template #icon><k-icon name="trash-2" /></template>
-                删除
-              </k-button>
-            </div>
-          </div>
-        </div>
-    </div>
+    <ConfigListPanel
+      v-else
+      :list-items="combinedListItems"
+      :grid-items="combinedGridItems"
+      :view-mode="viewMode"
+      :fetch-names="fetchNames"
+      :search-query="searchQuery"
+      @open="onListOpen"
+      @remove="onListRemove"
+      @copy="copyGuildId"
+    />
 
     <!-- 新建配置弹窗 -->
     <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
@@ -214,7 +107,8 @@
     <div v-if="showEditDialog" class="edit-overlay" @click.self="showEditDialog = false">
       <div class="edit-dialog large">
         <div class="dialog-header">
-          <h3>编辑群组配置 - {{ editingGuildId }}</h3>
+          <h3 v-if="editingMode === 'guild'">编辑群组配置 - {{ editingGuildId }}</h3>
+          <h3 v-else>编辑群组组配置 - {{ editingGroupGroupId }}</h3>
           <button class="close-btn" @click="showEditDialog = false">
             <k-icon name="x" />
           </button>
@@ -249,6 +143,15 @@
             </div>
             <div class="divider" style="margin: 0.5rem 0.75rem; width: auto; opacity: 0.5;"></div>
             <div
+              v-if="editingMode === 'group'"
+              class="sidebar-item"
+              :class="{ active: activeTab === 'group-meta' }"
+              @click="activeTab = 'group-meta'"
+            >
+              <k-icon name="layers" />
+              <span>群组组信息</span>
+            </div>
+            <div
               class="sidebar-item"
               :class="{ active: activeTab === 'plugins' }"
               @click="activeTab = 'plugins'"
@@ -260,15 +163,68 @@
 
           <!-- 右侧内容区 -->
           <div class="edit-content">
+            <div v-if="editingMode === 'group'" class="section-hint">
+              群组组配置为局部合并，保存后将应用到该群组组包含的所有群聊。
+            </div>
+            <div v-if="editingMode === 'group' && activeTab === 'group-meta'" class="config-section">
+              <div class="section-title">群组组信息</div>
+              <div class="form-group">
+                <label>群组组名称</label>
+                <input type="text" v-model="editingGroupMeta.name" class="form-input" placeholder="群组组名称">
+              </div>
+              <div class="form-group">
+                <label>群组组 ID</label>
+                <input type="text" v-model="editingGroupMeta.id" class="form-input" :disabled="!isGroupGroupNew">
+              </div>
+              <div class="form-group">
+                <label>描述</label>
+                <input type="text" v-model="editingGroupMeta.description" class="form-input" placeholder="可选">
+              </div>
+              <div class="form-group">
+                <label>包含的群聊</label>
+                <div class="group-select-panel">
+                  <div class="group-select-toolbar">
+                    <input
+                      type="text"
+                      v-model="groupGuildSearch"
+                      placeholder="搜索群号或群名..."
+                      class="form-input"
+                    >
+                    <div class="group-actions">
+                      <button class="btn btn-secondary" @click="selectAllGroupGuilds">全选</button>
+                      <button class="btn btn-secondary" @click="clearGroupGuilds">清空</button>
+                      <span class="group-count">已选 {{ editingGroupMeta.guildIds.length }}</span>
+                    </div>
+                  </div>
+                  <div class="group-select-body">
+                    <div class="group-checkbox-list" v-if="filteredGuildOptions.length">
+                      <label v-for="item in filteredGuildOptions" :key="item.id" class="checkbox-label">
+                        <input type="checkbox" :value="item.id" v-model="editingGroupMeta.guildIds">
+                        <span>{{ item.label }}</span>
+                      </label>
+                    </div>
+                    <div v-else class="empty-state">未找到匹配的群</div>
+                    <div class="selected-chips" v-if="editingGroupMeta.guildIds.length">
+                      <div class="chips-title">已选群聊</div>
+                      <div class="chips-wrap">
+                        <span class="chip" v-for="id in editingGroupMeta.guildIds" :key="id">{{ id }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>手动输入群聊 ID</label>
+                <textarea v-model="editingGroupMetaGuildIds" class="form-textarea" rows="3" placeholder="每行一个群号，支持粘贴"></textarea>
+                <div class="field-hint">输入内容会与已选合并并去重</div>
+              </div>
+            </div>
             <!-- 入群设置 -->
             <div v-show="activeTab === 'entrance'" class="config-section">
               <div class="section-title">入群欢迎</div>
               <div class="form-group">
                 <label>启用欢迎消息</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.welcomeEnabled" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.welcomeEnabled" />
               </div>
               <div class="form-group" v-if="editingConfig.welcomeEnabled">
                 <label>欢迎语</label>
@@ -283,10 +239,7 @@
               <div class="section-title" style="margin-top: 1.5rem;">入群验证</div>
               <div class="form-group">
                 <label>自动拒绝</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="autoReject" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="autoReject" />
               </div>
               <div class="form-group">
                 <label>拒绝回复</label>
@@ -330,31 +283,19 @@
               </div>
               <div class="form-group">
                 <label>自动撤回</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoDelete" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoDelete" />
               </div>
               <div class="form-group">
                 <label>自动禁言</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoBan" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoBan" />
               </div>
                <div class="form-group">
                 <label>自动踢出</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.autoKick" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.autoKick" />
               </div>
               <div class="form-group">
                 <label>触发回显</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.forbidden.echo" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.forbidden.echo" />
               </div>
               <div class="form-group">
                 <label>禁言时长(ms)</label>
@@ -367,10 +308,7 @@
               <div class="section-title">退群欢送</div>
               <div class="form-group">
                 <label>启用欢送消息</label>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="editingConfig.goodbyeEnabled" />
-                  <span class="slider"></span>
-                </label>
+                <ToggleSwitch v-model="editingConfig.goodbyeEnabled" />
               </div>
               <div class="form-group" v-if="editingConfig.goodbyeEnabled">
                 <label>欢送语</label>
@@ -399,10 +337,7 @@
                     <span>防撤回</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.antiRecall.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.antiRecall.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['antiRecall'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -425,10 +360,7 @@
                     <span>复读检测</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.antiRepeat.enabled" @change="handleRepeatSwitch" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.antiRepeat.enabled" @update:modelValue="handleRepeatSwitch" @click.stop />
                     <k-icon :name="expandedPlugins['repeat'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -453,10 +385,7 @@
                     <span>掷骰子</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.dice.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.dice.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['dice'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
@@ -476,20 +405,14 @@
                     <span>自我禁言</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.banme.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['banme'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['banme']">
                    <div class="form-group">
                     <label>自动检测</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.banme.autoBan" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.autoBan" />
                   </div>
                   <div class="form-group">
                     <label>最小时长(s)</label>
@@ -508,10 +431,7 @@
                   
                   <div class="form-group">
                     <label>启用金卡</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.banme.jackpot.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.banme.jackpot.enabled" />
                   </div>
                   <div class="form-group">
                     <label>基础概率</label>
@@ -544,27 +464,18 @@
                     <span>AI 助手</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.openai.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['ai'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['ai']">
                   <div class="form-group">
                     <label>启用对话</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.openai.chatEnabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.chatEnabled" />
                   </div>
                   <div class="form-group">
                     <label>启用翻译</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.openai.translateEnabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.openai.translateEnabled" />
                   </div>
                   <div class="form-group">
                     <label>系统提示词</label>
@@ -595,27 +506,18 @@
                     <span>举报功能</span>
                   </div>
                   <div class="plugin-status">
-                    <label class="toggle-switch" @click.stop>
-                      <input type="checkbox" v-model="editingConfig.report.enabled" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.enabled" @click.stop />
                     <k-icon :name="expandedPlugins['report'] ? 'chevron-up' : 'chevron-down'" />
                   </div>
                 </div>
                 <div class="plugin-body" v-show="expandedPlugins['report']">
                   <div class="form-group">
                     <label>自动处理</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.report.autoProcess" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.autoProcess" />
                   </div>
                   <div class="form-group">
                     <label>包含上下文</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" v-model="editingConfig.report.includeContext" />
-                      <span class="slider"></span>
-                    </label>
+                    <ToggleSwitch v-model="editingConfig.report.includeContext" />
                   </div>
                   <div class="form-group" v-if="editingConfig.report.includeContext">
                     <label>上下文条数</label>
@@ -671,15 +573,23 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { message } from '@koishijs/client'
-import { configApi } from '../api'
-import type { GroupConfig } from '../types'
+import { configApi, authApi } from '../api'
+import type { GroupConfig, GuildGroup } from '../types'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
+import ToggleSwitch from './common/ToggleSwitch.vue'
+import ConfigListPanel from './config/ConfigListPanel.vue'
+import type { ConfigListItem } from './config/ConfigListPanel.vue'
 
+
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 const loading = ref(false)
 const saving = ref(false)
 const creating = ref(false)
@@ -689,6 +599,13 @@ const fetchNames = ref(true)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('list')
 const configs = ref<Record<string, GroupConfig>>({})
+
+const groupConfigs = ref<Record<string, Partial<GroupConfig>>>({})
+const listFilter = ref<'all' | 'guild' | 'group'>('all')
+
+const guildGroups = ref<GuildGroup[]>([])
+const groupLoading = ref(false)
+const groupSaving = ref(false)
 
 // 过滤后的配置列表
 const filteredConfigs = computed(() => {
@@ -704,13 +621,53 @@ const filteredConfigs = computed(() => {
   }
   return result
 })
+
+const combinedListItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const items: Array<{ key: string; type: 'guild' | 'group'; id: string; config?: GroupConfig; group?: GuildGroup }> = []
+
+  if (listFilter.value !== 'group') {
+    for (const [guildId, config] of Object.entries(filteredConfigs.value)) {
+      items.push({ key: `guild:${guildId}`, type: 'guild', id: guildId, config })
+    }
+  }
+
+  if (listFilter.value !== 'guild') {
+    for (const group of guildGroups.value) {
+      const match = !query ||
+        group.id.toLowerCase().includes(query) ||
+        group.name.toLowerCase().includes(query)
+      if (!match) continue
+      const config = groupConfigs.value[group.id] as GroupConfig | undefined
+      items.push({ key: `group:${group.id}`, type: 'group', id: group.id, group, config })
+    }
+  }
+
+  return items
+})
+
+const combinedGridItems = computed(() => combinedListItems.value)
 const showEditDialog = ref(false)
+const editingMode = ref<'guild' | 'group'>('guild')
+const editingGroupGroupId = ref('')
+const editingGroupMeta = ref<GuildGroup>({ id: '', name: '', description: '', guildIds: [] })
+const groupGuildSearch = ref('')
+const isGroupGroupNew = computed(() => !editingGroupGroupId.value)
+const editingGroupMetaGuildIds = computed({
+  get: () => editingGroupMeta.value.guildIds.join('\n'),
+  set: (val: string) => {
+    const incoming = val.split('\n').map(s => s.trim()).filter(Boolean)
+    const merged = Array.from(new Set([...editingGroupMeta.value.guildIds, ...incoming]))
+    editingGroupMeta.value = { ...editingGroupMeta.value, guildIds: merged }
+  }
+})
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const newConfig = ref({ guildId: '' })
 const deleteConfirmId = ref('')
 const editingGuildId = ref('')
 const editingConfig = ref<GroupConfig | null>(null)
+const originalGroupGroupConfig = ref<Partial<GroupConfig>>({})
 const editingApprovalKeywords = ref('')
 const editingForbiddenKeywords = ref('')
 const activeTab = ref('entrance')
@@ -737,6 +694,31 @@ const refreshConfigs = async () => {
   }
 }
 
+const refreshGuildGroups = async () => {
+  groupLoading.value = true
+  try {
+    guildGroups.value = await authApi.getGuildGroups()
+    groupConfigs.value = await configApi.groupGroupConfigList()
+  } catch (e: any) {
+    message.error(e.message || '加载群组组失败')
+  } finally {
+    groupLoading.value = false
+  }
+}
+
+const createGroupGroup = () => {
+  editingMode.value = 'group'
+  editingGroupGroupId.value = ''
+  editingGroupMeta.value = { id: '', name: '', description: '', guildIds: [] }
+  const base = applyConfigDefaults({})
+  originalGroupGroupConfig.value = cloneConfig(base)
+  editingConfig.value = cloneConfig(base)
+  editingApprovalKeywords.value = ''
+  editingForbiddenKeywords.value = ''
+  activeTab.value = 'group-meta'
+  showEditDialog.value = true
+}
+
 const reloadConfigs = async () => {
   reloading.value = true
   try {
@@ -751,26 +733,81 @@ const reloadConfigs = async () => {
 }
 
 const editConfig = (guildId: string) => {
+  editingMode.value = 'guild'
   editingGuildId.value = guildId
-  const config = { ...configs.value[guildId] }
-  
-  // 初始化默认值
-  if (!config.antiRecall) config.antiRecall = { enabled: false }
-  if (!config.antiRepeat) config.antiRepeat = { enabled: false, threshold: 0 }
-  if (!config.forbidden) config.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
-  if (!config.dice) config.dice = { enabled: true, lengthLimit: 1000 }
-  if (!config.banme) config.banme = {
-    enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
-    jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
-  }
-  if (!config.openai) config.openai = { enabled: true, chatEnabled: true, translateEnabled: true }
-  if (!config.report) config.report = { enabled: true, autoProcess: true, includeContext: false, contextSize: 10 }
+  const config = applyConfigDefaults({ ...configs.value[guildId] })
 
   editingConfig.value = config
   editingApprovalKeywords.value = (config.approvalKeywords || []).join(', ')
   editingForbiddenKeywords.value = (config.keywords || []).join(', ')
   activeTab.value = 'entrance'
   showEditDialog.value = true
+}
+
+const cloneConfig = <T,>(value: T): T => JSON.parse(JSON.stringify(value || {}))
+
+/**
+ * 补齐配置的各个功能分区，返回与入参完全独立的对象。
+ *
+ * 必须深拷贝：入参往往直接来自 configs.value[guildId]，而这里只在分区“缺失”时
+ * 才新建对象——已存在的 forbidden / banme / openai 等会被原样引用出去，
+ * 于是表单的 v-model 会直接改到列表数据上，用户点「取消」也撤不回来。
+ */
+const applyConfigDefaults = (config: Partial<GroupConfig>): GroupConfig => {
+  const shaped: any = cloneConfig(config)
+  if (!shaped.antiRecall) shaped.antiRecall = { enabled: false }
+  if (!shaped.antiRepeat) shaped.antiRepeat = { enabled: false, threshold: 0 }
+  if (!shaped.forbidden) shaped.forbidden = { autoDelete: false, autoBan: false, autoKick: false, muteDuration: 600000 }
+  if (!shaped.dice) shaped.dice = { enabled: true, lengthLimit: 1000 }
+  if (!shaped.banme) shaped.banme = {
+    enabled: true, baseMin: 1, baseMax: 30, growthRate: 30,
+    jackpot: { enabled: true, baseProb: 0.006, softPity: 73, hardPity: 89, upDuration: '24h', loseDuration: '12h' }
+  }
+  if (!shaped.openai) shaped.openai = { enabled: true, chatEnabled: true, translateEnabled: true }
+  if (!shaped.report) shaped.report = { enabled: true, autoProcess: true, includeContext: false, contextSize: 10 }
+  return shaped as GroupConfig
+}
+
+const openGroupGroupConfig = (group: GuildGroup) => {
+  editingMode.value = 'group'
+  editingGroupGroupId.value = group.id
+  editingGroupMeta.value = {
+    id: group.id,
+    name: group.name,
+    description: group.description || '',
+    guildIds: Array.isArray(group.guildIds) ? [...group.guildIds] : []
+  }
+  const base = groupConfigs.value[group.id] || {}
+  const shapedBase = applyConfigDefaults({ ...base })
+  originalGroupGroupConfig.value = cloneConfig(shapedBase)
+  editingConfig.value = cloneConfig(shapedBase)
+  editingApprovalKeywords.value = (editingConfig.value.approvalKeywords || []).join(', ')
+  editingForbiddenKeywords.value = (editingConfig.value.keywords || []).join(', ')
+  activeTab.value = 'group-meta'
+  showEditDialog.value = true
+}
+
+const guildOptions = computed(() => {
+  return Object.entries(configs.value).map(([guildId, config]) => ({
+    id: guildId,
+    label: config.guildName ? `${config.guildName} (${guildId})` : guildId
+  }))
+})
+
+const filteredGuildOptions = computed(() => {
+  const query = groupGuildSearch.value.trim().toLowerCase()
+  if (!query) return guildOptions.value
+  return guildOptions.value.filter(item =>
+    item.id.toLowerCase().includes(query) || item.label.toLowerCase().includes(query)
+  )
+})
+
+const selectAllGroupGuilds = () => {
+  editingGroupMeta.value.guildIds = filteredGuildOptions.value.map(item => item.id)
+}
+
+const clearGroupGuilds = () => {
+  editingGroupMeta.value.guildIds = []
 }
 
 const handleRepeatSwitch = () => {
@@ -812,15 +849,74 @@ const saveConfig = async () => {
 
   saving.value = true
   try {
-    await configApi.update(editingGuildId.value, editingConfig.value)
-    message.success('保存成功')
+    if (editingMode.value === 'guild') {
+      await configApi.update(editingGuildId.value, editingConfig.value)
+      message.success('保存成功')
+      showEditDialog.value = false
+      await refreshConfigs()
+      return
+    }
+
+    if (!editingGroupMeta.value.id.trim()) {
+      message.warning('请填写群组组 ID')
+      saving.value = false
+      return
+    }
+    if (!editingGroupMeta.value.name.trim()) {
+      message.warning('请填写群组组名称')
+      saving.value = false
+      return
+    }
+
+    editingGroupGroupId.value = editingGroupMeta.value.id.trim()
+
+    const base = originalGroupGroupConfig.value || {}
+    const current = editingConfig.value
+    const diff = buildConfigDiff(base, current)
+    await authApi.updateGuildGroup({
+      id: editingGroupMeta.value.id.trim(),
+      name: editingGroupMeta.value.name.trim(),
+      description: editingGroupMeta.value.description?.trim() || '',
+      guildIds: editingGroupMeta.value.guildIds
+    })
+    await configApi.groupGroupConfigUpdate(editingGroupGroupId.value, diff)
+    message.success('群组组配置已保存')
     showEditDialog.value = false
-    await refreshConfigs()
+    await refreshGuildGroups()
   } catch (e: any) {
     message.error(e.message || '保存失败')
   } finally {
     saving.value = false
   }
+}
+
+const buildConfigDiff = (base: any, current: any): Partial<GroupConfig> => {
+  const diff: any = Array.isArray(current) ? [] : {}
+
+  if (Array.isArray(current)) {
+    return JSON.stringify(current) === JSON.stringify(base) ? undefined as any : current
+  }
+
+  for (const key of Object.keys(current)) {
+    const value = (current as any)[key]
+    const baseValue = (base as any)?.[key]
+
+    if (typeof value === 'undefined') continue
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const child = buildConfigDiff(baseValue || {}, value)
+      if (typeof child !== 'undefined' && Object.keys(child).length > 0) {
+        diff[key] = child
+      }
+      continue
+    }
+
+    if (JSON.stringify(value) !== JSON.stringify(baseValue)) {
+      diff[key] = value
+    }
+  }
+
+  return diff
 }
 
 const createConfig = async () => {
@@ -853,6 +949,25 @@ const deleteConfig = (guildId?: string) => {
   showDeleteDialog.value = true
 }
 
+const deleteGroupGroup = async (group: GuildGroup) => {
+  const ok = await showConfirm({
+    title: '删除群组组',
+    message: `确定要删除群组组 "${group.name}" 吗？`,
+    type: 'danger'
+  })
+  if (!ok) return
+  groupSaving.value = true
+  try {
+    await authApi.deleteGuildGroup(group.id)
+    message.success('已删除群组组')
+    await refreshGuildGroups()
+  } catch (e: any) {
+    message.error(e.message || '删除群组组失败')
+  } finally {
+    groupSaving.value = false
+  }
+}
+
 const confirmDelete = async () => {
   if (deleteConfirmId.value !== editingGuildId.value) return
 
@@ -870,6 +985,18 @@ const confirmDelete = async () => {
   }
 }
 
+/** 列表项被打开：群走群配置弹窗，群组组走群组组弹窗 */
+const onListOpen = (item: ConfigListItem) => {
+  if (item.type === 'guild') editConfig(item.id)
+  else if (item.group) openGroupGroupConfig(item.group)
+}
+
+/** 列表项被删除，分派到对应的删除流程 */
+const onListRemove = (item: ConfigListItem) => {
+  if (item.type === 'guild') deleteConfig(item.id)
+  else if (item.group) deleteGroupGroup(item.group)
+}
+
 const copyGuildId = (guildId?: string) => {
   const id = guildId || editingGuildId.value
   navigator.clipboard.writeText(id)
@@ -878,6 +1005,7 @@ const copyGuildId = (guildId?: string) => {
 
 onMounted(() => {
   refreshConfigs()
+  refreshGuildGroups()
 })
 </script>
 
@@ -893,6 +1021,213 @@ onMounted(() => {
   font-family: var(--font-family);
 }
 
+
+/* ========== Guild Groups ========== */
+.guild-groups-panel {
+  margin-bottom: 16px;
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+
+.groups-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+
+
+.groups-list {
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+
+.group-item {
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+
+.group-item:hover {
+  background: rgba(120, 120, 130, 0.08);
+}
+
+
+.group-item.active {
+  border-color: var(--k-color-primary, #7459ff);
+  background: rgba(116, 89, 255, 0.08);
+}
+
+
+.group-name {
+  font-size: 0.85rem;
+}
+
+
+.group-id {
+  font-size: 0.7rem;
+  color: var(--k-color-text-secondary);
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+}
+
+
+.group-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+
+.section-hint {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(120, 120, 130, 0.08);
+  color: var(--k-color-text-secondary);
+  font-size: 0.8rem;
+}
+
+
+.group-editor {
+  background: var(--k-color-card, rgba(24, 24, 28, 0.7));
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+
+.group-actions {
+  display: flex;
+  gap: 8px;
+}
+
+
+.group-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+
+.group-count {
+  font-size: 0.75rem;
+  color: var(--k-color-text-secondary);
+  align-self: center;
+}
+
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--k-color-text-secondary);
+}
+
+
+.group-select-panel {
+  border: 1px solid var(--k-color-divider);
+  border-radius: 8px;
+  background: var(--k-card-bg);
+  padding: 10px;
+}
+
+
+.group-select-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+
+.group-select-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+
+.selected-chips {
+  border-left: 1px dashed var(--k-color-divider);
+  padding-left: 12px;
+  min-height: 120px;
+}
+
+
+.chips-title {
+  font-size: 0.75rem;
+  color: var(--k-color-text-secondary);
+  margin-bottom: 6px;
+}
+
+
+.chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+
+.chip {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(116, 89, 255, 0.12);
+  color: var(--k-color-primary, #7459ff);
+  font-size: 0.7rem;
+  border: 1px solid rgba(116, 89, 255, 0.3);
+}
+
+
+.field-hint {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--k-color-text-secondary);
+}
+
+
 /* ========== Header ========== */
 .view-header {
   display: flex;
@@ -903,11 +1238,40 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-divider);
 }
 
+
 .header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
+
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-divider);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+
+.filter-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg3);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+
+.filter-btn.active {
+  background: rgba(116, 89, 255, 0.15);
+  color: var(--k-color-primary, #7459ff);
+}
+
 
 .toggle-wrapper {
   display: flex;
@@ -920,10 +1284,12 @@ onMounted(() => {
   border-right: 1px solid var(--k-color-divider);
 }
 
+
 .toggle-wrapper label {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
+
 
 /* 视图切换按钮 */
 .view-toggle {
@@ -933,6 +1299,7 @@ onMounted(() => {
   overflow: hidden;
   margin-right: 0.5rem;
 }
+
 
 .view-btn {
   background: var(--bg3);
@@ -946,23 +1313,28 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .view-btn:first-child {
   border-right: 1px solid var(--k-color-divider);
 }
+
 
 .view-btn:hover {
   background: var(--k-card-bg);
   color: var(--fg1);
 }
 
+
 .view-btn.active {
   background: var(--k-color-primary-fade);
   color: var(--k-color-primary);
 }
 
+
 .view-btn :deep(.k-icon) {
   font-size: 14px;
 }
+
 
 .view-title {
   font-size: 1rem;
@@ -972,12 +1344,14 @@ onMounted(() => {
   letter-spacing: -0.25px;
 }
 
+
 /* ========== Header Left & Search ========== */
 .header-left {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
+
 
 .search-wrapper {
   display: flex;
@@ -991,15 +1365,18 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .search-wrapper:focus-within {
   border-color: var(--k-color-primary);
 }
+
 
 .search-icon {
   color: var(--fg3);
   font-size: 14px;
   flex-shrink: 0;
 }
+
 
 .search-input {
   border: none;
@@ -1011,9 +1388,11 @@ onMounted(() => {
   font-family: var(--font-family);
 }
 
+
 .search-input::placeholder {
   color: var(--fg3);
 }
+
 
 .divider-vertical {
   width: 1px;
@@ -1021,6 +1400,7 @@ onMounted(() => {
   background: var(--k-color-divider);
   margin: 0 0.5rem;
 }
+
 
 /* ========== Header Buttons Override ========== */
 .btn {
@@ -1038,10 +1418,12 @@ onMounted(() => {
   line-height: 1;
 }
 
+
 .btn-secondary {
   background: var(--bg3);
   color: var(--fg2);
 }
+
 
 .btn-secondary:hover {
   background: var(--bg3);
@@ -1049,11 +1431,13 @@ onMounted(() => {
   color: var(--fg1);
 }
 
+
 .btn-primary {
   background: var(--k-color-primary-fade);
   color: var(--k-color-primary);
   border-color: rgba(116, 89, 255, 0.2);
 }
+
 
 .btn-primary:hover {
   background: rgba(116, 89, 255, 0.18);
@@ -1061,9 +1445,11 @@ onMounted(() => {
   color: var(--k-color-primary);
 }
 
+
 .header-actions :deep(.k-icon) {
   font-size: 14px;
 }
+
 
 /* ========== El-Switch Override ========== */
 .toggle-wrapper :deep(.el-switch) {
@@ -1073,6 +1459,7 @@ onMounted(() => {
   height: 18px;
 }
 
+
 .toggle-wrapper :deep(.el-switch__core) {
   min-width: 32px;
   height: 18px;
@@ -1080,10 +1467,12 @@ onMounted(() => {
   border: 1px solid var(--k-color-border);
 }
 
+
 .toggle-wrapper :deep(.el-switch__core .el-switch__action) {
   width: 14px;
   height: 14px;
 }
+
 
 .loading-state {
   display: flex;
@@ -1095,188 +1484,21 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+
 .spin {
   animation: spin 1s linear infinite;
 }
+
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.config-list {
-  flex: 1;
-  overflow-y: auto;
-  align-content: start;
-}
-
-/* 列表表格视图 */
-.list-table {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.list-header {
-  display: grid;
-  grid-template-columns: 1fr 180px 120px 190px;
-  gap: 1rem;
-  padding: 0.625rem 1rem;
-  background: var(--bg1);
-  border-bottom: 1px solid var(--k-color-border);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--fg3);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.list-row {
-  display: grid;
-  grid-template-columns: 1fr 180px 120px 190px;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--k-color-divider);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  align-items: center;
-}
-
-.list-row:last-child {
-  border-bottom: none;
-}
-
-.list-row:hover {
-  background: var(--k-hover-bg);
-}
-
-.col-guild {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.guild-avatar-sm {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.guild-icon-sm {
-  font-size: 16px;
-  color: var(--fg3);
-  flex-shrink: 0;
-}
-
-.guild-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.guild-name {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.guild-id-sub {
-  font-size: 0.6875rem;
-  color: var(--fg3);
-  font-family: var(--font-family-code);
-}
-
-.col-features {
-  display: flex;
-  gap: 3px;
-}
-
-.badge-sm {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  font-size: 0.5625rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg1);
-  color: var(--fg3);
-  border: 1px solid var(--k-color-divider);
-}
-
-.badge-sm.active {
-  background: var(--k-color-success-fade);
-  color: var(--k-color-success);
-  border-color: var(--k-color-success);
-}
-
-.col-stats {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.6875rem;
-  color: var(--fg3);
-}
-
-.col-stats b {
-  font-weight: 600;
-  color: var(--fg1);
-  font-family: var(--font-family-code);
-}
-
-.col-stats .muted {
-  color: var(--fg3);
-}
-
-.col-actions {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.action-btn {
-  background: transparent;
-  border: 1px solid var(--k-color-divider);
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  color: var(--fg3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover {
-  background: var(--bg3);
-  border-color: var(--k-color-border);
-  color: var(--fg1);
-}
-
-.action-btn.danger:hover {
-  background: var(--k-color-danger-fade);
-  border-color: var(--k-color-danger);
-  color: var(--k-color-danger);
-}
 
 .action-btn :deep(.k-icon) {
   font-size: 12px;
 }
 
-/* 卡片网格视图 */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-}
 
 /* 响应式布局 */
 @media (max-width: 900px) {
@@ -1290,85 +1512,12 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 600px) {
-  .list-header,
-  .list-row {
-    grid-template-columns: 1fr 40px;
-    padding: 0.75rem 0.5rem;
-    gap: 0.5rem;
-  }
-
-  .col-features,
-  .col-stats {
-    display: none;
-  }
-
-  .col-actions .action-btn {
-    padding: 4px;
-  }
-
-  .col-actions .action-btn span {
-    display: none;
-  }
-
-  .col-actions button:not(:nth-child(2)) {
-    display: none; /* 只显示编辑按钮 */
-  }
-}
-
-.empty-state {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem;
-  color: var(--fg3);
-  font-size: 0.875rem;
-}
-
-.empty-icon {
-  font-size: 40px;
-  margin-bottom: 0.75rem;
-  opacity: 0.4;
-}
-
-/* ========== Config Card ========== */
-.config-card {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-  animation: fadeIn 0.2s ease-out backwards;
-}
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.config-card:hover {
-  border-color: var(--fg3);
-  background: var(--bg3);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--k-color-divider);
-}
-
-.card-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--k-color-divider);
-  background: var(--bg1);
-}
 
 /* Card Footer Button Override */
 .card-footer :deep(.k-button) {
@@ -1382,111 +1531,30 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .card-footer :deep(.k-button:hover) {
   border-color: var(--fg3);
   color: var(--fg1);
   background: var(--bg3);
 }
 
+
 .card-footer :deep(.k-button[type="danger"]) {
   color: var(--k-color-danger);
   border-color: transparent;
 }
+
 
 .card-footer :deep(.k-button[type="danger"]:hover) {
   background: rgba(248, 81, 73, 0.15);
   border-color: var(--k-color-danger);
 }
 
+
 .card-footer :deep(.k-icon) {
   font-size: 12px;
 }
 
-.guild-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.guild-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.guild-icon {
-  color: var(--fg2);
-  font-size: 20px;
-}
-
-.guild-id {
-  font-weight: 500;
-  font-size: 0.875rem;
-  color: var(--fg1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-body {
-  padding: 0.625rem 0.75rem;
-}
-
-/* 功能徽章 - 紧凑单行 */
-.feature-badges {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 0.5rem;
-}
-
-.badge {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  font-size: 0.625rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg1);
-  color: var(--fg3);
-  border: 1px solid var(--k-color-divider);
-  transition: all 0.15s ease;
-}
-
-.badge.active {
-  background: var(--k-color-success-fade);
-  color: var(--k-color-success);
-  border-color: var(--k-color-success);
-}
-
-/* 统计信息行 */
-.card-stats {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.6875rem;
-  color: var(--fg3);
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.stat-num {
-  font-weight: 600;
-  color: var(--fg1);
-  font-family: var(--font-family-code);
-}
-
-.stat-item.placeholder {
-  font-style: italic;
-}
 
 /* ========== Dialog & Overlay ========== */
 .edit-overlay, .dialog-overlay {
@@ -1503,6 +1571,7 @@ onMounted(() => {
   z-index: 1000;
 }
 
+
 .edit-dialog {
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
@@ -1514,6 +1583,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
+
 
 .dialog-card {
   background: var(--k-card-bg);
@@ -1527,9 +1597,11 @@ onMounted(() => {
   animation: fadeIn 0.15s ease-out;
 }
 
+
 .dialog-body {
   padding: 1rem 1.25rem;
 }
+
 
 .form-input {
   width: 100%;
@@ -1544,14 +1616,17 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .form-input:focus {
   outline: none;
   border-color: var(--k-color-primary);
 }
 
+
 .form-input::placeholder {
   color: var(--fg3);
 }
+
 
 .edit-dialog.large {
   max-width: 760px;
@@ -1559,6 +1634,7 @@ onMounted(() => {
   border-radius: 8px;
   animation: fadeIn 0.15s ease-out;
 }
+
 
 .dialog-header {
   display: flex;
@@ -1569,12 +1645,14 @@ onMounted(() => {
   background: var(--bg1);
 }
 
+
 .dialog-header h3 {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--fg1);
 }
+
 
 .close-btn {
   background: none;
@@ -1589,10 +1667,12 @@ onMounted(() => {
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
+
 .close-btn:hover {
   color: var(--fg1);
   background: var(--bg3);
 }
+
 
 /* ========== Edit Layout ========== */
 .edit-layout {
@@ -1600,6 +1680,7 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
 }
+
 
 .edit-sidebar {
   width: 140px;
@@ -1610,6 +1691,7 @@ onMounted(() => {
   gap: 2px;
   background: var(--bg1);
 }
+
 
 .sidebar-item {
   display: flex;
@@ -1623,10 +1705,12 @@ onMounted(() => {
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
+
 .sidebar-item:hover {
   background: var(--bg3);
   color: var(--fg1);
 }
+
 
 .sidebar-item.active {
   background: var(--bg3);
@@ -1637,6 +1721,7 @@ onMounted(() => {
   padding-left: calc(0.75rem - 2px);
 }
 
+
 .edit-content {
   flex: 1;
   overflow-y: auto;
@@ -1644,11 +1729,13 @@ onMounted(() => {
   background: var(--k-card-bg);
 }
 
+
 .config-section {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+
 
 .section-title {
   font-size: 0.75rem;
@@ -1661,11 +1748,13 @@ onMounted(() => {
   border-left: 2px solid var(--k-color-success);
 }
 
+
 .divider {
   height: 1px;
   background: var(--k-color-divider);
   margin: 0.75rem 0;
 }
+
 
 /* ========== Plugin Card ========== */
 .plugin-card {
@@ -1676,9 +1765,11 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .plugin-card:hover {
   border-color: var(--fg3);
 }
+
 
 .plugin-header {
   display: flex;
@@ -1691,9 +1782,11 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 }
 
+
 .plugin-header:hover {
   background: var(--bg3);
 }
+
 
 .plugin-title {
   display: flex;
@@ -1704,6 +1797,7 @@ onMounted(() => {
   color: var(--fg1);
 }
 
+
 .plugin-status {
   display: flex;
   align-items: center;
@@ -1711,11 +1805,13 @@ onMounted(() => {
   color: var(--fg3);
 }
 
+
 .plugin-body {
   padding: 0.75rem;
   border-top: 1px solid var(--k-color-divider);
   background: var(--k-card-bg);
 }
+
 
 /* ========== Form Elements ========== */
 .form-group {
@@ -1726,6 +1822,7 @@ onMounted(() => {
   padding: 0.375rem 0;
 }
 
+
 .form-group label:first-child {
   width: 100px;
   flex-shrink: 0;
@@ -1733,6 +1830,7 @@ onMounted(() => {
   font-weight: 500;
   color: var(--fg2);
 }
+
 
 .form-textarea {
   width: 100%;
@@ -1747,14 +1845,17 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .form-textarea:focus {
   outline: none;
   border-color: var(--k-color-primary);
 }
 
+
 .form-textarea::placeholder {
   color: var(--fg3);
 }
+
 
 .form-hint-row {
   margin-top: -0.25rem;
@@ -1762,11 +1863,13 @@ onMounted(() => {
   padding-left: calc(100px + 0.75rem);
 }
 
+
 .form-hint {
   font-size: 0.6875rem;
   color: var(--fg3);
   font-style: italic;
 }
+
 
 /* ========== El-Input Override ========== */
 .config-section :deep(.el-input__wrapper),
@@ -1780,6 +1883,7 @@ onMounted(() => {
   transition: border-color 0.15s ease;
 }
 
+
 .config-section :deep(.el-input__wrapper:hover),
 .config-section :deep(.el-input-number:hover),
 .plugin-body :deep(.el-input__wrapper:hover),
@@ -1787,10 +1891,12 @@ onMounted(() => {
   border-color: var(--fg3);
 }
 
+
 .config-section :deep(.el-input__wrapper.is-focus),
 .plugin-body :deep(.el-input__wrapper.is-focus) {
   border-color: var(--k-color-primary) !important;
 }
+
 
 .config-section :deep(.el-input__inner),
 .plugin-body :deep(.el-input__inner) {
@@ -1799,10 +1905,12 @@ onMounted(() => {
   font-size: 0.8125rem;
 }
 
+
 .config-section :deep(.el-input__inner::placeholder),
 .plugin-body :deep(.el-input__inner::placeholder) {
   color: var(--fg3);
 }
+
 
 .config-section :deep(.el-input-number__decrease),
 .config-section :deep(.el-input-number__increase),
@@ -1813,6 +1921,7 @@ onMounted(() => {
   color: var(--fg2);
 }
 
+
 .config-section :deep(.el-input-number__decrease:hover),
 .config-section :deep(.el-input-number__increase:hover),
 .plugin-body :deep(.el-input-number__decrease:hover),
@@ -1820,54 +1929,13 @@ onMounted(() => {
   color: var(--k-color-primary);
 }
 
+
 /* ========== Toggle Switch ========== */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
 
-.toggle-switch .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--bg3);
-  border: 1px solid var(--k-color-border);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-  border-radius: 10px;
-}
 
-.toggle-switch .slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 2px;
-  bottom: 2px;
-  background-color: var(--fg2);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-  border-radius: 50%;
-}
 
-.toggle-switch input:checked + .slider {
-  background-color: var(--k-color-primary);
-  border-color: var(--k-color-primary);
-}
 
-.toggle-switch input:checked + .slider:before {
-  transform: translateX(16px);
-  background-color: #fff;
-}
 
 .divider-text {
   font-size: 0.6875rem;
@@ -1880,6 +1948,7 @@ onMounted(() => {
   border-bottom: 1px solid var(--k-color-divider);
 }
 
+
 /* ========== Dialog Footer ========== */
 .dialog-footer {
   display: flex;
@@ -1890,15 +1959,18 @@ onMounted(() => {
   background: var(--bg1);
 }
 
+
 .footer-left {
   display: flex;
   gap: 6px;
 }
 
+
 .footer-right {
   display: flex;
   gap: 6px;
 }
+
 
 /* Dialog Footer Button Override */
 .dialog-footer :deep(.k-button) {
@@ -1912,11 +1984,13 @@ onMounted(() => {
   transition: all 0.15s ease;
 }
 
+
 .dialog-footer :deep(.k-button:hover) {
   background: var(--k-card-bg);
   border-color: var(--k-color-border);
   color: var(--fg1);
 }
+
 
 .dialog-footer :deep(.k-button[type="primary"]) {
   background: var(--k-color-primary-fade);
@@ -1924,10 +1998,12 @@ onMounted(() => {
   color: var(--k-color-primary);
 }
 
+
 .dialog-footer :deep(.k-button[type="primary"]:hover) {
   background: rgba(116, 89, 255, 0.25);
   border-color: rgba(116, 89, 255, 0.5);
 }
+
 
 .dialog-footer :deep(.k-button[type="danger"]) {
   background: rgba(248, 81, 73, 0.15);
@@ -1935,15 +2011,18 @@ onMounted(() => {
   color: var(--k-color-danger);
 }
 
+
 .dialog-footer :deep(.k-button[type="danger"]:hover) {
   background: rgba(248, 81, 73, 0.25);
   border-color: rgba(248, 81, 73, 0.5);
 }
 
+
 .dialog-footer :deep(.k-button:disabled) {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 
 /* ========== Scrollbar ========== */
 ::-webkit-scrollbar {
@@ -1951,22 +2030,27 @@ onMounted(() => {
   height: 6px;
 }
 
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--k-color-border);
   border-radius: 3px;
 }
 
+
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--fg3);
 }
 
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
 
 /* ========== Delete Dialog ========== */
 .warning-text {
@@ -1976,11 +2060,13 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+
 .info-text {
   margin-bottom: 0.75rem;
   font-size: 0.8125rem;
   color: var(--fg2);
 }
+
 
 .code-highlight {
   background: var(--bg1);
@@ -1996,10 +2082,12 @@ onMounted(() => {
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
+
 .code-highlight:hover {
   border-color: var(--k-color-primary);
   color: var(--k-color-primary);
 }
+
 
 /* ========================================
    移动端适配 (< 768px)
@@ -2277,6 +2365,7 @@ onMounted(() => {
   }
 }
 
+
 /* 小屏手机适配 (< 480px) */
 @media (max-width: 480px) {
   .view-header {
@@ -2341,6 +2430,7 @@ onMounted(() => {
     font-size: 0.7rem;
   }
 }
+
 
 /* ========================================
    编辑弹窗移动端适配
@@ -2492,6 +2582,7 @@ onMounted(() => {
   }
 }
 
+
 @media (max-width: 480px) {
   .edit-dialog.large {
     height: 95vh;
@@ -2522,20 +2613,6 @@ onMounted(() => {
 
   .plugin-title span {
     font-size: 0.75rem;
-  }
-
-  .toggle-switch {
-    width: 32px;
-    height: 18px;
-  }
-
-  .toggle-switch .slider:before {
-    height: 12px;
-    width: 12px;
-  }
-
-  .toggle-switch input:checked + .slider:before {
-    transform: translateX(14px);
   }
 
   .dialog-footer {

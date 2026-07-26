@@ -105,6 +105,8 @@ export interface Subscription {
     warning?: boolean
     antiRecall?: boolean
   }
+  /** 来源群过滤：仅接收列表内群产生的推送；空/未设置表示接收全部来源 */
+  sourceGuildIds?: string[]
 }
 
 // 仪表盘统计数据类型
@@ -186,10 +188,37 @@ export interface Role {
   color?: string
   priority: number
   permissions: string[]
+  scope?: AuthScope
   /** 角色生效的群组 ID 列表（空数组或 undefined 表示全局生效） */
   guildIds?: string[]
   /** 是否为内置角色（内置角色不可删除） */
   builtin?: boolean
+}
+
+export type ScopeType = 'global' | 'guildGroup' | 'guilds'
+
+export interface AuthScope {
+  type: ScopeType
+  guildGroupIds?: string[]
+  guildIds?: string[]
+}
+
+export interface GuildGroup {
+  id: string
+  name: string
+  description?: string
+  guildIds: string[]
+}
+
+export interface GroupGroupConfigData {
+  configs: Record<string, Partial<GroupConfig>>
+}
+
+export interface UserRoleBinding {
+  roleId: string
+  scope: AuthScope
+  assignedBy?: string
+  assignedAt?: number
 }
 
 export interface PermissionNode {
@@ -199,45 +228,8 @@ export interface PermissionNode {
   group?: string // 用于前端分组显示
 }
 
-// 扩展 @koishijs/client 的 Events 接口
-declare module '@koishijs/client' {
-  interface Events {
-    // 权限管理 API
-    'grouphelper/auth/role/list'(): Promise<Role[]>
-    'grouphelper/auth/role/update'(params: { role: Role }): Promise<{ success: boolean }>
-    'grouphelper/auth/role/delete'(params: { roleId: string }): Promise<{ success: boolean }>
-    'grouphelper/auth/user/get'(params: { userId: string }): Promise<string[]>
-    'grouphelper/auth/user/assign'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
-    'grouphelper/auth/user/revoke'(params: { userId: string, roleId: string }): Promise<{ success: boolean }>
-    'grouphelper/auth/permission/list'(): Promise<PermissionNode[]>
-
-    // 群组配置 API
-    'grouphelper/config/list'(): Promise<Record<string, GroupConfig>>
-    'grouphelper/config/get'(guildId: string): Promise<GroupConfig | undefined>
-    'grouphelper/config/update'(guildId: string, config: GroupConfig): Promise<{ success: boolean }>
-
-    // 警告记录 API
-    'grouphelper/warns/list'(): Promise<Record<string, WarnRecord>>
-    'grouphelper/warns/get'(key: string): Promise<WarnRecord | undefined>
-    'grouphelper/warns/clear'(key: string): Promise<{ success: boolean }>
-
-    // 黑名单 API
-    'grouphelper/blacklist/list'(): Promise<Record<string, BlacklistRecord>>
-    'grouphelper/blacklist/add'(userId: string, record: BlacklistRecord): Promise<{ success: boolean }>
-    'grouphelper/blacklist/remove'(userId: string): Promise<{ success: boolean }>
-
-    // 订阅 API
-    'grouphelper/subscriptions/list'(): Promise<Subscription[]>
-    'grouphelper/subscriptions/add'(subscription: Subscription): Promise<{ success: boolean }>
-    'grouphelper/subscriptions/remove'(index: number): Promise<{ success: boolean }>
-
-    // 统计 API
-    'grouphelper/stats/dashboard'(): Promise<DashboardStats>
-
-    // 日志 API
-    'grouphelper/logs/search'(params: LogSearchParams): Promise<LogResponse>
-
-    // 聊天 API
-    'grouphelper/chat/send'(params: { channelId: string, content: string, platform?: string, guildId?: string }): Promise<{ success: boolean }>
-  }
-}
+// 说明：此处原本还有一份 declare module '@koishijs/client' 的 Events 声明，
+// 但它与真实调用方式已经漂移——参数写成位置参数而实际传对象，返回值写成裸类型
+// 而后端统一返回 ApiResponse<T>，且缺失大量端点。这种"看着有类型、实际对不上"的
+// 声明比没有更糟，已移除。
+// 端点签名以 src/augmentations.d.ts 为唯一权威来源。

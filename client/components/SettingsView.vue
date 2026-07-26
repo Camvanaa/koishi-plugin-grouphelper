@@ -91,30 +91,21 @@
             <div class="form-row">
               <label class="form-label">自动撤回</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoDelete" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoDelete" />
                 <span class="form-hint">自动撤回包含禁言关键词的消息</span>
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">自动禁言</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoBan" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoBan" />
                 <span class="form-hint">自动禁言发送禁言关键词的用户</span>
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">自动踢出</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.forbidden.autoKick" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.forbidden.autoKick" />
                 <span class="form-hint">自动踢出发送禁言关键词的用户</span>
               </div>
             </div>
@@ -170,10 +161,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.dice.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.dice.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -196,10 +184,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -224,10 +209,7 @@
             <div class="form-row">
               <label class="form-label">自动禁言匹配</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.autoBan" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.autoBan" />
               </div>
             </div>
           </div>
@@ -237,10 +219,7 @@
             <div class="form-row">
               <label class="form-label">启用金卡</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.banme.jackpot.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.banme.jackpot.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -286,10 +265,7 @@
             <div class="form-row">
               <label class="form-label">启用验证</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.friendRequest.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.friendRequest.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -320,16 +296,20 @@
           </div>
           <div class="form-grid">
             <div class="form-row">
+              <label class="form-label">手动处理</label>
+              <div class="form-control">
+                <ToggleSwitch v-model="settings.guildRequest.manual" />
+                <span class="form-hint">开启后收到群邀请不自动处理，仅推送通知，由管理员在 QQ 客户端手动同意/拒绝</span>
+              </div>
+            </div>
+            <div class="form-row" v-if="!settings.guildRequest.manual">
               <label class="form-label">自动同意</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.guildRequest.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.guildRequest.enabled" />
                 <span class="form-hint">启用时同意所有邀请，禁用时拒绝所有</span>
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-row" v-if="!settings.guildRequest.manual">
               <label class="form-label">拒绝消息</label>
               <div class="form-control">
                 <el-input v-model="settings.guildRequest.rejectMessage" placeholder="暂不接受入群邀请" size="small" />
@@ -348,10 +328,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.setEssenceMsg.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.setEssenceMsg.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -373,10 +350,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.setTitle.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.setTitle.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -404,10 +378,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRepeat.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRepeat.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -430,10 +401,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRecall.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRecall.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -451,10 +419,24 @@
             <div class="form-row">
               <label class="form-label">显示原消息时间</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.antiRecall.showOriginalTime" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.antiRecall.showOriginalTime" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div v-show="activeSection === 'status'" class="config-section">
+          <div class="section-header">
+            <h3 class="section-title">状态图</h3>
+            <p class="section-desc">配置 gstatus 状态图渲染</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label class="form-label">渲染超时 (毫秒)</label>
+              <div class="form-control">
+                <el-input-number v-model="settings.status.renderTimeout" :min="0" :step="1000" size="small" />
+                <span class="form-hint">0 表示不限制，默认 30000</span>
               </div>
             </div>
           </div>
@@ -470,28 +452,19 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.enabled" />
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">启用对话</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.chatEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.chatEnabled" />
               </div>
             </div>
             <div class="form-row">
               <label class="form-label">启用翻译</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.openai.translateEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.openai.translateEnabled" />
               </div>
             </div>
             <div class="form-row">
@@ -565,10 +538,7 @@
             <div class="form-row">
               <label class="form-label">启用功能</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.report.enabled" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.report.enabled" />
               </div>
             </div>
             <div class="form-row">
@@ -580,10 +550,14 @@
             <div class="form-row">
               <label class="form-label">自动处理</label>
               <div class="form-control">
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="settings.report.autoProcess" />
-                  <span class="toggle-track"></span>
-                </label>
+                <ToggleSwitch v-model="settings.report.autoProcess" />
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">自动撤回</label>
+              <div class="form-control">
+                <ToggleSwitch v-model="settings.report.autoRecall" />
+                <span class="form-hint">处罚成功后自动撤回被举报消息</span>
               </div>
             </div>
             <div class="form-row">
@@ -697,29 +671,16 @@
       <div class="save-bar" v-if="hasChanges">
         <span class="save-bar-text">检测到未保存的修改</span>
         <div class="save-actions">
-          <button class="save-bar-btn secondary" @click="resetChanges">放弃更改</button>
-          <button class="save-bar-btn primary" @click="saveSettings">保存更改</button>
+          <button class="save-bar-btn secondary" :disabled="saving" @click="resetChanges">放弃更改</button>
+          <button class="save-bar-btn primary" :disabled="saving" @click="saveSettings">
+            {{ saving ? '保存中...' : '保存更改' }}
+          </button>
         </div>
       </div>
     </transition>
 
-    <!-- Confirm Dialog -->
-    <transition name="fade">
-      <div class="modal-overlay" v-if="confirmDialog.show" @click="cancelConfirm">
-        <div class="modal-dialog" @click.stop>
-          <div class="modal-header">
-            <h3 class="modal-title">{{ confirmDialog.title }}</h3>
-          </div>
-          <div class="modal-body">
-            <p class="modal-text">{{ confirmDialog.message }}</p>
-          </div>
-          <div class="modal-footer">
-            <button class="action-btn" @click="cancelConfirm">取消</button>
-            <button :class="['action-btn', confirmDialog.type === 'danger' ? 'danger' : 'primary']" @click="doConfirm">确认</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <!-- 统一确认对话框 -->
+    <ConfirmDialog :state="confirmState" @accept="acceptConfirm" @cancel="cancelConfirm" />
   </div>
 </template>
 
@@ -727,6 +688,9 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { message } from '@koishijs/client'
 import { settingsApi, cacheApi, type CacheStats } from '../api'
+import { useConfirm } from '../composables/useConfirm'
+import ConfirmDialog from './common/ConfirmDialog.vue'
+import ToggleSwitch from './common/ToggleSwitch.vue'
 
 // 默认配置结构
 const defaultSettings = {
@@ -763,6 +727,7 @@ const defaultSettings = {
   },
   guildRequest: {
     enabled: false,
+    manual: false,
     rejectMessage: '暂不接受入群邀请'
   },
   setEssenceMsg: { enabled: true, authority: 3 },
@@ -785,6 +750,7 @@ const defaultSettings = {
     enabled: true,
     authority: 1,
     autoProcess: true,
+    autoRecall: true,
     defaultPrompt: '',
     contextPrompt: '',
     maxReportTime: 30,
@@ -797,12 +763,23 @@ const defaultSettings = {
     retentionDays: 7,
     maxRecordsPerUser: 50,
     showOriginalTime: true
+  },
+  status: {
+    renderTimeout: 30000
   }
 }
 
+/**
+ * 取一份与 defaultSettings 完全独立的副本。
+ *
+ * 表单会就地改写这些嵌套对象，浅拷贝会让编辑内容回流到 defaultSettings，
+ * 使「恢复默认」恢复出用户当前正在编辑的值。
+ */
+const cloneDefaults = () => JSON.parse(JSON.stringify(defaultSettings))
+
 const loading = ref(true)
 const saving = ref(false)
-const settings = ref<any>({ ...defaultSettings })
+const settings = ref<any>(cloneDefaults())
 const originalSettings = ref<string>('') // 原始设置的 JSON 字符串用于比较
 const activeSection = ref('warn')
 const sectionDropdownOpen = ref(false)
@@ -819,43 +796,8 @@ const selectSection = (id: string) => {
   sectionDropdownOpen.value = false
 }
 
-// 确认对话框状态
-const confirmDialog = ref({
-  show: false,
-  title: '确认',
-  message: '',
-  type: 'normal' as 'normal' | 'danger',
-  onConfirm: () => {},
-  onCancel: () => {}
-})
-
-// 显示确认对话框
-const showConfirm = (options: { title?: string, message: string, type?: 'normal' | 'danger' }): Promise<boolean> => {
-  return new Promise((resolve) => {
-    confirmDialog.value = {
-      show: true,
-      title: options.title || '确认',
-      message: options.message,
-      type: options.type || 'normal',
-      onConfirm: () => {
-        confirmDialog.value.show = false
-        resolve(true)
-      },
-      onCancel: () => {
-        confirmDialog.value.show = false
-        resolve(false)
-      }
-    }
-  })
-}
-
-const cancelConfirm = () => {
-  confirmDialog.value.onCancel()
-}
-
-const doConfirm = () => {
-  confirmDialog.value.onConfirm()
-}
+// 确认弹窗（Promise 化，见 useConfirm）
+const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm()
 
 // 检测是否有未保存的修改
 const hasChanges = computed(() => {
@@ -897,6 +839,7 @@ const sections = [
   { id: 'title', label: '头衔设置'},
   { id: 'antiRepeat', label: '反复读'},
   { id: 'antiRecall', label: '防撤回'},
+  { id: 'status', label: '状态图'},
   { id: 'openai', label: 'AI功能'},
   { id: 'report', label: '举报功能'},
   { id: 'cache', label: '缓存管理'}
@@ -919,8 +862,12 @@ const loadSettings = async () => {
   loading.value = true
   try {
     const data = await settingsApi.get()
-    // 深度合并默认值和返回数据
-    settings.value = deepMerge({ ...defaultSettings }, data || {})
+    // 深度合并默认值和返回数据。
+    // 必须深拷贝 defaultSettings：展开运算符只复制第一层，
+    // deepMerge 会就地改写 forbidden / banme / openai 等嵌套对象，
+    // 那样默认值会被服务器数据（以及后续表单编辑）永久污染，
+    // 「恢复默认」拿到的就不再是默认值。
+    settings.value = deepMerge(cloneDefaults(), data || {})
     // 保存原始设置用于比较
     originalSettings.value = JSON.stringify(settings.value)
   } catch (e: any) {
@@ -967,7 +914,7 @@ const resetToDefault = async () => {
   
   if (confirmed) {
     // 恢复为默认设置
-    settings.value = JSON.parse(JSON.stringify(defaultSettings))
+    settings.value = cloneDefaults()
     message.success('已恢复默认设置，请保存以应用更改')
   }
 }
@@ -1332,51 +1279,11 @@ onMounted(() => {
 }
 
 /* Toggle Switch */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
-}
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
 
-.toggle-track {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--k-color-border);
-  transition: 0.2s;
-  border-radius: 20px;
-}
 
-.toggle-track:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--fg0);
-  transition: 0.2s;
-  border-radius: 50%;
-}
 
-.toggle-switch input:checked + .toggle-track {
-  background-color: var(--k-color-primary);
-}
 
-.toggle-switch input:checked + .toggle-track:before {
-  transform: translateX(16px);
-}
 
 /* Subsection Divider */
 .subsection-divider {
@@ -1849,8 +1756,9 @@ onMounted(() => {
     margin-top: 0.25rem;
   }
 
-  /* 开关 */
-  .toggle-switch {
+  /* 开关：子组件无法被父级 scoped 样式命中，改由容器控制对齐 */
+  .form-control > .gh-toggle,
+  .form-control :deep(.gh-toggle) {
     align-self: flex-start;
   }
 

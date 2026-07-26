@@ -9,6 +9,9 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config, ChatMessage, ChatCompletionRequest, ChatCompletionResponse, UserContext } from '../../types'
 
+/** AI 接口请求超时（毫秒） */
+const AI_REQUEST_TIMEOUT = 60000
+
 export class AIModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'ai',
@@ -193,7 +196,10 @@ export class AIModule extends BaseModule {
     try {
       this.data.writeLog(`[ai] 调用 API: ${endpoint}, model: ${model}`)
 
+      // 必须设超时：上游只建连不返回时，ai / tsl / report 会无限等待，
+      // 举报流程既拿不到结果也不会写入冷却，用户完全没有反馈
       const response = await this.ctx.http.post(endpoint, requestBody, {
+        timeout: AI_REQUEST_TIMEOUT,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
@@ -236,6 +242,10 @@ export class AIModule extends BaseModule {
 
     if (!config?.enabled) {
       return '抱歉，AI功能当前已禁用。'
+    }
+
+    if (config.chatEnabled === false) {
+      return '抱歉，AI对话功能当前已禁用。'
     }
 
     try {
@@ -310,6 +320,10 @@ export class AIModule extends BaseModule {
     const config = this.config.openai
 
     if (!config?.enabled) {
+      return '抱歉，AI翻译功能当前已禁用。'
+    }
+
+    if (config.translateEnabled === false) {
       return '抱歉，AI翻译功能当前已禁用。'
     }
 
@@ -582,9 +596,18 @@ export class AIModule extends BaseModule {
         return next()
       }
 
-      // 检查功能是否启用
-      if (!this.config.openai?.enabled) {
+      // 检查功能是否启用：全局总开关 + 全局对话子开关
+      // 任何一级禁用时静默放行，把 @ 消息让给 chatluna 等其他插件处理
+      if (!this.config.openai?.enabled || this.config.openai?.chatEnabled === false) {
         return next()
+      }
+
+      // 群级开关：群禁用 AI 或禁用对话时同样静默放行
+      if (session.guildId) {
+        const groupOpenai = this.getGroupConfig(session.guildId)?.openai
+        if (groupOpenai?.enabled === false || groupOpenai?.chatEnabled === false) {
+          return next()
+        }
       }
 
       try {
