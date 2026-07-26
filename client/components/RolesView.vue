@@ -115,25 +115,7 @@
 
           <div class="form-group" v-if="!currentRole.builtin && scopeMode === 'guildGroup'">
             <label>指定群组组 ID（每行一个）</label>
-            <div class="group-checkbox-list" v-if="guildGroups.length">
-              <input
-                type="text"
-                v-model="guildGroupSearch"
-                placeholder="搜索群组组..."
-                class="form-input"
-              >
-              <div class="group-actions">
-                <button class="secondary-btn" @click="selectAllRoleGroups">全选</button>
-                <button class="secondary-btn" @click="clearRoleGroups">清空</button>
-                <span class="group-count">已选 {{ guildGroupIdsSelected.length }}</span>
-              </div>
-              <label v-for="group in filteredGuildGroupsForRole" :key="group.id" class="checkbox-label">
-                <input type="checkbox" :value="group.id" v-model="guildGroupIdsSelected">
-                <span>{{ group.name }} ({{ group.id }})</span>
-              </label>
-              <div v-if="filteredGuildGroupsForRole.length === 0" class="empty-tip">未找到匹配的群组组</div>
-            </div>
-            <div v-else class="empty-tip">暂无可用群组组，请先在群组配置中创建</div>
+            <GuildGroupPicker v-model="guildGroupIdsSelected" :groups="guildGroups" />
           </div>
         </div>
 
@@ -274,25 +256,7 @@
 
                 <div class="form-group" v-if="memberScopeMode === 'guildGroup'">
                   <label>指定群组组 ID（每行一个）</label>
-                  <div class="group-checkbox-list" v-if="guildGroups.length">
-                    <input
-                      type="text"
-                      v-model="memberGuildGroupSearch"
-                      placeholder="搜索群组组..."
-                      class="form-input"
-                    >
-                    <div class="group-actions">
-                      <button class="secondary-btn" @click="selectAllMemberGroups">全选</button>
-                      <button class="secondary-btn" @click="clearMemberGroups">清空</button>
-                      <span class="group-count">已选 {{ memberGuildGroupIdsSelected.length }}</span>
-                    </div>
-                    <label v-for="group in filteredGuildGroupsForMember" :key="group.id" class="checkbox-label">
-                      <input type="checkbox" :value="group.id" v-model="memberGuildGroupIdsSelected">
-                      <span>{{ group.name }} ({{ group.id }})</span>
-                    </label>
-                    <div v-if="filteredGuildGroupsForMember.length === 0" class="empty-tip">未找到匹配的群组组</div>
-                  </div>
-                  <div v-else class="empty-tip">暂无可用群组组，请先在群组配置中创建</div>
+                  <GuildGroupPicker v-model="memberGuildGroupIdsSelected" :groups="guildGroups" />
                 </div>
 
                <!-- 成员搜索框 -->
@@ -509,13 +473,12 @@
             </div>
             <div class="form-group" v-if="editMemberScopeMode === 'guildGroup'">
               <label>群组组</label>
-              <div class="group-checkbox-list" v-if="guildGroups.length">
-                <label v-for="group in filteredGuildGroupsForMember" :key="group.id" class="checkbox-label">
-                  <input type="checkbox" :value="group.id" v-model="editMemberGuildGroupIds">
-                  <span>{{ group.name }} ({{ group.id }})</span>
-                </label>
-              </div>
-              <div v-else class="empty-tip">暂无群组组</div>
+              <GuildGroupPicker
+                v-model="editMemberGuildGroupIds"
+                :groups="guildGroups"
+                :searchable="false"
+                empty-text="暂无群组组"
+              />
             </div>
           </div>
           <div class="modal-footer">
@@ -536,6 +499,7 @@ import { message } from '@koishijs/client'
 import { useConfirm } from '../composables/useConfirm'
 import ConfirmDialog from './common/ConfirmDialog.vue'
 import RoleList from './roles/RoleList.vue'
+import GuildGroupPicker from './roles/GuildGroupPicker.vue'
 
 // 创建默认角色对象
 const createDefaultRole = (): Role => ({
@@ -564,8 +528,6 @@ const memberSearchQuery = ref('')
 const memberScopeMode = ref<'inherit' | 'global' | 'guilds' | 'guildGroup'>('inherit')
 const memberGuildIdsText = ref('')
 const memberGuildGroupIdsSelected = ref<string[]>([])
-const guildGroupSearch = ref('')
-const memberGuildGroupSearch = ref('')
 const showMemberScopeDialog = ref(false)
 const selectedMember = ref<RoleMember | null>(null)
 const editMemberScopeMode = ref<'global' | 'guilds' | 'guildGroup'>('global')
@@ -583,38 +545,6 @@ const filteredRoleMembers = computed(() => {
     (m.name && m.name.toLowerCase().includes(query))
   )
 })
-
-const filteredGuildGroupsForRole = computed(() => {
-  const query = guildGroupSearch.value.trim().toLowerCase()
-  if (!query) return guildGroups.value
-  return guildGroups.value.filter(group =>
-    group.id.toLowerCase().includes(query) || group.name.toLowerCase().includes(query)
-  )
-})
-
-const filteredGuildGroupsForMember = computed(() => {
-  const query = memberGuildGroupSearch.value.trim().toLowerCase()
-  if (!query) return guildGroups.value
-  return guildGroups.value.filter(group =>
-    group.id.toLowerCase().includes(query) || group.name.toLowerCase().includes(query)
-  )
-})
-
-const selectAllRoleGroups = () => {
-  guildGroupIdsSelected.value = filteredGuildGroupsForRole.value.map(group => group.id)
-}
-
-const clearRoleGroups = () => {
-  guildGroupIdsSelected.value = []
-}
-
-const selectAllMemberGroups = () => {
-  memberGuildGroupIdsSelected.value = filteredGuildGroupsForMember.value.map(group => group.id)
-}
-
-const clearMemberGroups = () => {
-  memberGuildGroupIdsSelected.value = []
-}
 
 const openMemberScope = async (member: RoleMember) => {
   if (!currentRole.value) return
@@ -1782,37 +1712,6 @@ const copyRoleId = async () => {
 }
 
 
-.group-checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: var(--fg2, rgba(255, 255, 245, .6));
-}
-
-
-.group-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-}
-
-
-.group-count {
-  font-size: 0.75rem;
-  color: var(--fg3, rgba(255, 255, 245, .4));
-}
-
-
 /* 当前已选权限显示 */
 .current-perms {
   display: flex;
@@ -2536,16 +2435,6 @@ const copyRoleId = async () => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px 12px;
-}
-
-
-.member-scope-panel .group-checkbox-list {
-  border: 1px solid var(--k-color-divider, rgba(82, 82, 89, 0.5));
-  border-radius: 6px;
-  padding: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  background: var(--bg1, #1e1e20);
 }
 
 
