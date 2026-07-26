@@ -219,17 +219,30 @@ export interface ReportGuildConfig {
   contextSize?: number
 }
 
-export interface CommandLogEntry {
-  timestamp: string | number
-  guildId: string
+/** 一条命令执行记录，由 LogModule 独占写入 command_logs.json */
+export interface CommandLogRecord {
+  id: string
+  timestamp: string
   userId: string
+  username?: string
+  userAuthority?: number
+  guildId?: string
+  guildName?: string
+  channelId?: string
+  platform: string
   command: string
-  target: string
-  details: string
+  args: string[]
+  options: Record<string, any>
+  success: boolean
+  error?: string
+  executionTime: number
+  result?: string
+  messageId?: string
+  isPrivate: boolean
 }
 
 export interface CommandLogData {
-  logs: CommandLogEntry[]
+  logs: CommandLogRecord[]
   [key: string]: unknown
 }
 

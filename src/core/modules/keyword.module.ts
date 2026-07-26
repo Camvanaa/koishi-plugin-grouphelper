@@ -6,7 +6,7 @@ import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import type { DataManager } from '../data'
 import type { Config, GroupConfig } from '../../types'
-import { parseTimeString, formatDuration } from '../../utils'
+import { parseTimeString, formatDuration, matchesKeyword, validateKeyword, REGEX_KEYWORD_PREFIX } from '../../utils'
 
 export class KeywordModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -71,12 +71,16 @@ export class KeywordModule extends BaseModule {
 
     // 添加关键词
     if (options.a) {
-      const newKeywords = options.a.split(',').map((k: string) => k.trim()).filter((k: string) => k)
-      groupConfig.approvalKeywords.push(...newKeywords)
+      const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.approvalKeywords)
+      if (!accepted.length) {
+        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+      }
+      groupConfig.approvalKeywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
-      this.log(session, 'verify', 'add', `已添加关键词：${newKeywords.join('、')}`)
-      return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
+      this.log(session, 'verify', 'add', `已添加关键词：${accepted.join('、')}`)
+      const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
+      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
     }
 
     // 移除关键词
@@ -182,18 +186,23 @@ export class KeywordModule extends BaseModule {
 自动撤回状态：${forbiddenConfig.autoDelete ? '开启' : '关闭'}
 自动禁言状态：${forbiddenConfig.autoBan ? '开启' : '关闭'}
 自动踢出状态：${forbiddenConfig.autoKick ? '开启' : '关闭'}
-自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}`
+自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}
+匹配方式：默认按原文包含匹配，需要正则请写成 ${REGEX_KEYWORD_PREFIX}正则内容`
     }
 
     // 添加关键词
     if (options.a) {
-      const newKeywords = options.a.split(',').map((k: string) => k.trim()).filter((k: string) => k)
       groupConfig.keywords = groupConfig.keywords || []
-      groupConfig.keywords.push(...newKeywords)
+      const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.keywords)
+      if (!accepted.length) {
+        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+      }
+      groupConfig.keywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
-      this.log(session, 'forbidden', 'add', `成功：已添加关键词：${newKeywords.join('、')}`)
-      return `已经添加了关键词：${newKeywords.join('、')} 喵喵喵~`
+      this.log(session, 'forbidden', 'add', `成功：已添加关键词：${accepted.join('、')}`)
+      const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
+      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
     }
 
     // 移除关键词
@@ -468,16 +477,35 @@ export class KeywordModule extends BaseModule {
   }
 
   /**
-   * 匹配关键词（支持正则表达式）
+   * 匹配关键词：默认字面量，`re:` 前缀才按正则处理
    */
   private matchKeyword(content: string, keyword: string): boolean {
-    try {
-      const regex = new RegExp(keyword, 'i')
-      return regex.test(content)
-    } catch (e) {
-      // 正则无效时使用普通字符串匹配
-      return content.includes(keyword)
+    return matchesKeyword(content, keyword)
+  }
+
+  /**
+   * 解析待添加的关键词列表，挡掉非法正则并跳过重复项。
+   *
+   * 非法正则必须在写入前拦下：一旦落盘，之后每条消息都会尝试编译它。
+   */
+  private prepareNewKeywords(
+    raw: string,
+    existing: string[]
+  ): { accepted: string[]; errors: string[] } {
+    const accepted: string[] = []
+    const errors: string[] = []
+
+    for (const keyword of raw.split(',').map(k => k.trim()).filter(Boolean)) {
+      const reason = validateKeyword(keyword)
+      if (reason) {
+        errors.push(`${keyword}（${reason}）`)
+        continue
+      }
+      if (existing.includes(keyword) || accepted.includes(keyword)) continue
+      accepted.push(keyword)
     }
+
+    return { accepted, errors }
   }
 
   /**

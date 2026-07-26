@@ -96,7 +96,7 @@ export function apply(ctx: Context) {
       ctx.groupHelper.registerModule(logModule)
       ctx.groupHelper.registerModule(subscriptionModule)
       ctx.groupHelper.registerModule(helpModule)
-      ctx.groupHelper.registerModule(reportModule as any)
+      ctx.groupHelper.registerModule(reportModule)
       ctx.groupHelper.registerModule(getAuthModule)
       ctx.groupHelper.registerModule(authModule)
       ctx.groupHelper.registerModule(eventModule)

@@ -46,6 +46,11 @@ interface CacheData {
 
 export class CacheService {
   private store: JsonDataStore<CacheData>
+
+  /** 释放底层存储：落盘挂起的写入并停掉定时器 */
+  dispose(): void {
+    this.store.dispose()
+  }
   private logger: any
   private cacheExpiry = 7 * 24 * 60 * 60 * 1000 // 7天过期
 

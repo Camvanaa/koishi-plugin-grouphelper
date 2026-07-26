@@ -214,9 +214,17 @@ export abstract class BaseModule {
     )
   }
 
+  /**
+   * 记录一条操作日志。
+   *
+   * 保持同步签名：绝大多数调用点在命令 action 里即用即走，不应为写日志阻塞回复。
+   * 但底层 log 是异步的，必须在这里兜住 rejection——服务销毁窗口期的写入失败
+   * 否则会变成 unhandledRejection。
+   */
   protected logCommand(session: any, command: string, target: string, result: string, success?: boolean): void {
-    // 使用 BaseModule 的 log 方法
-    this.log(session, command, target, result, success)
+    this.log(session, command, target, result, success).catch(err => {
+      this.ctx.logger('grouphelper').warn('记录操作日志失败:', err)
+    })
   }
   
 }

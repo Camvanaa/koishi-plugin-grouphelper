@@ -90,8 +90,8 @@ export class StatusModule extends BaseModule {
     const plugins = this.ctx.registry.size
     
     // GroupHelper 统计
-    const groupCount = Object.keys(await this.data.groupConfig.getAll()).length
-    const logCount = (await this.data.commandLogs.getAll()).length
+    const groupCount = Object.keys(this.data.groupConfig.getAll()).length
+    const logCount = (this.data.commandLogs.get('logs') || []).length
 
     const pkg = require('../../../package.json')
     const grouphelperVersion = `${pkg.version || `unknown`}` // 应该从 package.json 获取，这里硬编码或从 ctx.app.version 获取

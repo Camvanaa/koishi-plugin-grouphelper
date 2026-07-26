@@ -2,7 +2,7 @@ import { Context, Logger, Time } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config } from '../../types'
-import { formatDuration } from '../../utils'
+import { formatDuration, matchesKeyword } from '../../utils'
 
 const logger = new Logger('grouphelper:event')
 
@@ -46,17 +46,9 @@ export class EventModule extends BaseModule {
       // 检查关键词
       if (this.config.friendRequest.keywords?.length > 0 && data.comment) {
         for (const keyword of this.config.friendRequest.keywords) {
-          try {
-            const regex = new RegExp(keyword, 'i')
-            if (regex.test(data.comment)) {
-              await session.bot.internal.setFriendAddRequest(data.flag, true)
-              return
-            }
-          } catch (e) {
-            if (data.comment.toLowerCase().includes(keyword.toLowerCase())) {
-              await session.bot.internal.setFriendAddRequest(data.flag, true)
-              return
-            }
+          if (matchesKeyword(data.comment, keyword)) {
+            await session.bot.internal.setFriendAddRequest(data.flag, true)
+            return
           }
         }
 
@@ -172,19 +164,20 @@ export class EventModule extends BaseModule {
       const keywords = [...globalKeywords, ...approvalKeywords]
       
       if (keywords.length > 0 && data.comment) {
-        for (const keyword of keywords) {
-          try {
-            const regex = new RegExp(keyword, 'i')
-            if (regex.test(data.comment)) {
-              await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
-              return
-            }
-          } catch (e) {
-            if (data.comment.toLowerCase().includes(keyword.toLowerCase())) {
-              await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
-              return
-            }
-          }
+        if (keywords.some(keyword => matchesKeyword(data.comment, keyword))) {
+          await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
+          return
+        }
+
+        // 未命中关键词：开启自动拒绝时按拒绝词驳回，否则留给管理员手动处理
+        if (groupConfig.auto === 'true') {
+          await session.bot.internal.setGroupAddRequest(
+            data.flag,
+            data.sub_type,
+            false,
+            groupConfig.reject || '答案错误，请重新申请'
+          )
+          return
         }
       }
     })

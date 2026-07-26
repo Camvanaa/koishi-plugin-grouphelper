@@ -307,7 +307,9 @@ export class DataManager {
         store.dispose()
       }
     }
-    this.stores = {}
+    // 刻意保留 this.stores：懒加载 getter 见到空对象会重新 new 一个 store 出来，
+    // 那个新实例会重新读文件、带上自己的定时器，并与重载后新 DataManager 的
+    // 内存快照争抢同一个文件，形成互相覆盖。保留已释放的实例可让写入被安全忽略。
 
     // 关闭日志流
     if (this.logStream) {

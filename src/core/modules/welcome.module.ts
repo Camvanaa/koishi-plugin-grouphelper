@@ -13,16 +13,24 @@ export class WelcomeModule extends BaseModule {
     version: '1.0.0'
   }
 
-  private static readonly defaultWelcomeConfig : GroupConfig = {
-  keywords: [],
-  approvalKeywords: [],
-  welcomeMsg: '',
-  goodbyeMsg: '',
-  auto: 'false',
-  reject: '答案错误，请重新申请',
-  levelLimit: 0,
-  leaveCooldown: 0
-}
+  /**
+   * 生成一份全新的默认群配置。
+   *
+   * 必须每次返回新对象：调用方会直接改写返回值再 setAll 落盘，
+   * 若共用同一个静态对象，某个群设置欢迎语会污染所有尚无配置的群。
+   */
+  private static createDefaultConfig(): GroupConfig {
+    return {
+      keywords: [],
+      approvalKeywords: [],
+      welcomeMsg: '',
+      goodbyeMsg: '',
+      auto: 'false',
+      reject: '答案错误，请重新申请',
+      levelLimit: 0,
+      leaveCooldown: 0
+    }
+  }
 
   constructor(ctx: Context, data: DataManager, config: Config) {
     super(ctx, data, config)
@@ -94,7 +102,7 @@ export class WelcomeModule extends BaseModule {
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
 
     // 设置等级限制
     if (options.l !== undefined) {
@@ -181,7 +189,7 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
     if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
 
     const allConfigs = this.data.groupConfig.getAll()
-    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.defaultWelcomeConfig
+    const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
     
     // 设置欢送语
     if (options.s) {

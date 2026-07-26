@@ -910,35 +910,6 @@ export class ReportModule extends BaseModule {
     }
   }
 
-  /**
-   * 记录命令日志
-   */
-  protected async logCommand(session: any, command: string, target: string, details: string): Promise<void> {
-    try {
-      const commandLogs = this.data.commandLogs.getAll()
-      if (!commandLogs.logs) {
-        commandLogs.logs = []
-      }
-
-      commandLogs.logs.push({
-        timestamp: Date.now(),
-        guildId: session.guildId,
-        userId: session.userId,
-        command,
-        target,
-        details
-      })
-
-      // 限制日志数量
-      if (commandLogs.logs.length > 1000) {
-        commandLogs.logs = commandLogs.logs.slice(-1000)
-      }
-
-      this.data.commandLogs.set('logs', commandLogs.logs)
-    } catch (e) {
-      logger.error('记录命令日志失败:', e)
-    }
-  }
 
   /**
    * 设置清理任务

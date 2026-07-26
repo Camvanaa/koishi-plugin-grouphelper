@@ -6,29 +6,17 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
-import { Config } from '../../types'
+import { Config, CommandLogData, CommandLogRecord } from '../../types'
 
-// 命令日志记录接口
-export interface CommandLogRecord {
-  id: string
-  timestamp: string
-  userId: string
-  username?: string
-  userAuthority?: number
-  guildId?: string
-  guildName?: string
-  channelId?: string
-  platform: string
-  command: string
-  args: string[]
-  options: Record<string, any>
-  success: boolean
-  error?: string
-  executionTime: number
-  result?: string
-  messageId?: string
-  isPrivate: boolean
-}
+// 命令日志记录接口（类型定义已移至 types，此处再导出以兼容既有引用）
+export type { CommandLogRecord } from '../../types'
+
+/**
+ * 命令日志保留条数上限。
+ * 每条命令都会追加一条记录，不设上限会让文件无限膨胀，
+ * 进而拖慢依赖它的统计与检索。
+ */
+const MAX_COMMAND_LOGS = 5000
 
 export class LogModule extends BaseModule {
   readonly meta: ModuleMeta = {
@@ -38,13 +26,12 @@ export class LogModule extends BaseModule {
   }
 
   private logPath: string
-  private commandLogPath: string
   private commandStats: Map<string, { count: number, lastUsed: number }> = new Map()
 
   constructor(ctx: Context, dataManager: DataManager, config: Config) {
     super(ctx, dataManager, config)
+    // command_logs.json 统一经 data.commandLogs store 读写，此处只保留操作日志文件路径
     this.logPath = path.resolve(this.data.dataPath, 'grouphelper.log')
-    this.commandLogPath = path.resolve(this.data.dataPath, 'command_logs.json')
   }
 
   protected async onInit(): Promise<void> {
@@ -55,28 +42,44 @@ export class LogModule extends BaseModule {
   }
 
   private initCommandLogs(): void {
-    if (!fs.existsSync(this.commandLogPath)) {
-      this.saveCommandLogs([])
-    }
+    this.migrateLegacyCommandLogs()
     this.loadStats()
   }
 
-  private readCommandLogs(): CommandLogRecord[] {
-    try {
-      const content = fs.readFileSync(this.commandLogPath, 'utf-8')
-      return JSON.parse(content) || []
-    } catch (e) {
-      console.error('读取命令日志失败:', e)
-      return []
+  /**
+   * 把历史遗留的顶层数组格式统一成 { logs: [] }。
+   *
+   * 早期版本用裸 fs 把该文件写成顶层数组，而 DataManager 的 store 按对象读写。
+   * 两种格式共存时，写入会被 JSON.stringify 静默丢弃，或读取时抛 TypeError，
+   * 因此启动时先归一化。
+   */
+  private migrateLegacyCommandLogs(): void {
+    const stored = this.data.commandLogs.getAll() as unknown
+
+    if (Array.isArray(stored)) {
+      const logs = stored as CommandLogRecord[]
+      this.data.commandLogs.setAll({ logs })
+      this.data.commandLogs.flush()
+      this.ctx.logger('grouphelper').info(
+        'command_logs.json 已由数组格式迁移为对象格式，共 %d 条记录',
+        logs.length
+      )
+      return
+    }
+
+    if (!Array.isArray((stored as CommandLogData | undefined)?.logs)) {
+      this.data.commandLogs.setAll({ logs: [] })
     }
   }
 
+  private readCommandLogs(): CommandLogRecord[] {
+    const logs = this.data.commandLogs.get('logs')
+    return Array.isArray(logs) ? logs : []
+  }
+
   private saveCommandLogs(logs: CommandLogRecord[]): void {
-    try {
-      fs.writeFileSync(this.commandLogPath, JSON.stringify(logs, null, 2), 'utf-8')
-    } catch (e) {
-      console.error('保存命令日志失败:', e)
-    }
+    // 超出上限时只保留最近的记录
+    this.data.commandLogs.set('logs', logs.length > MAX_COMMAND_LOGS ? logs.slice(-MAX_COMMAND_LOGS) : logs)
   }
 
   private loadStats(): void {

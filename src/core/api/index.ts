@@ -10,6 +10,12 @@ import type { AuthScope, GuildGroup, GroupConfig, GroupGroupConfigData, Role, Su
 import * as crypto from 'crypto'
 const pkg = require('../../../package.json')
 
+/**
+ * 控制台端点所需的最低权限等级。
+ * 本插件的端点均可读写群管数据或以机器人身份发消息，一律按管理员要求。
+ */
+const ADMIN_AUTHORITY = 4
+
 /** API 响应格式 */
 interface ApiResponse<T = any> {
   success: boolean
@@ -25,6 +31,32 @@ function success<T>(data: T): ApiResponse<T> {
 /** 失败响应 */
 function error(message: string): ApiResponse {
   return { success: false, error: message }
+}
+
+/**
+ * 机密字段下发给前端时的占位符。
+ *
+ * 前端把整份 settings 原样回传保存，所以读写必须成对处理：
+ * 收到该占位符表示"未修改"，需还原成已存储的值；收到空串才是用户主动清除。
+ */
+const REDACTED_SECRET = '••••••••'
+
+/** 下发前隐去机密字段，不改动存储中的原对象 */
+function redactSecrets(settings: any): any {
+  if (!settings?.openai?.apiKey) return settings
+  return {
+    ...settings,
+    openai: { ...settings.openai, apiKey: REDACTED_SECRET }
+  }
+}
+
+/** 回写前把占位符还原成已存储的机密值 */
+function restoreSecrets(patch: any, current: any): any {
+  if (patch?.openai?.apiKey !== REDACTED_SECRET) return patch
+  return {
+    ...patch,
+    openai: { ...patch.openai, apiKey: current?.openai?.apiKey ?? '' }
+  }
 }
 
 function mergePartialConfig<T extends Record<string, any>>(target: T, patch: Partial<T>): T {
@@ -60,6 +92,23 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   const data = service.data
 
+  /**
+   * 注册受权限保护的 WebSocket 端点。
+   *
+   * 必须经由此包装器注册，不要直接调用 ctx.console.addListener：
+   * @koishijs/plugin-auth 的 console/intercept 钩子在 listener 未声明 authority 时
+   * 会直接放行，因此漏传等同于对未认证连接完全开放。
+   */
+  const addListener = (
+    event: string,
+    callback: (...args: any[]) => any,
+    options: { authority?: number } = {}
+  ) => {
+    ctx.console.addListener(event as any, callback as any, {
+      authority: options.authority ?? ADMIN_AUTHORITY
+    })
+  }
+
   const applyGroupGroupConfigToGuilds = async (groupId: string) => {
     const groups = data.guildGroups.get('groups') || {}
     const configs = data.groupGroupConfig.get('configs') || {}
@@ -79,7 +128,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 群组配置 API =====
   
   /** 重新加载所有数据 */
-  ctx.console.addListener('grouphelper/config/reload' as any, async () => {
+  addListener('grouphelper/config/reload' as any, async () => {
     try {
       data.groupConfig.reload()
       ctx.logger('grouphelper').info('群组配置已重新加载，共 %d 条', Object.keys(data.groupConfig.getAll()).length)
@@ -94,7 +143,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取所有群组配置 */
-  ctx.console.addListener('grouphelper/config/list', async (params?: { fetchNames?: boolean }) => {
+  addListener('grouphelper/config/list', async (params?: { fetchNames?: boolean }) => {
     const allConfigs = data.groupConfig.getAll()
     const results: Record<string, any> = {}
 
@@ -124,19 +173,19 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取单个群组配置 */
-  ctx.console.addListener('grouphelper/config/get', async (params: { guildId: string }) => {
+  addListener('grouphelper/config/get', async (params: { guildId: string }) => {
     return success(data.groupConfig.get(params.guildId))
   })
 
   /** 更新群组配置 */
-  ctx.console.addListener('grouphelper/config/update', async (params: { guildId: string, config: any }) => {
+  addListener('grouphelper/config/update', async (params: { guildId: string, config: any }) => {
     data.groupConfig.set(params.guildId, params.config)
     await data.groupConfig.flush()
     return success({ success: true })
   })
 
   /** 创建群组配置 */
-  ctx.console.addListener('grouphelper/config/create', async (params: { guildId: string }) => {
+  addListener('grouphelper/config/create', async (params: { guildId: string }) => {
     if (data.groupConfig.get(params.guildId)) {
       return error('配置已存在')
     }
@@ -159,7 +208,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 删除群组配置 */
-  ctx.console.addListener('grouphelper/config/delete', async (params: { guildId: string }) => {
+  addListener('grouphelper/config/delete', async (params: { guildId: string }) => {
     data.groupConfig.delete(params.guildId)
     await data.groupConfig.flush()
     return success({ success: true })
@@ -168,19 +217,19 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 权限管理 API =====
 
   /** 获取所有角色 */
-  ctx.console.addListener('grouphelper/auth/role/list' as any, async () => {
+  addListener('grouphelper/auth/role/list' as any, async () => {
     return success(service.auth.getRoles())
   })
 
   /** 创建/更新角色 */
-  ctx.console.addListener('grouphelper/auth/role/update' as any, async (params: { role: Role }) => {
+  addListener('grouphelper/auth/role/update' as any, async (params: { role: Role }) => {
     await service.auth.saveRole(params.role)
     await service.data.authRoles.flush()
     return success({ success: true })
   })
 
   /** 删除角色 */
-  ctx.console.addListener('grouphelper/auth/role/delete' as any, async (params: { roleId: string }) => {
+  addListener('grouphelper/auth/role/delete' as any, async (params: { roleId: string }) => {
     await service.auth.deleteRole(params.roleId)
     await service.data.authRoles.flush()
     await service.data.authUsers.flush() // 用户关联可能被清理
@@ -188,17 +237,17 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取某用户的角色列表 */
-  ctx.console.addListener('grouphelper/auth/user/get' as any, async (params: { userId: string }) => {
+  addListener('grouphelper/auth/user/get' as any, async (params: { userId: string }) => {
     return success(service.auth.getUserRoleIds(params.userId))
   })
 
   /** 获取某用户的角色绑定列表（含 scope） */
-  ctx.console.addListener('grouphelper/auth/user/bindings' as any, async (params: { userId: string }) => {
+  addListener('grouphelper/auth/user/bindings' as any, async (params: { userId: string }) => {
     return success(service.auth.getUserRoleBindings(params.userId))
   })
 
   /** 获取角色的成员列表 */
-  ctx.console.addListener('grouphelper/auth/role/members' as any, async (params: { roleId: string, fetchNames?: boolean }) => {
+  addListener('grouphelper/auth/role/members' as any, async (params: { roleId: string, fetchNames?: boolean }) => {
     const userIds = service.auth.getRoleMembers(params.roleId)
     
     if (params.fetchNames) {
@@ -218,28 +267,28 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 分配角色 */
-  ctx.console.addListener('grouphelper/auth/user/assign' as any, async (params: { userId: string, roleId: string, scope?: AuthScope, assignedBy?: string }) => {
+  addListener('grouphelper/auth/user/assign' as any, async (params: { userId: string, roleId: string, scope?: AuthScope, assignedBy?: string }) => {
     await service.auth.assignRole(params.userId, params.roleId, params.scope, params.assignedBy)
     await service.data.authUsers.flush()
     return success({ success: true })
   })
 
   /** 移除角色 */
-  ctx.console.addListener('grouphelper/auth/user/revoke' as any, async (params: { userId: string, roleId: string }) => {
+  addListener('grouphelper/auth/user/revoke' as any, async (params: { userId: string, roleId: string }) => {
     await service.auth.revokeRole(params.userId, params.roleId)
     await service.data.authUsers.flush()
     return success({ success: true })
   })
 
   /** 更新用户角色作用域 */
-  ctx.console.addListener('grouphelper/auth/user/scope-update' as any, async (params: { userId: string, roleId: string, scope: AuthScope, updatedBy?: string }) => {
+  addListener('grouphelper/auth/user/scope-update' as any, async (params: { userId: string, roleId: string, scope: AuthScope, updatedBy?: string }) => {
     await service.auth.updateUserRoleScope(params.userId, params.roleId, params.scope, params.updatedBy)
     await service.data.authUsers.flush()
     return success({ success: true })
   })
 
   /** 批量导入成员到角色 */
-  ctx.console.addListener('grouphelper/auth/role/import-members' as any, async (params: { roleId: string, userIds: string[], scope?: AuthScope, assignedBy?: string }) => {
+  addListener('grouphelper/auth/role/import-members' as any, async (params: { roleId: string, userIds: string[], scope?: AuthScope, assignedBy?: string }) => {
     try {
       const { roleId, userIds } = params
       if (!roleId || !userIds || !Array.isArray(userIds)) {
@@ -269,7 +318,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取指定 authority 等级的用户列表 */
-  ctx.console.addListener('grouphelper/auth/users-by-authority' as any, async (params: { authority: number }) => {
+  addListener('grouphelper/auth/users-by-authority' as any, async (params: { authority: number }) => {
     try {
       const { authority } = params
       if (typeof authority !== 'number' || authority < 1 || authority > 5) {
@@ -325,13 +374,13 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 群组组管理 API =====
 
   /** 获取所有群组组 */
-  ctx.console.addListener('grouphelper/auth/guild-group/list' as any, async () => {
+  addListener('grouphelper/auth/guild-group/list' as any, async () => {
     const groups = service.data.guildGroups.get('groups') || {}
     return success(Object.values(groups))
   })
 
   /** 创建/更新群组组 */
-  ctx.console.addListener('grouphelper/auth/guild-group/update' as any, async (params: { group: GuildGroup }) => {
+  addListener('grouphelper/auth/guild-group/update' as any, async (params: { group: GuildGroup }) => {
     const group = params.group
     if (!group || !group.id || !group.name) return error('无效的群组组信息')
     const groups = service.data.guildGroups.get('groups') || {}
@@ -348,7 +397,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 删除群组组 */
-  ctx.console.addListener('grouphelper/auth/guild-group/delete' as any, async (params: { groupId: string }) => {
+  addListener('grouphelper/auth/guild-group/delete' as any, async (params: { groupId: string }) => {
     const groups = service.data.guildGroups.get('groups') || {}
     if (groups[params.groupId]) {
       delete groups[params.groupId]
@@ -367,19 +416,19 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 群组组配置 API =====
 
   /** 获取所有群组组配置 */
-  ctx.console.addListener('grouphelper/config/group-group-config/list' as any, async () => {
+  addListener('grouphelper/config/group-group-config/list' as any, async () => {
     const configs = data.groupGroupConfig.get('configs') || {}
     return success(configs)
   })
 
   /** 获取指定群组组配置 */
-  ctx.console.addListener('grouphelper/config/group-group-config/get' as any, async (params: { groupId: string }) => {
+  addListener('grouphelper/config/group-group-config/get' as any, async (params: { groupId: string }) => {
     const configs = data.groupGroupConfig.get('configs') || {}
     return success(configs[params.groupId] || {})
   })
 
   /** 更新群组组配置（局部合并） */
-  ctx.console.addListener('grouphelper/config/group-group-config/update' as any, async (params: { groupId: string, config: Partial<GroupConfig> }) => {
+  addListener('grouphelper/config/group-group-config/update' as any, async (params: { groupId: string, config: Partial<GroupConfig> }) => {
     const { groupId, config } = params
     if (!groupId || !config || typeof config !== 'object') return error('无效的群组组配置')
     const configs = data.groupGroupConfig.get('configs') || {}
@@ -391,7 +440,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取指定群的管理员列表 */
-  ctx.console.addListener('grouphelper/auth/guild-admins' as any, async (params: { guildId: string }) => {
+  addListener('grouphelper/auth/guild-admins' as any, async (params: { guildId: string }) => {
     try {
       const { guildId } = params
       if (!guildId) {
@@ -446,7 +495,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取系统所有可用的权限节点列表 (供前端选择) */
-  ctx.console.addListener('grouphelper/auth/permission/list' as any, async () => {
+  addListener('grouphelper/auth/permission/list' as any, async () => {
     // 从 AuthService 获取动态注册的权限节点
     const permissions = service.auth.getPermissions()
     return success(permissions)
@@ -455,7 +504,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 警告记录 API =====
 
   /** 重新加载警告数据 */
-  ctx.console.addListener('grouphelper/warns/reload' as any, async () => {
+  addListener('grouphelper/warns/reload' as any, async () => {
     try {
       data.warns.reload()
       ctx.logger('grouphelper').info('警告数据已重新加载')
@@ -466,7 +515,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取所有警告记录 (Enriched) - 支持新格式 */
-  ctx.console.addListener('grouphelper/warns/list', async (params?: { fetchNames?: boolean }) => {
+  addListener('grouphelper/warns/list', async (params?: { fetchNames?: boolean }) => {
     const allWarns = data.warns.getAll()
     const result: any[] = []
 
@@ -533,7 +582,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 更新警告次数 */
-  ctx.console.addListener('grouphelper/warns/update', async (params: { key: string, count: number }) => {
+  addListener('grouphelper/warns/update', async (params: { key: string, count: number }) => {
     const parts = params.key.split(':')
     if (parts.length < 2) return error('Invalid key format')
     
@@ -564,7 +613,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 添加警告 */
-  ctx.console.addListener('grouphelper/warns/add', async (params: { guildId: string, userId: string }) => {
+  addListener('grouphelper/warns/add', async (params: { guildId: string, userId: string }) => {
     const guildWarns = data.warns.get(params.guildId) || {}
     
     if (!guildWarns[params.userId]) {
@@ -581,7 +630,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取用户警告记录 */
-  ctx.console.addListener('grouphelper/warns/get', async (params: { key: string }) => {
+  addListener('grouphelper/warns/get', async (params: { key: string }) => {
     const parts = params.key.split(':')
     if (parts.length < 2) return error('Invalid key format')
     const guildId = parts[0]
@@ -595,7 +644,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 清除用户警告 */
-  ctx.console.addListener('grouphelper/warns/clear', async (params: { key: string }) => {
+  addListener('grouphelper/warns/clear', async (params: { key: string }) => {
     const parts = params.key.split(':')
     if (parts.length < 2) return error('Invalid key format')
     const guildId = parts[0]
@@ -618,19 +667,19 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 黑名单 API =====
 
   /** 获取黑名单 */
-  ctx.console.addListener('grouphelper/blacklist/list', async () => {
+  addListener('grouphelper/blacklist/list', async () => {
     return success(data.blacklist.getAll())
   })
 
   /** 添加黑名单 */
-  ctx.console.addListener('grouphelper/blacklist/add', async (params: { userId: string, record: any }) => {
+  addListener('grouphelper/blacklist/add', async (params: { userId: string, record: any }) => {
     data.blacklist.set(params.userId, params.record)
     await data.blacklist.flush()
     return success({ success: true })
   })
 
   /** 移除黑名单 */
-  ctx.console.addListener('grouphelper/blacklist/remove', async (params: { userId: string }) => {
+  addListener('grouphelper/blacklist/remove', async (params: { userId: string }) => {
     data.blacklist.delete(params.userId)
     await data.blacklist.flush()
     return success({ success: true })
@@ -639,7 +688,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 订阅 API =====
 
   /** 获取订阅列表 */
-  ctx.console.addListener('grouphelper/subscriptions/list', async (params?: { fetchNames?: boolean }) => {
+  addListener('grouphelper/subscriptions/list', async (params?: { fetchNames?: boolean }) => {
     const subsData = data.subscriptions.get('list') || []
     
     if (params?.fetchNames) {
@@ -667,7 +716,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 添加订阅 */
-  ctx.console.addListener('grouphelper/subscriptions/add', async (params: { subscription: Subscription }) => {
+  addListener('grouphelper/subscriptions/add', async (params: { subscription: Subscription }) => {
     const list = data.subscriptions.get('list') || []
     list.push(params.subscription)
     data.subscriptions.set('list', list)
@@ -676,7 +725,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 移除订阅 */
-  ctx.console.addListener('grouphelper/subscriptions/remove', async (params: { index: number }) => {
+  addListener('grouphelper/subscriptions/remove', async (params: { index: number }) => {
     const list = data.subscriptions.get('list') || []
     if (params.index >= 0 && params.index < list.length) {
       list.splice(params.index, 1)
@@ -687,7 +736,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 更新订阅 */
-  ctx.console.addListener('grouphelper/subscriptions/update', async (params: { index: number, subscription: Subscription }) => {
+  addListener('grouphelper/subscriptions/update', async (params: { index: number, subscription: Subscription }) => {
     const list = data.subscriptions.get('list') || []
     if (params.index >= 0 && params.index < list.length) {
       list[params.index] = params.subscription
@@ -700,7 +749,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 统计 API =====
 
   /** 获取模块状态 */
-  ctx.console.addListener('grouphelper/stats/modules' as any, async () => {
+  addListener('grouphelper/stats/modules' as any, async () => {
     const modules = service.getAllModules()
     const result = modules.map(m => ({
       name: m.meta.name,
@@ -712,7 +761,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取仪表盘统计 */
-  ctx.console.addListener('grouphelper/stats/dashboard', async () => {
+  addListener('grouphelper/stats/dashboard', async () => {
     const allWarns = data.warns.getAll()
     const allBlacklist = data.blacklist.getAll()
     const allConfigs = data.groupConfig.getAll()
@@ -737,7 +786,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取图表统计数据 */
-  ctx.console.addListener('grouphelper/stats/charts' as any, async (params?: { days?: number }) => {
+  addListener('grouphelper/stats/charts' as any, async (params?: { days?: number }) => {
     const days = params?.days || 7
     const now = Date.now()
     const startTime = now - days * 24 * 60 * 60 * 1000
@@ -846,7 +895,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
 
   // ===== 日志检索 API =====
 
-  ctx.console.addListener('grouphelper/logs/search', async (params: {
+  addListener('grouphelper/logs/search', async (params: {
     startTime?: string | number
     endTime?: string | number
     command?: string
@@ -901,24 +950,24 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 设置 API =====
 
   /** 获取插件设置 */
-  ctx.console.addListener('grouphelper/settings/get', async () => {
-    // 获取当前设置
-    return success(service.settings.settings)
+  addListener('grouphelper/settings/get', async () => {
+    // 获取当前设置（机密字段以占位符下发）
+    return success(redactSecrets(service.settings.settings))
   })
 
   /** 更新插件设置 */
-  ctx.console.addListener('grouphelper/settings/update', async (params: { settings: any }) => {
+  addListener('grouphelper/settings/update', async (params: { settings: any }) => {
     try {
       const { settings } = params
-      
+
       // 检查 settings 是否有效
       if (!settings || typeof settings !== 'object') {
         return error('无效的设置数据')
       }
-      
-      // 更新设置
-      await service.settings.update(settings)
-      
+
+      // 更新设置（还原前端回传的机密占位符）
+      await service.settings.update(restoreSecrets(settings, service.settings.settings))
+
       ctx.logger('grouphelper').info('设置已更新')
       return success({ success: true })
     } catch (e) {
@@ -928,7 +977,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 重置插件设置 */
-  ctx.console.addListener('grouphelper/settings/reset', async () => {
+  addListener('grouphelper/settings/reset', async () => {
     try {
       await service.settings.reset()
       ctx.logger('grouphelper').info('设置已重置为默认值')
@@ -942,7 +991,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 缓存管理 API =====
 
   /** 获取缓存统计信息 */
-  ctx.console.addListener('grouphelper/cache/stats' as any, async () => {
+  addListener('grouphelper/cache/stats' as any, async () => {
     try {
       const stats = service.cache.getStats()
       return success(stats)
@@ -953,7 +1002,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 强制刷新缓存 */
-  ctx.console.addListener('grouphelper/cache/refresh' as any, async () => {
+  addListener('grouphelper/cache/refresh' as any, async () => {
     try {
       ctx.logger('grouphelper').info('开始刷新缓存...')
       await service.cache.refreshAll()
@@ -966,7 +1015,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 清空缓存 */
-  ctx.console.addListener('grouphelper/cache/clear' as any, async () => {
+  addListener('grouphelper/cache/clear' as any, async () => {
     try {
       await service.cache.clearAll()
       ctx.logger('grouphelper').info('缓存已清空')
@@ -978,7 +1027,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 按需获取单个名称（会触发缓存） */
-  ctx.console.addListener('grouphelper/cache/fetch-name' as any, async (params: {
+  addListener('grouphelper/cache/fetch-name' as any, async (params: {
     type: 'guild' | 'user' | 'member'
     guildId?: string
     userId?: string
@@ -1010,7 +1059,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // ===== 聊天功能 API =====
 
   /** 获取群成员列表 */
-  ctx.console.addListener('grouphelper/chat/guild-members' as any, async (params: { guildId: string }) => {
+  addListener('grouphelper/chat/guild-members' as any, async (params: { guildId: string }) => {
     try {
       const { guildId } = params
       ctx.logger('grouphelper').debug('getGuildMembers called:', guildId)
@@ -1076,7 +1125,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取群信息 */
-  ctx.console.addListener('grouphelper/chat/guild-info' as any, async (params: { guildId: string }) => {
+  addListener('grouphelper/chat/guild-info' as any, async (params: { guildId: string }) => {
     try {
       const { guildId } = params
       if (!guildId) return error('缺少 guildId 参数')
@@ -1101,7 +1150,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 获取用户信息 */
-  ctx.console.addListener('grouphelper/chat/user-info' as any, async (params: { userId: string }) => {
+  addListener('grouphelper/chat/user-info' as any, async (params: { userId: string }) => {
     try {
       const { userId } = params
       if (!userId) return error('缺少 userId 参数')
@@ -1126,7 +1175,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 发送消息 */
-  ctx.console.addListener('grouphelper/chat/send' as any, async (params: { channelId: string, content: string, platform?: string, guildId?: string }) => {
+  addListener('grouphelper/chat/send' as any, async (params: { channelId: string, content: string, platform?: string, guildId?: string }) => {
     try {
       const { channelId, content, platform, guildId } = params
       if (!channelId || !content) return error('缺少必要参数')
@@ -1144,7 +1193,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 撤回消息 */
-  ctx.console.addListener('grouphelper/chat/recall' as any, async (params: { channelId: string, messageId: string, platform?: string }) => {
+  addListener('grouphelper/chat/recall' as any, async (params: { channelId: string, messageId: string, platform?: string }) => {
     try {
       const { channelId, messageId, platform } = params
       if (!channelId || !messageId) return error('缺少必要参数')
@@ -1161,7 +1210,7 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   })
 
   /** 图片代理 - 使用 get_image API 获取图片 */
-  ctx.console.addListener('grouphelper/image/fetch' as any, async (params: { url: string, file?: string }) => {
+  addListener('grouphelper/image/fetch' as any, async (params: { url: string, file?: string }) => {
     try {
       const { url, file } = params
       if (!url) return error('缺少 URL 参数')

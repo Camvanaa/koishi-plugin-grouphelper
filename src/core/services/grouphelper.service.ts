@@ -28,6 +28,7 @@ export class GroupHelperService extends Service {
   private _settingsManager: SettingsManager
   /** 缓存服务 */
   private _cache: CacheService
+  private warmCacheTimer: NodeJS.Timeout | null = null
   /** 权限服务 */
   private _auth: AuthService
 
@@ -111,8 +112,9 @@ export class GroupHelperService extends Service {
    * 异步预热缓存（不阻塞启动）
    */
   private warmCacheAsync(): void {
-    // 使用 setTimeout 确保不阻塞主流程
-    setTimeout(async () => {
+    // 使用 setTimeout 确保不阻塞主流程；保存句柄以便 stop() 取消，
+    // 否则插件在预热窗口内被重载时，回调会操作已释放的数据层
+    this.warmCacheTimer = setTimeout(async () => {
       try {
         const allConfigs = this._data.groupConfig.getAll()
         const allWarns = this._data.warns.getAll()
@@ -298,7 +300,14 @@ export class GroupHelperService extends Service {
     }
     this._modules.clear()
 
+    // 取消尚未触发的缓存预热
+    if (this.warmCacheTimer) {
+      clearTimeout(this.warmCacheTimer)
+      this.warmCacheTimer = null
+    }
+
     // 释放数据管理器
+    this._cache?.dispose()
     this._data.dispose()
     this._settingsManager.dispose()
   }

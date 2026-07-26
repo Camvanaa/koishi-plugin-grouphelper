@@ -6,6 +6,86 @@ import { Context } from 'koishi'
 export const MIN_DURATION = 1000
 export const MAX_DURATION = 29 * 24 * 3600 * 1000 + 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000
 
+/** 关键词以此前缀开头时才按正则处理，其余一律字面量匹配 */
+export const REGEX_KEYWORD_PREFIX = 're:'
+
+/** 显式正则关键词的长度上限，压缩灾难性回溯模式的构造空间 */
+const MAX_REGEX_KEYWORD_LENGTH = 200
+
+/** 编译缓存上限，超出后整体清空（关键词由管理员配置，正常规模远低于此） */
+const REGEX_CACHE_LIMIT = 500
+
+const regexKeywordCache = new Map<string, RegExp | null>()
+
+/**
+ * 把关键词编译成正则。
+ *
+ * 只有以 `re:` 开头的关键词才当正则处理；返回 null 表示调用方应走字面量匹配。
+ * 编译失败或超长的模式同样返回 null，避免把非法输入升级成异常。
+ */
+function compileKeyword(keyword: string): RegExp | null {
+  const cached = regexKeywordCache.get(keyword)
+  if (cached !== undefined) return cached
+
+  let regex: RegExp | null = null
+  if (keyword.startsWith(REGEX_KEYWORD_PREFIX)) {
+    const pattern = keyword.slice(REGEX_KEYWORD_PREFIX.length)
+    if (pattern && pattern.length <= MAX_REGEX_KEYWORD_LENGTH) {
+      try {
+        regex = new RegExp(pattern, 'i')
+      } catch {
+        regex = null
+      }
+    }
+  }
+
+  if (regexKeywordCache.size >= REGEX_CACHE_LIMIT) regexKeywordCache.clear()
+  regexKeywordCache.set(keyword, regex)
+  return regex
+}
+
+/**
+ * 校验一条关键词是否可用，返回错误原因（null 表示合法）。
+ * 供添加关键词的命令在写入前调用，把非法正则挡在配置之外。
+ */
+export function validateKeyword(keyword: string): string | null {
+  if (!keyword) return '关键词不能为空'
+  if (!keyword.startsWith(REGEX_KEYWORD_PREFIX)) return null
+
+  const pattern = keyword.slice(REGEX_KEYWORD_PREFIX.length)
+  if (!pattern) return `${REGEX_KEYWORD_PREFIX} 后面需要跟正则表达式`
+  if (pattern.length > MAX_REGEX_KEYWORD_LENGTH) {
+    return `正则关键词过长（上限 ${MAX_REGEX_KEYWORD_LENGTH} 字符）`
+  }
+  try {
+    new RegExp(pattern, 'i')
+  } catch (e) {
+    return `正则表达式无效：${e instanceof Error ? e.message : String(e)}`
+  }
+  return null
+}
+
+/**
+ * 判断内容是否命中关键词。
+ *
+ * 默认按字面量、大小写不敏感匹配；只有显式以 `re:` 开头的关键词才当正则用。
+ * 这一区分是必要的：关键词由管理员自由输入并对每条消息求值，
+ * 若一律当正则，一条 `(a+)+$` 就足以让任意成员用一串 a 触发灾难性回溯、
+ * 阻塞事件循环拖垮整个机器人；且 `.` 这类模式会误伤全部消息。
+ */
+export function matchesKeyword(content: string, keyword: string): boolean {
+  if (!content || !keyword) return false
+
+  const regex = compileKeyword(keyword)
+  if (regex) return regex.test(content)
+
+  const literal = keyword.startsWith(REGEX_KEYWORD_PREFIX)
+    ? keyword.slice(REGEX_KEYWORD_PREFIX.length)
+    : keyword
+  if (!literal) return false
+  return content.toLowerCase().includes(literal.toLowerCase())
+}
+
 /**
  * 读取数据文件
  * @param filePath 文件路径

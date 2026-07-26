@@ -110,9 +110,10 @@ export class BanmeModule extends BaseModule {
     }
 
     // 遍历映射表，匹配并替换字符
+    // 用字面量替换而非 new RegExp(char)：映射表的键可由 banme.alias 从任意消息内容写入，
+    // 一个 "(" 就会让这里对每条消息抛 SyntaxError，直接打断整条消息中间件链。
     for (const [char, replacement] of Object.entries(similarChars)) {
-      const regex = new RegExp(char, 'g')
-      command = command.replace(regex, replacement as string)
+      command = command.split(char).join(replacement as string)
     }
 
     // 移除所有标点符号
