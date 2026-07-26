@@ -1339,42 +1339,61 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
     }).join('')
   }
 
+  // 已广播消息去重（'send' 事件与协议端上报的 message_sent 可能重复到达）
+  const broadcastedIds = new Set<string>()
+
   // 监听并广播消息
   const broadcastMessage = async (session: any, isSelf = false) => {
     ctx.logger('grouphelper').debug('broadcastMessage called:', { isSelf, channelId: session.channelId, userId: session.userId })
 
+    // 消息去重：同一条消息只广播一次（去重键在真正广播前才登记，见下方）
+    const dedupKey = session.messageId
+      ? `${session.platform}:${session.channelId || ''}:${session.messageId}`
+      : null
+    if (dedupKey && broadcastedIds.has(dedupKey)) return
+
     // 获取消息内容
     let content = session.content
     let elements = session.elements
-    
-    // 如果是自己发送的消息，通过 get_msg API 获取内容
-    if (isSelf && session.messageId) {
+    // 内容是否来自 get_msg 反查（此时已是完整 CQ 码，无需再序列化 elements）
+    let recoveredFromApi = false
+
+    // 自己发送的消息（'send' 事件会话内容为空），通过 get_msg API 反查内容
+    if (isSelf && session.messageId && !content) {
       const bot = session.bot || ctx.bots.find(b => b.selfId === session.selfId)
-      
+
       if (bot?.platform === 'onebot' && (bot as any).internal?.getMsg) {
-        try {
-          const msgInfo = await (bot as any).internal.getMsg(session.messageId)
-          if (msgInfo) {
-            // 优先使用 raw_message (CQ 码格式)
-            if (msgInfo.raw_message) {
-              content = msgInfo.raw_message
-              elements = h.parse(content)
-            } else if (Array.isArray(msgInfo.message)) {
-              // 数组格式消息段
-              elements = msgInfo.message.map((seg: any) => ({
-                type: seg.type,
-                attrs: seg.data || {}
-              }))
-              content = elements.map((el: any) => {
-                if (el.type === 'text') return el.attrs?.text || el.attrs?.content || ''
-                return `[${el.type}]`
-              }).join('')
+        // 刚发送的消息协议端可能尚未入库，失败时短暂延迟后重试一次
+        for (let attempt = 0; attempt < 2 && !content; attempt++) {
+          if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 500))
+          try {
+            const msgInfo = await (bot as any).internal.getMsg(session.messageId)
+            if (msgInfo) {
+              // 优先使用 raw_message (CQ 码格式)
+              if (msgInfo.raw_message) {
+                content = msgInfo.raw_message
+                elements = h.parse(content)
+                recoveredFromApi = true
+              } else if (Array.isArray(msgInfo.message)) {
+                // 数组格式消息段
+                elements = msgInfo.message.map((seg: any) => ({
+                  type: seg.type,
+                  attrs: seg.data || {}
+                }))
+                content = elements.map((el: any) => {
+                  if (el.type === 'text') return el.attrs?.text || el.attrs?.content || ''
+                  return `[${el.type}]`
+                }).join('')
+                recoveredFromApi = true
+              }
             }
+          } catch (e) {
+            ctx.logger('grouphelper').debug('get_msg 反查自身消息失败:', e)
           }
-        } catch {}
+        }
       }
     }
-    
+
     // 处理引用消息：session.quote 存储了被引用的消息信息
     // 需要将其添加到 content 开头
     if (session.quote && session.quote.messageId) {
@@ -1389,9 +1408,9 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       content = quoteTag + content
     }
     
-    // 如果不是 isSelf，也需要将 elements 序列化为包含完整信息的字符串
+    // 将 elements 序列化为包含完整信息的字符串（get_msg 反查得到的内容已是完整 CQ 码，跳过）
     // 因为 session.content 可能不包含 quote、at 等元素的完整信息
-    if (!isSelf && elements && Array.isArray(elements) && elements.length > 0) {
+    if (!recoveredFromApi && elements && Array.isArray(elements) && elements.length > 0) {
       // 检查是否有需要序列化的特殊元素（排除 quote，因为已经处理过了）
       const hasSpecialElements = elements.some(el =>
         el.type === 'at' || el.type === 'img' || el.type === 'image' || el.type === 'face'
@@ -1492,6 +1511,20 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
       return el
     }))
 
+    // 自身消息内容反查失败且为空时：不广播也不登记去重键，
+    // 让协议端 message_sent 上报（若开启）稍后携带完整内容补全，避免空气泡占位
+    if (isSelf && !content) {
+      ctx.logger('grouphelper').debug('自身消息内容为空且反查失败，跳过广播:', session.messageId)
+      return
+    }
+
+    // 广播前登记去重键（成功取得内容后才登记，避免空消息挡住后到的完整上报）
+    if (dedupKey) {
+      if (broadcastedIds.has(dedupKey)) return
+      broadcastedIds.add(dedupKey)
+      setTimeout(() => broadcastedIds.delete(dedupKey), 5 * 60 * 1000)
+    }
+
     ctx.console.broadcast('grouphelper/chat/message', {
       id: session.messageId || session.id || Date.now().toString(),
       timestamp: session.timestamp || Date.now(),
@@ -1511,14 +1544,18 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   }
 
   // 监听收到消息
+  // 注意：协议端（LLOneBot/NapCat 等）开启"上报自身消息"后，Bot 自己发出的消息
+  // （含手机 QQ 手动发送）会以 message_sent 上报并转为 message 事件到达这里
   ctx.on('message', (session) => {
-    broadcastMessage(session)
+    broadcastMessage(session, session.userId === session.selfId)
+      .catch(e => ctx.logger('grouphelper').warn('广播消息失败:', e))
   })
   ctx.logger('grouphelper').info('Chat message listener registered')
 
-  // 监听发送消息
+  // 监听发送消息（通过 bot.sendMessage 发出的消息，会话内容为空需反查）
   // @ts-ignore - send 事件类型定义可能不完整
   ctx.on('send', (session) => {
     broadcastMessage(session, true)
+      .catch(e => ctx.logger('grouphelper').warn('广播自身消息失败:', e))
   })
 }

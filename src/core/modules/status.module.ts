@@ -51,8 +51,12 @@ export class StatusModule extends BaseModule {
           // 生成图片
           const page = await this.ctx.puppeteer.page()
           try {
+            // 渲染超时可配置（毫秒，0 表示不限制），默认 30 秒
+            const timeout = this.config.status?.renderTimeout ?? 30000
+            page.setDefaultNavigationTimeout(timeout)
             await page.setViewport({ width: 900, height: 800, deviceScaleFactor: 2 })
-            await page.setContent(html, { waitUntil: 'load' }) // 改为 load，避免网络请求超时
+            // domcontentloaded 不等待任何子资源，HTML 已全部内联，避免网络请求导致超时
+            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout })
             
             const element = await page.$('.container')
             if (element) {
@@ -117,7 +121,7 @@ export class StatusModule extends BaseModule {
         loadavg: os.loadavg()
       },
       bot: {
-        version: '4.18.7', // 应该从 package.json 获取，这里硬编码或从 ctx.app.version 获取
+        version: (() => { try { return require('koishi/package.json').version } catch { return 'unknown' } })(),
         plugins
       },
       grouphelper: {
@@ -139,8 +143,6 @@ export class StatusModule extends BaseModule {
   private renderHtml(data: any): string {
     // CSS 样式 (扁平化、无 AI 风、类似 status-pro 的简洁风格)
     const style = `
-      @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-      
       :root {
         --bg-color: #ffffff;
         --card-bg: #f8f9fa;
@@ -154,7 +156,7 @@ export class StatusModule extends BaseModule {
         margin: 0;
         padding: 20px;
         background: transparent;
-        font-family: 'Roboto', 'Segoe UI', sans-serif;
+        font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
         color: var(--text-primary);
         width: 800px;
       }

@@ -320,6 +320,16 @@
           </div>
           <div class="form-grid">
             <div class="form-row">
+              <label class="form-label">手动处理</label>
+              <div class="form-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="settings.guildRequest.manual" />
+                  <span class="toggle-track"></span>
+                </label>
+                <span class="form-hint">开启后收到群邀请不自动处理，仅推送通知，由管理员在 QQ 客户端手动同意/拒绝</span>
+              </div>
+            </div>
+            <div class="form-row" v-if="!settings.guildRequest.manual">
               <label class="form-label">自动同意</label>
               <div class="form-control">
                 <label class="toggle-switch">
@@ -329,7 +339,7 @@
                 <span class="form-hint">启用时同意所有邀请，禁用时拒绝所有</span>
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-row" v-if="!settings.guildRequest.manual">
               <label class="form-label">拒绝消息</label>
               <div class="form-control">
                 <el-input v-model="settings.guildRequest.rejectMessage" placeholder="暂不接受入群邀请" size="small" />
@@ -460,6 +470,23 @@
           </div>
         </div>
 
+        <!-- Status -->
+        <div v-show="activeSection === 'status'" class="config-section">
+          <div class="section-header">
+            <h3 class="section-title">状态图</h3>
+            <p class="section-desc">配置 gstatus 状态图渲染</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label class="form-label">渲染超时 (毫秒)</label>
+              <div class="form-control">
+                <el-input-number v-model="settings.status.renderTimeout" :min="0" :step="1000" size="small" />
+                <span class="form-hint">0 表示不限制，默认 30000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- OpenAI -->
         <div v-show="activeSection === 'openai'" class="config-section">
           <div class="section-header">
@@ -584,6 +611,16 @@
                   <input type="checkbox" v-model="settings.report.autoProcess" />
                   <span class="toggle-track"></span>
                 </label>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">自动撤回</label>
+              <div class="form-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="settings.report.autoRecall" />
+                  <span class="toggle-track"></span>
+                </label>
+                <span class="form-hint">处罚成功后自动撤回被举报消息</span>
               </div>
             </div>
             <div class="form-row">
@@ -763,6 +800,7 @@ const defaultSettings = {
   },
   guildRequest: {
     enabled: false,
+    manual: false,
     rejectMessage: '暂不接受入群邀请'
   },
   setEssenceMsg: { enabled: true, authority: 3 },
@@ -785,6 +823,7 @@ const defaultSettings = {
     enabled: true,
     authority: 1,
     autoProcess: true,
+    autoRecall: true,
     defaultPrompt: '',
     contextPrompt: '',
     maxReportTime: 30,
@@ -797,6 +836,9 @@ const defaultSettings = {
     retentionDays: 7,
     maxRecordsPerUser: 50,
     showOriginalTime: true
+  },
+  status: {
+    renderTimeout: 30000
   }
 }
 
@@ -897,6 +939,7 @@ const sections = [
   { id: 'title', label: '头衔设置'},
   { id: 'antiRepeat', label: '反复读'},
   { id: 'antiRecall', label: '防撤回'},
+  { id: 'status', label: '状态图'},
   { id: 'openai', label: 'AI功能'},
   { id: 'report', label: '举报功能'},
   { id: 'cache', label: '缓存管理'}

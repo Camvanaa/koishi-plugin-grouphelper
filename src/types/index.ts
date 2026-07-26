@@ -130,6 +130,8 @@ export interface Config {
   /** 入群邀请设置 */
   guildRequest: {
     enabled: boolean
+    /** 手动处理模式：收到群邀请时不自动同意/拒绝，仅推送通知给订阅者，由管理员手动处理 */
+    manual?: boolean
     rejectMessage: string
   }
   /** 精华消息设置 */
@@ -167,6 +169,8 @@ export interface Config {
     enabled: boolean
     authority: number
     autoProcess: boolean
+    /** 处罚成功后自动撤回被举报消息 */
+    autoRecall?: boolean
     defaultPrompt: string
     contextPrompt: string
     maxReportTime: number
@@ -175,6 +179,7 @@ export interface Config {
       includeContext: boolean
       contextSize: number
       autoProcess: boolean
+      autoRecall?: boolean
     }>
     maxReportCooldown: number
     minAuthorityNoLimit: number
@@ -186,12 +191,18 @@ export interface Config {
     maxRecordsPerUser: number
     showOriginalTime: boolean
   }
+  /** 状态图设置 */
+  status?: {
+    /** 状态图渲染超时（毫秒，0 表示不限制） */
+    renderTimeout: number
+  }
 }
 
 export interface ReportConfig {
   enabled: boolean
   authority: number
   autoProcess: boolean
+  autoRecall?: boolean
   maxReportCooldown: number
   minAuthorityNoLimit: number
   maxReportTime: number
@@ -203,6 +214,7 @@ export interface ReportConfig {
 export interface ReportGuildConfig {
   enabled: boolean
   autoProcess?: boolean
+  autoRecall?: boolean
   includeContext?: boolean
   contextSize?: number
 }
@@ -260,6 +272,7 @@ export interface GroupConfig {
   report?: {
     enabled: boolean
     autoProcess?: boolean
+    autoRecall?: boolean
     includeContext?: boolean
     contextSize?: number
   }
@@ -341,6 +354,11 @@ export interface Subscription {
     warning?: boolean
     antiRecall?: boolean
   }
+  /**
+   * 来源群过滤：仅接收列表内群产生的推送。
+   * undefined 或空数组表示接收全部来源（向后兼容）。
+   */
+  sourceGuildIds?: string[]
 }
 
 
@@ -423,6 +441,8 @@ export interface RecalledMessage {
   content: string
   timestamp: number
   recallTime: number
+  /** 撤回操作者（与 userId 不同时说明是管理员/群主撤回） */
+  operatorId?: string
   elements?: any[]
 }
 

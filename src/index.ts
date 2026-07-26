@@ -1,4 +1,4 @@
-import { Context, Logger } from 'koishi'
+import { Context, Logger, Schema } from 'koishi'
 import type {} from '@koishijs/plugin-console'
 import { resolve } from 'path'
 
@@ -9,6 +9,12 @@ import { WarnModule, KeywordModule, WelcomeModule, RepeatModule, DiceModule, Ban
 // 插件元信息
 export const name = 'grouphelper'
 export { usage } from './config'
+
+// 声明配置 Schema：本插件的全部配置在自带的「群管助手」Web 面板中管理（数据存储于 data 目录 settings.json），
+// 此处导出空 Schema 以消除控制台"此插件未声明配置项"的警告（issue #26）
+export const Config = Schema.object({}).description(
+  '本插件的所有配置均在左侧「群管助手」Web 面板中管理，无需在此配置。'
+)
 
 // 声明依赖注入
 export const inject = {

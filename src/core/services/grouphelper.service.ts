@@ -233,22 +233,26 @@ export class GroupHelperService extends Service {
 
   /**
    * 向订阅者推送消息
+   * @param options.sourceGuildId 事件来源群；订阅配置了 sourceGuildIds 过滤时，仅推送列表内群的消息
    */
   async pushMessage(
     bot: any,
     message: string,
-    feature: keyof Subscription['features']
+    feature: keyof Subscription['features'],
+    options?: { sourceGuildId?: string }
   ): Promise<void> {
     const subscriptions = this.getSubscriptions()
     for (const sub of subscriptions) {
       try {
         if (!sub.features) continue
-        if (sub.features[feature]) {
-          if (sub.type === 'group') {
-            await bot.sendMessage(sub.id, message)
-          } else {
-            await bot.sendPrivateMessage(sub.id, message)
-          }
+        if (!sub.features[feature]) continue
+        // 来源群过滤：sourceGuildIds 为空/未设置时接收全部来源（向后兼容）
+        if (options?.sourceGuildId && sub.sourceGuildIds?.length
+            && !sub.sourceGuildIds.includes(options.sourceGuildId)) continue
+        if (sub.type === 'group') {
+          await bot.sendMessage(sub.id, message)
+        } else {
+          await bot.sendPrivateMessage(sub.id, message)
         }
       } catch (e) {
         console.error(`[GroupHelper] 推送消息失败: ${e.message}`)

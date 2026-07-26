@@ -156,6 +156,15 @@
               </label>
             </div>
           </div>
+          <div class="form-group" v-if="newSub.features.antiRecall">
+            <label class="form-label">防撤回来源群过滤</label>
+            <input
+              v-model="sourceGuildsInput"
+              type="text"
+              placeholder="群号，逗号/空格分隔；留空 = 接收全部来源群"
+              class="form-input mono"
+            />
+          </div>
         </div>
         <div class="dialog-footer">
           <div class="footer-left">
@@ -237,6 +246,9 @@ const newSub = reactive<Subscription>({
   }
 })
 
+// 防撤回来源群过滤输入（逗号/空格分隔的群号，留空 = 接收全部）
+const sourceGuildsInput = ref('')
+
 const refreshSubscriptions = async () => {
   loading.value = true
   try {
@@ -256,6 +268,14 @@ const saveSubscription = async () => {
 
   adding.value = true
   try {
+    // 解析防撤回来源群过滤
+    const guildIds = sourceGuildsInput.value.split(/[,，\s]+/).filter(s => /^\d+$/.test(s))
+    if (newSub.features.antiRecall && guildIds.length > 0) {
+      newSub.sourceGuildIds = guildIds
+    } else {
+      delete newSub.sourceGuildIds
+    }
+
     if (editMode.value) {
       await subscriptionApi.update(editingIndex.value, { ...newSub })
       message.success('更新成功')
@@ -279,6 +299,7 @@ const editSubscription = (sub: Subscription, index: number) => {
   newSub.type = sub.type
   newSub.id = sub.id
   newSub.features = { ...sub.features }
+  sourceGuildsInput.value = (sub.sourceGuildIds || []).join(', ')
   showAddDialog.value = true
 }
 
@@ -299,6 +320,8 @@ watch(showAddDialog, (val) => {
         memberChange: false,
         antiRecall: false
       }
+      delete newSub.sourceGuildIds
+      sourceGuildsInput.value = ''
     }, 300)
   }
 })

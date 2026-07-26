@@ -238,6 +238,10 @@ export class AIModule extends BaseModule {
       return '抱歉，AI功能当前已禁用。'
     }
 
+    if (config.chatEnabled === false) {
+      return '抱歉，AI对话功能当前已禁用。'
+    }
+
     try {
       let systemPrompt = config.systemPrompt || '你是一个有帮助的AI助手。'
 
@@ -310,6 +314,10 @@ export class AIModule extends BaseModule {
     const config = this.config.openai
 
     if (!config?.enabled) {
+      return '抱歉，AI翻译功能当前已禁用。'
+    }
+
+    if (config.translateEnabled === false) {
       return '抱歉，AI翻译功能当前已禁用。'
     }
 
@@ -582,9 +590,18 @@ export class AIModule extends BaseModule {
         return next()
       }
 
-      // 检查功能是否启用
-      if (!this.config.openai?.enabled) {
+      // 检查功能是否启用：全局总开关 + 全局对话子开关
+      // 任何一级禁用时静默放行，把 @ 消息让给 chatluna 等其他插件处理
+      if (!this.config.openai?.enabled || this.config.openai?.chatEnabled === false) {
         return next()
+      }
+
+      // 群级开关：群禁用 AI 或禁用对话时同样静默放行
+      if (session.guildId) {
+        const groupOpenai = this.getGroupConfig(session.guildId)?.openai
+        if (groupOpenai?.enabled === false || groupOpenai?.chatEnabled === false) {
+          return next()
+        }
       }
 
       try {

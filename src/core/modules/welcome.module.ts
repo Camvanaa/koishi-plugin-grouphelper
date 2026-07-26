@@ -74,11 +74,15 @@ export class WelcomeModule extends BaseModule {
    */
   private registerEventListeners(): void {
     // 监听入群事件
+    // 注意：事件到达与否取决于协议端（LLOneBot/NapCat 等）是否上报 group_increase/group_decrease，
+    // 此处的日志用于排查"欢迎语偶尔不触发"时事件是否真正到达（issue #36）
     this.ctx.on('guild-member-added', async (session) => {
+      this.ctx.logger('grouphelper').info(`[welcome] 收到入群事件: guild=${session.guildId}, user=${session.userId}`)
       await this.handleMemberJoin(session)
     })
 
     this.ctx.on('guild-member-removed', async (session) => {
+      this.ctx.logger('grouphelper').info(`[welcome] 收到退群事件: guild=${session.guildId}, user=${session.userId}`)
       await this.handleMemberLeave(session)
     })
   }
@@ -235,14 +239,24 @@ goodbye -t  测试当前欢送语`
 
     const allConfigs = this.data.groupConfig.getAll()
     const groupConfig = allConfigs[session.guildId] || {}
-    
+
     // 检查开关状态：明确禁用或（未定义且无自定义消息）时视为禁用
-    if (groupConfig.welcomeEnabled === false) return
-    if (groupConfig.welcomeEnabled === undefined && !groupConfig.welcomeMsg) return
+    // 以下拦截分支记录日志，便于区分"事件未到达"与"配置拦截未发送"（issue #36）
+    if (groupConfig.welcomeEnabled === false) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 欢迎语已禁用，跳过`)
+      return
+    }
+    if (groupConfig.welcomeEnabled === undefined && !groupConfig.welcomeMsg) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 未设置欢迎语，跳过`)
+      return
+    }
 
     const welcomeMsg = groupConfig.welcomeMsg || this.config.defaultWelcome
 
-    if (!welcomeMsg) return
+    if (!welcomeMsg) {
+      this.ctx.logger('grouphelper').debug(`[welcome] 群 ${session.guildId} 欢迎语为空，跳过`)
+      return
+    }
 
     try {
       const formattedMsg = this.formatWelcomeMessage(welcomeMsg, session.userId, session.guildId)

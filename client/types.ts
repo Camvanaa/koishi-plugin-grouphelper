@@ -105,6 +105,8 @@ export interface Subscription {
     warning?: boolean
     antiRecall?: boolean
   }
+  /** 来源群过滤：仅接收列表内群产生的推送；空/未设置表示接收全部来源 */
+  sourceGuildIds?: string[]
 }
 
 // 仪表盘统计数据类型

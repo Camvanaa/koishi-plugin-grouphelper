@@ -97,6 +97,7 @@ const menuItems = [
 .grouphelper-app {
   background: var(--bg1);
   height: 100vh;
+  height: 100dvh;
   min-height: 0;
   font-family: var(--gh-font-sans, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif);
 }
@@ -303,8 +304,15 @@ const menuItems = [
   }
 
   .main-content {
-    height: calc(100vh - 52px);
+    /* 移动端：内容区必须是"有界高度 + 自身滚动"（issue #34-2）。
+       k-layout 的祖先容器均为 overflow:hidden，height:auto 无法形成滚动；
+       需扣除移动端恢复显示的 Koishi layout-header（--header-height）与本页 52px 顶部导航；
+       100dvh 适配移动端浏览器地址栏收缩 */
+    height: calc(100vh - 52px - var(--header-height, 3rem));
+    height: calc(100dvh - 52px - var(--header-height, 3rem));
     padding: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -335,9 +343,13 @@ const menuItems = [
 </style>
 
 <style>
-/* 隐藏 Koishi 控制台自带的 layout-header */
-.grouphelper-app .layout-header {
-  display: none !important;
+/* 隐藏 Koishi 控制台自带的 layout-header —— 仅在桌面端隐藏；
+   移动端必须保留：其中的菜单按钮是切换回控制台其他页面的唯一入口（issue #34-1）。
+   使用 not (max-width) 与移动端断点严格互补，避免 768~769px 小数宽度出现双头部 */
+@media not all and (max-width: 768px) {
+  .grouphelper-app .layout-header {
+    display: none !important;
+  }
 }
 
 /* 全局滚动条样式 - GitHub 风格 */

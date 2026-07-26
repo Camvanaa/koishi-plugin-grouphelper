@@ -52,6 +52,7 @@ sub member - 成员变动通知
 sub mute - 禁言到期通知
 sub blacklist - 黑名单变更通知
 sub warning - 警告通知
+sub antirecall [群号...] - 防撤回通知（可指定来源群过滤）
 sub all - 订阅所有通知
 sub none - 取消所有订阅
 sub status - 查看订阅状态`
@@ -117,6 +118,26 @@ sub status - 查看订阅状态`
         return this.handleSubscription(session, 'warning')
       })
 
+    // 订阅防撤回通知
+    this.registerCommand({
+      name: 'sub.antirecall',
+      desc: '订阅防撤回通知',
+      args: '[guilds:text]',
+      permNode: 'sub.antirecall',
+      permDesc: '订阅防撤回通知',
+      usage: '开启/关闭防撤回消息推送；可附带群号（空格/逗号分隔）仅接收指定来源群的推送，不带参数为开关切换'
+    })
+      .action(async ({ session }, guilds) => {
+        // 解析来源群过滤参数
+        const raw = (guilds || '').trim()
+        const guildIds = raw.split(/[,，\s]+/).filter(s => /^\d+$/.test(s))
+        // 带了参数但没有一个合法群号时，提示格式错误而不是退化为开关切换（防误取消订阅）
+        if (raw && guildIds.length === 0) {
+          return '群号格式不正确喵~ 请使用空格或逗号分隔的纯数字群号，例如：sub.antirecall 123456 789012'
+        }
+        return this.handleSubscription(session, 'antiRecall', guildIds)
+      })
+
     // 订阅所有通知
     this.registerCommand({
       name: 'sub.all',
@@ -156,8 +177,9 @@ sub status - 查看订阅状态`
 
   /**
    * 处理单个订阅切换
+   * @param sourceGuildIds 防撤回等推送的来源群过滤；非空时开启订阅并设置过滤
    */
-  private handleSubscription(session: any, feature: keyof Subscription['features']): string {
+  private handleSubscription(session: any, feature: keyof Subscription['features'], sourceGuildIds?: string[]): string {
     if (!session) return '无法获取会话信息'
 
     const id = session.guildId || session.userId
@@ -182,7 +204,19 @@ sub status - 查看订阅状态`
       sub.features = {}
     }
 
+    // 携带来源群列表时：强制开启订阅并设置过滤，而不是开关切换
+    if (sourceGuildIds && sourceGuildIds.length > 0) {
+      sub.features[feature] = true
+      sub.sourceGuildIds = sourceGuildIds
+      this.data.subscriptions.flush()
+      return `已订阅${this.getFeatureName(feature)}，仅接收来源群: ${sourceGuildIds.join(', ')} 喵~`
+    }
+
     sub.features[feature] = !sub.features[feature]
+    // 取消订阅时同时清除来源群过滤
+    if (!sub.features[feature] && feature === 'antiRecall') {
+      delete sub.sourceGuildIds
+    }
     this.data.subscriptions.flush()
 
     return sub.features[feature]
@@ -227,7 +261,8 @@ sub status - 查看订阅状态`
         memberChange: true,
         muteExpire: true,
         blacklist: true,
-        warning: true
+        warning: true,
+        antiRecall: true
       }
 
       this.data.subscriptions.flush()
@@ -256,13 +291,18 @@ sub status - 查看订阅状态`
       return '当前没有任何订阅喵~'
     }
 
+    const antiRecallFilter = sub.features.antiRecall && sub.sourceGuildIds?.length
+      ? `（仅来源群: ${sub.sourceGuildIds.join(', ')}）`
+      : ''
+
     const status = [
       `当前订阅状态：`,
       `- 操作日志: ${sub.features.log ? '✅' : '❌'}`,
       `- 成员变动: ${sub.features.memberChange ? '✅' : '❌'}`,
       `- 禁言到期: ${sub.features.muteExpire ? '✅' : '❌'}`,
       `- 黑名单变更: ${sub.features.blacklist ? '✅' : '❌'}`,
-      `- 警告通知: ${sub.features.warning ? '✅' : '❌'}`
+      `- 警告通知: ${sub.features.warning ? '✅' : '❌'}`,
+      `- 防撤回通知: ${sub.features.antiRecall ? '✅' : '❌'}${antiRecallFilter}`
     ]
 
     return status.join('\n')
@@ -277,7 +317,8 @@ sub status - 查看订阅状态`
       memberChange: '成员变动',
       muteExpire: '禁言到期',
       blacklist: '黑名单变更',
-      warning: '警告通知'
+      warning: '警告通知',
+      antiRecall: '防撤回通知'
     }
     return names[feature] || feature
   }

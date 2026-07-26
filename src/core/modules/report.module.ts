@@ -232,18 +232,13 @@ export class ReportModule extends BaseModule {
    * 优先使用群组配置文件中的 report 设置，如果没有则回退到全局设置中的 guildConfigs
    */
   private getGuildConfig(guildId: string) {
-    // 优先从群组配置文件获取
-    const groupConfig = this.getGroupConfig(guildId)
-    if (groupConfig?.report) {
-      return groupConfig.report
-    }
-
-    // 回退到全局设置中的 guildConfigs
-    const globalConfig = this.config.report
-    if (!globalConfig?.guildConfigs || !globalConfig.guildConfigs[guildId]) {
-      return null
-    }
-    return globalConfig.guildConfigs[guildId]
+    // 合并两个配置来源：全局设置中的 guildConfigs（report-config 命令写入）
+    // 与群组配置文件中的 report（WebUI 群配置写入，字段优先）。
+    // 不合并会导致 WebUI 保存过群配置后，report-config 命令写入的字段（如 autoRecall）被整体遮蔽
+    const groupReport = this.getGroupConfig(guildId)?.report
+    const globalGuild = this.config.report?.guildConfigs?.[guildId]
+    if (!groupReport && !globalGuild) return null
+    return { ...globalGuild, ...groupReport }
   }
 
   /**
@@ -477,7 +472,8 @@ export class ReportModule extends BaseModule {
             violationInfo,
             reportedMessage.content,
             options.verbose,
-            guildConfig
+            guildConfig,
+            quoteId
           )
 
           // 记录已举报消息
@@ -537,6 +533,7 @@ export class ReportModule extends BaseModule {
     })
       .option('enabled', '-e <enabled:boolean> 是否启用举报功能')
       .option('auto', '-a <auto:boolean> 是否自动处理违规')
+      .option('recall', '-rc <recall:boolean> 处罚成功后是否自动撤回被举报消息')
       .option('authority', '-auth <auth:number> 设置举报功能权限等级')
       .option('context', '-c <context:boolean> 是否包含群聊上下文')
       .option('context-size', '-cs <size:number> 上下文消息数量')
@@ -584,6 +581,11 @@ export class ReportModule extends BaseModule {
             hasChanges = true
           }
 
+          if (options.recall !== undefined) {
+            guildConfig.autoRecall = options.recall
+            hasChanges = true
+          }
+
           if (options.context !== undefined) {
             guildConfig.includeContext = options.context
             hasChanges = true
@@ -600,6 +602,7 @@ export class ReportModule extends BaseModule {
 
           configMsg.push(`状态: ${guildConfig.enabled ? '已启用' : '已禁用'}`)
           configMsg.push(`自动处理: ${guildConfig.autoProcess ? '已启用' : '已禁用'}`)
+          configMsg.push(`自动撤回: ${(guildConfig.autoRecall ?? this.config.report?.autoRecall ?? true) ? '已启用' : '已禁用'}`)
           configMsg.push(`包含上下文: ${guildConfig.includeContext ? '已启用' : '已禁用'}`)
           configMsg.push(`上下文消息数量: ${guildConfig.contextSize || 5}`)
         } else {
@@ -615,6 +618,11 @@ export class ReportModule extends BaseModule {
             hasChanges = true
           }
 
+          if (options.recall !== undefined) {
+            currentReport.autoRecall = options.recall
+            hasChanges = true
+          }
+
           if (options.authority !== undefined && !isNaN(options.authority)) {
             currentReport.authority = options.authority
             hasChanges = true
@@ -622,6 +630,7 @@ export class ReportModule extends BaseModule {
 
           configMsg.push(`全局状态: ${currentReport.enabled ? '已启用' : '已禁用'}`)
           configMsg.push(`全局自动处理: ${currentReport.autoProcess ? '已启用' : '已禁用'}`)
+          configMsg.push(`全局自动撤回: ${(currentReport.autoRecall ?? true) ? '已启用' : '已禁用'}`)
           configMsg.push(`权限等级: ${currentReport.authority}`)
         }
 
@@ -664,7 +673,8 @@ export class ReportModule extends BaseModule {
     violation: ViolationInfo,
     content: string,
     verbose = false,
-    guildConfig: any = null
+    guildConfig: any = null,
+    reportedMessageId?: string
   ): Promise<string> {
     // 临时提权，使用通配符权限执行操作
     const originalUser = session.user
@@ -697,6 +707,17 @@ export class ReportModule extends BaseModule {
 
       const actions = violation.action || []
       const actionResults: string[] = []
+
+      // 处罚前先撤回被举报消息（可配置，默认开启）；先撤回再处罚，保证踢出前消息已撤
+      const autoRecall = guildConfig?.autoRecall ?? this.config.report?.autoRecall ?? true
+      if (autoRecall && reportedMessageId && actions.length > 0) {
+        try {
+          await session.bot.deleteMessage(guildId, reportedMessageId)
+          actionResults.push('撤回消息')
+        } catch (e) {
+          logger.warn('撤回被举报消息失败（不影响处罚）:', e)
+        }
+      }
 
       // 简化处理：直接执行所有操作
       for (const action of actions) {

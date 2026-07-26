@@ -353,8 +353,8 @@ export class KeywordModule extends BaseModule {
         await this.handleAutoDelete(session, content, effectiveKeywords, forbiddenConfig)
       }
 
-      // 处理自动禁言
-      if (forbiddenConfig.autoBan) {
+      // 处理自动禁言/自动踢出（autoKick 分支在 handleAutoBan 内部，仅开启 autoKick 时也需进入）
+      if (forbiddenConfig.autoBan || forbiddenConfig.autoKick) {
         const matched = await this.handleAutoBan(session, content, effectiveKeywords, forbiddenConfig)
         if (matched) return
       }
@@ -378,6 +378,15 @@ export class KeywordModule extends BaseModule {
 
       // 自动踢出
       if (forbiddenConfig.autoKick) {
+        // 踢出前先撤回触发消息；autoDelete 开启时中间件已先行撤回，避免重复调用
+        if (!forbiddenConfig.autoDelete) {
+          try {
+            await session.bot.deleteMessage(session.guildId, session.messageId)
+            this.log(session, 'keyword-delete', session.userId, `成功：踢出前已撤回触发消息`)
+          } catch (e) {
+            this.log(session, 'keyword-delete', session.userId, `失败：踢出前撤回消息失败（不影响踢出）`)
+          }
+        }
         try {
           await session.bot.kickGuildMember(session.guildId, session.userId)
           this.log(session, 'keyword-kick', session.userId, `成功：关键词匹配，已踢出群聊`)
@@ -389,7 +398,8 @@ export class KeywordModule extends BaseModule {
         }
       }
 
-      // 自动禁言
+      // 自动禁言（仅在开启 autoBan 时执行；仅开启 autoKick 且踢出失败时不应转为禁言）
+      if (!forbiddenConfig.autoBan) return false
       let duration = forbiddenConfig.muteDuration
       try {
         // 检查是否已有更长的禁言

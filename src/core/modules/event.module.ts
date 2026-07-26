@@ -85,14 +85,27 @@ export class EventModule extends BaseModule {
         return
       }
 
+      // 手动处理模式：不自动同意/拒绝，推送通知由管理员手动处理（issue #34）
+      if (this.config.guildRequest?.manual) {
+        const guildId = session.guildId || (data.group_id ? String(data.group_id) : '未知')
+        const message = `[群邀请] 用户 ${userId} 邀请 Bot 加入群 ${guildId}\n请在 QQ 客户端手动处理该邀请（手动处理模式已开启）`
+        try {
+          await this.ctx.groupHelper.pushMessage(session.bot, message, 'log')
+        } catch (e) {
+          logger.error('推送群邀请通知失败:', e)
+        }
+        logger.info(`收到群邀请（手动处理模式）: 用户 ${userId} -> 群 ${guildId}`)
+        return
+      }
+
       // 根据配置处理
       if (this.config.guildRequest?.enabled) {
         await session.bot.internal.setGroupAddRequest(data.flag, data.sub_type, true)
       } else {
         await session.bot.internal.setGroupAddRequest(
-          data.flag, 
-          data.sub_type, 
-          false, 
+          data.flag,
+          data.sub_type,
+          false,
           this.config.guildRequest?.rejectMessage || '暂不接受群邀请'
         )
       }

@@ -51,6 +51,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   },
   guildRequest: {
     enabled: false,
+    manual: false,
     rejectMessage: '暂不接受入群邀请'
   },
   setEssenceMsg: {
@@ -196,13 +197,17 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     maxReportTime: 30,
     guildConfigs: {},
     maxReportCooldown: 60,
-    minAuthorityNoLimit: 2
+    minAuthorityNoLimit: 2,
+    autoRecall: true
   },
   antiRecall: {
     enabled: false,
     retentionDays: 7,
     maxRecordsPerUser: 50,
     showOriginalTime: true
+  },
+  status: {
+    renderTimeout: 30000
   }
 }
 
