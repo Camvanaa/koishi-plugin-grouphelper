@@ -257,3 +257,11 @@ export const authApi = {
   updateGuildGroup: (group: GuildGroup) => call<{ success: boolean }>('grouphelper/auth/guild-group/update', { group }),
   deleteGuildGroup: (groupId: string) => call<{ success: boolean }>('grouphelper/auth/guild-group/delete', { groupId }),
 }
+
+/** 上游信息 API（公告 / 版本 / 更新日志，均由后端代理并缓存） */
+export const upstreamApi = {
+  notice: () => call<{ notice: string }>('grouphelper/upstream/notice'),
+  versions: () =>
+    call<{ main: string | null; dev: string | null; npm: string | null }>('grouphelper/upstream/versions'),
+  commits: () => call<{ commits: any[] }>('grouphelper/upstream/commits'),
+}

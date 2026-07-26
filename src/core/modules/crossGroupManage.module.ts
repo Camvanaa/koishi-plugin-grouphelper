@@ -1,5 +1,5 @@
 /**
- * crossGroupModule - 跨群管理命令模块
+ * CrossGroupManageModule - 跨群管理命令模块
  * 
  * 包含核心群管功能：
  * - quit-group: 退出群聊
@@ -11,7 +11,7 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { Config, MuteRecord } from '../../types'
 import { parseUserId, parseTimeString, formatDuration } from '../../utils'
 
-export class crossGroupModule extends BaseModule {
+export class CrossGroupManageModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'manage-cross-group',
     description: '跨群管理命令模块',

@@ -3,8 +3,44 @@ import type {} from '@koishijs/plugin-console'
 import { resolve } from 'path'
 
 import { GroupHelperService, registerWebSocketAPI } from './core'
-import { WarnModule, KeywordModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule, AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule, GetAuthModule, AuthModule, EventModule, StatusModule,
-  MemberManageModule, MessageManageModule, OrderManageModule, AntirepeatModule, crossGroupModule} from './core/modules'
+import type { BaseModule } from './core/modules'
+import {
+  WarnModule, KeywordModule, MemberManageModule, MessageManageModule, OrderManageModule,
+  AntirepeatModule, WelcomeModule, RepeatModule, DiceModule, BanmeModule, AntiRecallModule,
+  AIModule, ConfigModule, LogModule, SubscriptionModule, HelpModule, ReportModule,
+  GetAuthModule, AuthModule, EventModule, StatusModule, CrossGroupManageModule
+} from './core/modules'
+
+/**
+ * 所有功能模块的构造器，按注册顺序排列。
+ *
+ * 顺序有意义：模块在 onInit 中注册命令与中间件，中间件的先后会影响消息处理，
+ * 新增模块请追加到相应位置，不要随意重排。
+ */
+const MODULE_CLASSES: Array<new (ctx: Context, data: any, config: any) => BaseModule> = [
+  WarnModule,
+  KeywordModule,
+  MemberManageModule,
+  MessageManageModule,
+  OrderManageModule,
+  AntirepeatModule,
+  WelcomeModule,
+  RepeatModule,
+  DiceModule,
+  BanmeModule,
+  AntiRecallModule,
+  AIModule,
+  ConfigModule,
+  LogModule,
+  SubscriptionModule,
+  HelpModule,
+  ReportModule,
+  GetAuthModule,
+  AuthModule,
+  EventModule,
+  StatusModule,
+  CrossGroupManageModule
+]
 
 // 插件元信息
 export const name = 'grouphelper'
@@ -54,58 +90,15 @@ export function apply(ctx: Context) {
 
     // 在 ready 事件中初始化模块
     ctx.on('ready', async () => {
-      // 注册并初始化新架构模块
-      // 获取配置
       const config = ctx.groupHelper.pluginConfig
 
-      const warnModule = new WarnModule(ctx, ctx.groupHelper.data, config)
-      const keywordModule = new KeywordModule(ctx, ctx.groupHelper.data, config)
-      const memberManageModule = new MemberManageModule(ctx, ctx.groupHelper.data, config)
-      const messageManageModule = new MessageManageModule(ctx, ctx.groupHelper.data, config)
-      const orderManageModule = new OrderManageModule(ctx, ctx.groupHelper.data, config)
-      const antiRepeatModule = new AntirepeatModule(ctx, ctx.groupHelper.data, config)
-      const welcomeModule = new WelcomeModule(ctx, ctx.groupHelper.data, config)
-      const repeatModule = new RepeatModule(ctx, ctx.groupHelper.data, config)
-      const diceModule = new DiceModule(ctx, ctx.groupHelper.data, config)
-      const banmeModule = new BanmeModule(ctx, ctx.groupHelper.data, config)
-      const antiRecallModule = new AntiRecallModule(ctx, ctx.groupHelper.data, config)
-      const aiModule = new AIModule(ctx, ctx.groupHelper.data, config)
-      const configModule = new ConfigModule(ctx, ctx.groupHelper.data, config)
-      const logModule = new LogModule(ctx, ctx.groupHelper.data, config)
-      const subscriptionModule = new SubscriptionModule(ctx, ctx.groupHelper.data, config)
-      const helpModule = new HelpModule(ctx, ctx.groupHelper.data, config)
-      const reportModule = new ReportModule(ctx, ctx.groupHelper.data, config)
-      const getAuthModule = new GetAuthModule(ctx, ctx.groupHelper.data, config)
-      const authModule = new AuthModule(ctx, ctx.groupHelper.data, config)
-      const eventModule = new EventModule(ctx, ctx.groupHelper.data, config)
-      const statusModule = new StatusModule(ctx, ctx.groupHelper.data, config)
-      const crossGroupManageModule = new crossGroupModule(ctx, ctx.groupHelper.data, config)
-      ctx.groupHelper.registerModule(warnModule)
-      ctx.groupHelper.registerModule(keywordModule)
-      ctx.groupHelper.registerModule(memberManageModule)
-      ctx.groupHelper.registerModule(messageManageModule)
-      ctx.groupHelper.registerModule(orderManageModule)
-      ctx.groupHelper.registerModule(antiRepeatModule)
-      ctx.groupHelper.registerModule(welcomeModule)
-      ctx.groupHelper.registerModule(repeatModule)
-      ctx.groupHelper.registerModule(diceModule)
-      ctx.groupHelper.registerModule(banmeModule)
-      ctx.groupHelper.registerModule(antiRecallModule)
-      ctx.groupHelper.registerModule(aiModule)
-      ctx.groupHelper.registerModule(configModule)
-      ctx.groupHelper.registerModule(logModule)
-      ctx.groupHelper.registerModule(subscriptionModule)
-      ctx.groupHelper.registerModule(helpModule)
-      ctx.groupHelper.registerModule(reportModule)
-      ctx.groupHelper.registerModule(getAuthModule)
-      ctx.groupHelper.registerModule(authModule)
-      ctx.groupHelper.registerModule(eventModule)
-      ctx.groupHelper.registerModule(statusModule)
-      ctx.groupHelper.registerModule(crossGroupManageModule)
+      for (const ModuleClass of MODULE_CLASSES) {
+        ctx.groupHelper.registerModule(new ModuleClass(ctx, ctx.groupHelper.data, config))
+      }
 
       // 初始化所有模块
       await ctx.groupHelper.initModules()
-      logger.info('All modules initialized')
+      logger.info('All modules initialized (%d)', MODULE_CLASSES.length)
     })
   })
 

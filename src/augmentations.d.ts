@@ -81,5 +81,10 @@ declare module '@koishijs/plugin-console' {
     'grouphelper/settings/get'(): Promise<ApiResponse<any>>
     'grouphelper/settings/update'(params: { settings: any }): Promise<ApiResponse<{ success: boolean }>>
     'grouphelper/settings/reset'(): Promise<ApiResponse<{ success: boolean }>>
+
+    // 上游信息 API（后端代理 GitHub / npm）
+    'grouphelper/upstream/notice'(): Promise<ApiResponse<{ notice: string }>>
+    'grouphelper/upstream/versions'(): Promise<ApiResponse<{ main: string | null, dev: string | null, npm: string | null }>>
+    'grouphelper/upstream/commits'(): Promise<ApiResponse<{ commits: any[] }>>
   }
 }
