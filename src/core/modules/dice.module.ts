@@ -101,7 +101,9 @@ export class DiceModule extends BaseModule {
           return '喵呜...请指定骰子面数喵~'
         }
 
-        if (sides < 2 || count < 1) {
+        // 必须显式判 NaN：非法个数下 `NaN < 1` 为 false，会一路漏过校验，
+        // 最后 rollDice(sides, NaN) 返回空数组、输出"总和：0"
+        if (Number.isNaN(sides) || Number.isNaN(count) || sides < 2 || count < 1) {
           return '喵呜...骰子面数至少为2，个数至少为1喵~'
         }
 

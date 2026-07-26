@@ -248,7 +248,9 @@ export class AntiRecallModule extends BaseModule {
       if (timeStr) {
         notification += `发送时间: ${timeStr}\n`
       }
-      notification += `内容: ${recalledMessage.content}`
+      // 必须净化：原文若含 <at id="all"/> 或图片元素，直接推送会被 Koishi 当元素解析，
+      // 等于在订阅群里真的 @全体成员、重发图片——撤回内容反而二次扩散
+      notification += `内容: ${this.sanitizeContentForDisplay(recalledMessage.content)}`
 
       // 使用统一的推送服务（携带来源群，供订阅方按群过滤）
       await this.ctx.groupHelper.pushMessage(session.bot, notification, 'antiRecall', { sourceGuildId: session.guildId })

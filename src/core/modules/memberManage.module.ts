@@ -86,6 +86,13 @@ export class MemberManageModule extends BaseModule {
 
         const targetGroup = groupId || session.guildId
 
+        // 允许显式指定群号，因此必须校验作用域，不能只靠当前会话群的权限判断
+        const scopeError = this.checkGuildScope(session, 'kick', targetGroup)
+        if (scopeError) {
+          this.logCommand(session, 'kick', userId, `失败：越权操作群 ${targetGroup}`, false)
+          return scopeError
+        }
+
         try {
           await session.bot.kickGuildMember(targetGroup, userId, hasBlackOption)
 

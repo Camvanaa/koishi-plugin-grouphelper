@@ -243,14 +243,18 @@ export class GroupHelperService extends Service {
     feature: keyof Subscription['features'],
     options?: { sourceGuildId?: string }
   ): Promise<void> {
-    const subscriptions = this.getSubscriptions()
-    for (const sub of subscriptions) {
+    const targets = this.getSubscriptions().filter(sub => {
+      if (!sub.features?.[feature]) return false
+      // 来源群过滤：sourceGuildIds 为空/未设置时接收全部来源（向后兼容）
+      if (options?.sourceGuildId && sub.sourceGuildIds?.length
+          && !sub.sourceGuildIds.includes(options.sourceGuildId)) return false
+      return true
+    })
+
+    // 并发推送：几乎每条管理命令都会 await 本方法，串行发送会让命令响应时间
+    // 等于所有订阅者耗时之和，任一目标超时（如 bot 掉线重试）就拖慢全部命令
+    await Promise.all(targets.map(async sub => {
       try {
-        if (!sub.features) continue
-        if (!sub.features[feature]) continue
-        // 来源群过滤：sourceGuildIds 为空/未设置时接收全部来源（向后兼容）
-        if (options?.sourceGuildId && sub.sourceGuildIds?.length
-            && !sub.sourceGuildIds.includes(options.sourceGuildId)) continue
         if (sub.type === 'group') {
           await bot.sendMessage(sub.id, message)
         } else {
@@ -259,7 +263,7 @@ export class GroupHelperService extends Service {
       } catch (e) {
         console.error(`[GroupHelper] 推送消息失败: ${e.message}`)
       }
-    }
+    }))
   }
 
   /**

@@ -1391,8 +1391,18 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   // 已广播消息去重（'send' 事件与协议端上报的 message_sent 可能重复到达）
   const broadcastedIds = new Set<string>()
 
+  /** 当前是否有控制台客户端在线 */
+  const hasActiveClients = () => {
+    const clients = (ctx.console as any)?.clients
+    return !!clients && Object.keys(clients).length > 0
+  }
+
   // 监听并广播消息
   const broadcastMessage = async (session: any, isSelf = false) => {
+    // 无人打开控制台时直接返回：下面的富化会对每条群消息调用 getGuild 与
+    // 逐个 at 元素的 getGuildMember，对协议端造成持续且完全无用的 API 压力
+    if (!hasActiveClients()) return
+
     ctx.logger('grouphelper').debug('broadcastMessage called:', { isSelf, channelId: session.channelId, userId: session.userId })
 
     // 消息去重：同一条消息只广播一次（去重键在真正广播前才登记，见下方）

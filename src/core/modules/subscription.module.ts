@@ -13,12 +13,10 @@ export class SubscriptionModule extends BaseModule {
     version: '1.0.0'
   }
 
-  private checkInterval: NodeJS.Timeout | null = null
 
   protected async onInit(): Promise<void> {
     this.migrateData()
     this.registerCommands()
-    this.setupMuteExpireCheck()
   }
 
   /**
@@ -135,6 +133,14 @@ sub status - 查看订阅状态`
         if (raw && guildIds.length === 0) {
           return '群号格式不正确喵~ 请使用空格或逗号分隔的纯数字群号，例如：sub.antirecall 123456 789012'
         }
+
+        // 防撤回推送会带出被撤回消息的原文，因此来源群必须在订阅者的权限范围内，
+        // 否则任何人都能把无关群的撤回内容拉到自己的群里
+        const denied = guildIds.filter(id => this.checkGuildScope(session, 'sub-antirecall', id))
+        if (denied.length) {
+          return `你没有权限接收这些群的撤回消息喵：${denied.join('、')}`
+        }
+
         return this.handleSubscription(session, 'antiRecall', guildIds)
       })
 
@@ -321,72 +327,5 @@ sub status - 查看订阅状态`
       antiRecall: '防撤回通知'
     }
     return names[feature] || feature
-  }
-
-  /**
-   * 设置禁言过期检查定时任务
-   */
-  private setupMuteExpireCheck(): void {
-    this.checkInterval = setInterval(() => {
-      const bot = this.ctx.bots.values().next().value
-      if (bot) {
-        this.checkMuteExpires(bot).catch(console.error)
-      }
-    }, 60000)
-
-    // 注册清理
-    this.ctx.on('dispose', () => {
-      if (this.checkInterval) {
-        clearInterval(this.checkInterval)
-        this.checkInterval = null
-      }
-    })
-  }
-
-  /**
-   * 检查禁言过期并发送通知
-   */
-  private async checkMuteExpires(bot: any): Promise<void> {
-    const now = Date.now()
-    const allMutes = this.data.mutes.getAll()
-    const expiredMutes: Array<{ guildId: string; userId: string }> = []
-
-    // 找出过期的禁言 - mutes 结构是 Record<guildId, Record<odId, MuteRecord>>
-    for (const [guildId, guildMutes] of Object.entries(allMutes)) {
-      for (const [odId, mute] of Object.entries(guildMutes)) {
-        // MuteRecord 有 startTime 和 duration，计算过期时间
-        const expireAt = mute.startTime + mute.duration * 1000
-        if (expireAt <= now && !mute.notified) {
-          expiredMutes.push({
-            guildId,
-            userId: odId
-          })
-          // 标记为已通知
-          mute.notified = true
-        }
-      }
-    }
-
-    if (expiredMutes.length === 0) return
-
-    // 保存更新后的禁言记录
-    this.data.mutes.flush()
-
-    // 发送通知给订阅者
-    const subData = this.data.subscriptions.getAll()
-    const subscriptions = subData.list
-    for (const sub of subscriptions) {
-      if (sub.features?.muteExpire) {
-        for (const expired of expiredMutes) {
-          if (sub.type === 'group' && sub.id === expired.guildId) {
-            try {
-              await bot.sendMessage(expired.guildId, `用户 ${expired.userId} 的禁言已到期喵~`)
-            } catch (e) {
-              console.error('发送禁言到期通知失败:', e)
-            }
-          }
-        }
-      }
-    }
   }
 }

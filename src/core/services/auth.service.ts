@@ -179,6 +179,19 @@ export class AuthService {
     return this.mergeScopes(scopes)
   }
 
+  /**
+   * 判断用户能否对指定群执行该权限节点的操作。
+   *
+   * check() 只回答"有没有这个权限"，而带群号参数的命令（kick / ban / send / quit-group 等）
+   * 还必须回答"能不能对这个群用"——权限往往是在某个群里获得的（如 guild-admin），
+   * 若不校验作用域，在 A 群拿到权限即可操作机器人所在的任意群。
+   */
+  canActOnGuild(session: Session, node: string, guildId: string): boolean {
+    if (!guildId) return false
+    const scopes = this.getPermissionScopes(session, node)
+    return scopes.some(scope => this.isGuildInScope(scope, guildId))
+  }
+
   getDefaultScopeForPermission(session: Session, node: string): AuthScope | null {
     const scopes = this.getPermissionScopes(session, node)
     if (scopes.length === 1) return scopes[0]

@@ -2,7 +2,8 @@ import { Context, h, Logger } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config } from '../../types'
-import { executeCommand } from '../../utils'
+import type { WarnModule } from './warn.module'
+
 
 const logger = new Logger('grouphelper:report')
 
@@ -676,10 +677,6 @@ export class ReportModule extends BaseModule {
     guildConfig: any = null,
     reportedMessageId?: string
   ): Promise<string> {
-    // 临时提权，使用通配符权限执行操作
-    const originalUser = session.user
-    session.user = { ...originalUser, authority: Infinity, permissions: ['*'] }
-
     const bot = session.bot
     const guildId = session.guildId
 
@@ -774,9 +771,6 @@ export class ReportModule extends BaseModule {
       }
 
       return `AI已判定该消息${this.getViolationLevelText(violation.level)}违规，但自动处理失败：${e.message}\n请联系管理员手动处理。`
-    } finally {
-      // 恢复原始权限
-      session.user = originalUser
     }
   }
 
@@ -833,80 +827,49 @@ export class ReportModule extends BaseModule {
     }
   }
 
+  // 以下处罚动作直接调用 bot API / 模块方法，不再经由「伪造提权 + 执行命令」。
+  // 那条老路径有两个致命问题：AuthService 根本不读 session.user.permissions，
+  // 所以提权无效、命令被权限钩子拒绝；而拒绝语「你没有权限执行此操作喵」不含"失败"
+  // 二字，又会被 result.includes('失败') 判成成功——最终机器人回复"已处罚"，
+  // 实际什么都没做。
+
   /**
    * 警告用户
    */
   private async warnUser(session: any, userId: string, count: number = 1): Promise<void> {
-    try {
-      const user = `${session.platform}:${userId}`
-      const result = await executeCommand(this.ctx, session, 'warn', [user, count.toString()], {}, true)
-      if (!result || typeof result === 'string' && result.includes('失败')) {
-        throw new Error(`警告执行失败: ${result || '未知错误'}`)
-      }
-    } catch (e) {
-      logger.error(`警告用户失败: ${e.message}`)
-      throw e
-    }
-  }
-
-  /**
-   * 禁言用户
-   */
-  private async banUser(session: any, userId: string, duration: string): Promise<void> {
-    try {
-      const banInput = `${userId} ${duration}`
-      const result = await executeCommand(this.ctx, session, 'ban', [banInput], {}, true)
-
-      if (!result || typeof result === 'string' && result.includes('失败')) {
-        throw new Error(`禁言执行失败: ${result || '未知错误'}`)
-      }
-
-      logger.debug(`禁言执行结果: ${JSON.stringify(result)}`)
-    } catch (e) {
-      logger.error(`禁言用户失败: ${e.message}`)
-      throw e
-    }
+    const warnModule = this.ctx.groupHelper.getModule<WarnModule>('warn')
+    if (!warnModule) throw new Error('警告模块未加载')
+    await warnModule.applyWarn(session, userId, count)
   }
 
   /**
    * 按秒数禁言用户
    */
   private async banUserBySeconds(session: any, userId: string, seconds: number): Promise<void> {
-    try {
-      let duration: string
-      if (seconds < 60) {
-        duration = `${seconds}s`
-      } else if (seconds < 3600) {
-        duration = `${Math.floor(seconds / 60)}m`
-      } else if (seconds < 86400) {
-        duration = `${Math.floor(seconds / 3600)}h`
-      } else {
-        duration = `${Math.floor(seconds / 86400)}d`
-      }
+    const milliseconds = Math.max(1, Math.floor(seconds)) * 1000
+    await session.bot.muteGuildMember(session.guildId, userId, milliseconds)
 
-      await this.banUser(session, userId, duration)
-    } catch (e) {
-      logger.error(`按秒数禁言用户失败: ${e.message}`)
-      throw e
+    // 与 ban 命令保持一致地登记禁言记录，供到期通知与 ban-list 使用
+    const guildMutes = this.data.mutes.get(session.guildId) || {}
+    guildMutes[userId] = {
+      startTime: Date.now(),
+      duration: milliseconds,
+      remainingTime: milliseconds
     }
+    this.data.mutes.set(session.guildId, guildMutes)
+    this.data.mutes.flush()
   }
 
   /**
    * 踢出用户
    */
   private async kickUser(session: any, userId: string, addToBlacklist: boolean): Promise<void> {
-    try {
-      const kickInput = addToBlacklist ? `${userId} -b` : userId
-      const result = await executeCommand(this.ctx, session, 'kick', [kickInput], {}, true)
+    await session.bot.kickGuildMember(session.guildId, userId, addToBlacklist)
 
-      if (!result || typeof result === 'string' && result.includes('失败')) {
-        throw new Error(`踢出执行失败: ${result || '未知错误'}`)
-      }
-
-      logger.debug(`踢出执行结果: ${JSON.stringify(result)}`)
-    } catch (e) {
-      logger.error(`踢出用户失败: ${e.message}`)
-      throw e
+    if (addToBlacklist) {
+      const blacklist = this.data.blacklist.getAll()
+      blacklist[userId] = { userId, timestamp: Date.now() }
+      this.data.blacklist.setAll(blacklist)
     }
   }
 

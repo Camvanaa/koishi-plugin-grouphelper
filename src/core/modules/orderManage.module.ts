@@ -106,6 +106,12 @@ export class OrderManageModule extends BaseModule {
 
         const targetGroup = groupId || session.guildId
 
+        const scopeError = this.checkGuildScope(session, 'ban', targetGroup)
+        if (scopeError) {
+          this.logCommand(session, 'ban', userId, `失败：越权操作群 ${targetGroup}`, false)
+          return scopeError
+        }
+
         try {
           const milliseconds = parseTimeString(duration)
           await session.bot.muteGuildMember(targetGroup, userId, milliseconds)
@@ -212,6 +218,12 @@ export class OrderManageModule extends BaseModule {
         }
 
         const targetGroup = groupId || session.guildId
+
+        const scopeError = this.checkGuildScope(session, 'unban', targetGroup)
+        if (scopeError) {
+          this.logCommand(session, 'unban', userId, `失败：越权操作群 ${targetGroup}`, false)
+          return scopeError
+        }
 
         try {
           await session.bot.muteGuildMember(targetGroup, userId, 0)
@@ -341,18 +353,34 @@ export class OrderManageModule extends BaseModule {
           return '当前没有被禁言的成员喵~'
         }
 
-        const unbanList = this.getRandomElements(banList, count)
+        const candidates = this.getRandomElements(banList, count)
 
-        for (const userId of unbanList) {
-          await session.bot.muteGuildMember(session.guildId, userId, 0)
-          currentMutes[userId].startTime = Date.now()
-          currentMutes[userId].duration = 0
+        // 逐个捕获：名单里只要有一人已退群，整个 action 就会中断，
+        // 而此前已成功解禁的人在 mutes.json 里仍是禁言状态，记录与实际不符
+        const unbanList: string[] = []
+        const failedList: string[] = []
+        for (const userId of candidates) {
+          try {
+            await session.bot.muteGuildMember(session.guildId, userId, 0)
+            currentMutes[userId].startTime = Date.now()
+            currentMutes[userId].duration = 0
+            unbanList.push(userId)
+          } catch (e) {
+            failedList.push(userId)
+          }
         }
 
         mutes[session.guildId] = currentMutes
         this.data.mutes.setAll(mutes)
-        this.logCommand(session, 'unban-random', session.guildId, `成功：已随机解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}`)
-        return `已随机解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}`
+        this.logCommand(
+          session,
+          'unban-random',
+          session.guildId,
+          `成功：已随机解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}` +
+          (failedList.length ? `；失败 ${failedList.length} 人：${failedList.join(', ')}` : '')
+        )
+        const failedText = failedList.length ? `\n失败 ${failedList.length} 人：${failedList.join(', ')}` : ''
+        return `已随机解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}${failedText}`
       })
   }
 
@@ -400,18 +428,33 @@ export class OrderManageModule extends BaseModule {
           return aRemaining / aData.duration - bRemaining / bData.duration
         })
 
-        const unbanList = sortedBanList.slice(0, count)
+        const candidates = sortedBanList.slice(0, count)
 
-        for (const userId of unbanList) {
-          await session.bot.muteGuildMember(session.guildId, userId, 0)
-          currentMutes[userId].startTime = Date.now()
-          currentMutes[userId].duration = 0
+        // 同 unban-random：逐个捕获，避免一人失败导致其余记录与实际状态脱节
+        const unbanList: string[] = []
+        const failedList: string[] = []
+        for (const userId of candidates) {
+          try {
+            await session.bot.muteGuildMember(session.guildId, userId, 0)
+            currentMutes[userId].startTime = Date.now()
+            currentMutes[userId].duration = 0
+            unbanList.push(userId)
+          } catch (e) {
+            failedList.push(userId)
+          }
         }
 
         mutes[session.guildId] = currentMutes
         this.data.mutes.setAll(mutes)
-        this.logCommand(session, 'unban-batch', session.guildId, `成功：已批量解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}`)
-        return `已批量解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}`
+        this.logCommand(
+          session,
+          'unban-batch',
+          session.guildId,
+          `成功：已批量解除 ${unbanList.length} 人的禁言，解除名单：${unbanList.join(', ')}` +
+          (failedList.length ? `；失败 ${failedList.length} 人：${failedList.join(', ')}` : '')
+        )
+        const failedText = failedList.length ? `\n失败 ${failedList.length} 人：${failedList.join(', ')}` : ''
+        return `已批量解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}${failedText}`
       })
     }
 
@@ -422,7 +465,10 @@ export class OrderManageModule extends BaseModule {
     this.registerCommand({
       name: 'nickname',
       desc: '设置用户昵称',
-      args: '<user:user> <nickname:string> <group:string>',
+      // nickname 与 group 必须是可选参数：都标成必选时，
+      // 文档里的 `nickname @用户 小猫咪` 会因缺参被直接拒绝，
+      // 而"不填昵称即清除"的分支永远走不到
+      args: '<user:user> [nickname:string] [group:string]',
       permNode: 'nickname',
       permDesc: '设置群成员昵称',
       usage: '设置指定用户的群名片，不填昵称则清除',
@@ -432,15 +478,24 @@ export class OrderManageModule extends BaseModule {
       .action(async ({ session }, user, nickname, group) => {
         if (!user) return '喵呜...请指定用户喵~'
 
-        const userId = String(user).split(':')[1]
+        const userId = parseUserId(user)
+        if (!userId) return '喵呜...请输入正确的用户（@或QQ号）'
+
+        const targetGroup = group || session.guildId
+        const scopeError = this.checkGuildScope(session, 'nickname', targetGroup)
+        if (scopeError) {
+          this.logCommand(session, 'nickname', userId, `失败：越权操作群 ${targetGroup}`, false)
+          return scopeError
+        }
+
         try {
           if (nickname) {
-            await session.bot.internal.setGroupCard(group || session.guildId, userId, nickname)
-            this.logCommand(session, 'nickname', userId, `成功：已设置昵称为 ${nickname}, 群号 ${group || session.guildId}`)
+            await session.bot.internal.setGroupCard(targetGroup, userId, nickname)
+            this.logCommand(session, 'nickname', userId, `成功：已设置昵称为 ${nickname}, 群号 ${targetGroup}`)
             return `已将 ${userId} 的昵称设置为 "${nickname}" 喵~`
           } else {
-            await session.bot.internal.setGroupCard(group || session.guildId, userId)
-            this.logCommand(session, 'nickname', userId, `成功：已清除昵称, 群号 ${group || session.guildId}`)
+            await session.bot.internal.setGroupCard(targetGroup, userId)
+            this.logCommand(session, 'nickname', userId, `成功：已清除昵称, 群号 ${targetGroup}`)
             return `已将 ${userId} 的昵称清除喵~`
           }
         } catch (e) {

@@ -9,6 +9,9 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config, ChatMessage, ChatCompletionRequest, ChatCompletionResponse, UserContext } from '../../types'
 
+/** AI 接口请求超时（毫秒） */
+const AI_REQUEST_TIMEOUT = 60000
+
 export class AIModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'ai',
@@ -193,7 +196,10 @@ export class AIModule extends BaseModule {
     try {
       this.data.writeLog(`[ai] 调用 API: ${endpoint}, model: ${model}`)
 
+      // 必须设超时：上游只建连不返回时，ai / tsl / report 会无限等待，
+      // 举报流程既拿不到结果也不会写入冷却，用户完全没有反馈
       const response = await this.ctx.http.post(endpoint, requestBody, {
+        timeout: AI_REQUEST_TIMEOUT,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
