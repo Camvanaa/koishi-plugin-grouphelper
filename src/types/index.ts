@@ -1,82 +1,11 @@
 
 import { Context } from 'koishi'
-import { deprecate } from 'util'
 
 
-declare module 'koishi' {
-  interface Config {
-    keywords: string[]
-    warnLimit: number
-    banTimes: {
-      expression: string
-    }
-    forbidden: {
-      autoDelete: boolean
-      autoBan: boolean
-      autoKick: boolean
-      muteDuration: number
-      keywords: string[]
-    }
-    defaultWelcome: string
-    banme: {
-      enabled: boolean
-      baseMin: number
-      baseMax: number
-      growthRate: number
-      autoBan?: boolean
-      jackpot: {
-        enabled: boolean
-        baseProb: number
-        softPity: number
-        hardPity: number
-        upDuration: string
-        loseDuration: string
-      }
-    }
-    friendRequest: {
-      enabled: boolean
-      keywords: string[]
-      rejectMessage: string
-    }
-    guildRequest: {
-      enabled: boolean
-      keywords: string[]
-      rejectMessage: string
-    }
-    setEssenceMsg: {
-      enabled: boolean
-      authority: number
-    }
-    setTitle: {
-      enabled: boolean
-      authority: number
-      maxLength: number
-    }
-    antiRepeat: {
-      enabled: boolean
-      threshold: number
-    }
-    openai: {
-      enabled: boolean
-      apiKey: string
-      apiUrl: string
-      maxTokens: number
-      temperature: number
-      model: string
-      systemPrompt: string
-      contextLimit: number
-      translatePrompt: string
-    }
-    antiRecall: {
-      enabled: boolean
-      retentionDays: number
-      maxRecordsPerUser: number
-      showOriginalTime: boolean
-      authority: number
-    }
-  }
-}
-
+// 说明：此处原本用 declare module 'koishi' 把插件字段并入 Koishi 全局 App Config
+// 类型。那既不正确（插件配置不属于全局 App Config），内容也已与下方本地
+// Config 接口漂移（缺 dice / report / status 等字段），已移除。
+// 插件配置类型以本文件导出的 Config 为准。
 
 export interface Config {
   /** 入群审核关键词列表 */
@@ -248,6 +177,10 @@ export interface CommandLogData {
 
 
 export interface GroupConfig {
+  /** 群名称，仅由 config/list 在开启解析时附加下发，不参与持久化 */
+  guildName?: string
+  /** 群头像，同上 */
+  guildAvatar?: string
   keywords?: string[]
   approvalKeywords?: string[]
   auto?: string  // 自动拒绝状态：'true' | 'false'
