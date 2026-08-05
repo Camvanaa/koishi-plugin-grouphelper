@@ -35,7 +35,7 @@ export class DiceModule extends BaseModule {
       .option('e', '-e <enabled:string> 启用或禁用掷骰子功能')
       .option('l', '-l <length:number> 设置掷骰子结果长度限制')
       .action(async ({ session, options }) => {
-        if (!session.guildId) return '此命令只能在群聊中使用。'
+        if (!session.guildId) return this.reply('common.guildOnly')
 
         const configs = this.data.groupConfig.getAll()
         configs[session.guildId] = configs[session.guildId] || {}
@@ -48,27 +48,27 @@ export class DiceModule extends BaseModule {
             diceConfig.enabled = true
             this.data.groupConfig.setAll(configs)
             this.log(session, 'dice-enabled', session.guildId, '成功：已启用掷骰子功能')
-            return '掷骰子功能已启用喵~'
+            return this.reply('dice.enabled')
           } else if (['false', '0', 'no', 'n', 'off'].includes(enabled)) {
             diceConfig.enabled = false
             this.data.groupConfig.setAll(configs)
             this.log(session, 'dice-enabled', session.guildId, '成功：已禁用掷骰子功能')
-            return '掷骰子功能已禁用喵~'
+            return this.reply('dice.disabled')
           } else {
             this.log(session, 'dice-enabled', session.guildId, '失败：设置无效')
-            return '掷骰子选项无效，请输入 true/false'
+            return this.reply('dice.invalidOption')
           }
         } else if (options.l !== undefined) {
           const length = Number(options.l)
-          if (isNaN(length) || length < 1) return '长度限制必须是大于0的数字。'
+          if (isNaN(length) || length < 1) return this.reply('dice.invalidLength')
 
           diceConfig.lengthLimit = length
           this.data.groupConfig.setAll(configs)
           this.log(session, 'dice-length', session.guildId, `成功：已设置掷骰子结果长度限制为 ${length}`)
-          return `已设置掷骰子结果长度限制为 ${length} 喵~`
+          return this.reply('dice.lengthUpdated', { length })
         }
 
-        return '请输入要配置的选项，如 -e true 或 -l 1000。'
+        return this.reply('dice.configUsage')
       })
 
     // 随机数生成器，格式 dice <面数> [个数]
@@ -98,26 +98,26 @@ export class DiceModule extends BaseModule {
         const count = parseInt(count_str)
 
         if (!sides) {
-          return '喵呜...请指定骰子面数喵~'
+          return this.reply('dice.needSides')
         }
 
         // 必须显式判 NaN：非法个数下 `NaN < 1` 为 false，会一路漏过校验，
         // 最后 rollDice(sides, NaN) 返回空数组、输出"总和：0"
         if (Number.isNaN(sides) || Number.isNaN(count) || sides < 2 || count < 1) {
-          return '喵呜...骰子面数至少为2，个数至少为1喵~'
+          return this.reply('dice.invalidDice')
         }
 
         const lengthLimit = diceConfig.lengthLimit || 1000
         if ((String(sides).length + 2) * count > lengthLimit) {
-          return '喵呜...掷骰子结果过长，请选择较少的面数或个数喵~'
+          return this.reply('dice.tooLong')
         }
 
         const results = this.rollDice(sides, count)
         if (count === 1) {
-          return `掷骰子结果：${results[0]}`
+          return this.reply('dice.resultOne', { result: results[0] })
         } else {
           const sum = results.reduce((a, b) => a + b, 0)
-          return `掷骰子结果：${results.join(', ')}\n总和：${sum}`
+          return this.reply('dice.resultMany', { results: results.join(', '), sum })
         }
       })
   }
@@ -151,18 +151,18 @@ export class DiceModule extends BaseModule {
 
       const lengthLimit = diceConfig.lengthLimit || 1000
       if ((String(sides).length + 2) * count > lengthLimit) {
-        await session.send('喵呜...掷骰子结果过长，请选择较少的面数或个数喵~')
+        await session.send(this.reply('dice.tooLong'))
         return
       }
 
       const results = this.rollDice(sides, count)
 
       if (count === 1) {
-        await session.send(`掷骰子结果 (${match[0]}): ${results[0]}`)
+        await session.send(this.reply('dice.resultOneExpr', { expr: match[0], result: results[0] }))
         return
       } else {
         const sum = results.reduce((a, b) => a + b, 0)
-        await session.send(`掷骰子结果 (${match[0]}): ${results.join(', ')}\n总和：${sum}`)
+        await session.send(this.reply('dice.resultManyExpr', { expr: match[0], results: results.join(', '), sum }))
         return
       }
     })

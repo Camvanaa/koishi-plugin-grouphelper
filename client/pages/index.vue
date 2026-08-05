@@ -49,6 +49,7 @@ import BlacklistView from '../components/BlacklistView.vue'
 import LogsView from '../components/LogsView.vue'
 import SubscriptionView from '../components/SubscriptionView.vue'
 import SettingsView from '../components/SettingsView.vue'
+import RepliesView from '../components/RepliesView.vue'
 import ChatView from '../components/ChatView.vue'
 import RolesView from '../components/RolesView.vue'
 
@@ -70,6 +71,7 @@ const activeComponent = computed(() => {
     case 'logs': return LogsView
     case 'chat': return ChatView
     case 'subscriptions': return SubscriptionView
+    case 'replies': return RepliesView
     case 'settings': return SettingsView
     default: return DashboardView
   }
@@ -84,6 +86,7 @@ const menuItems = [
   { id: 'logs', label: '日志检索', icon: 'grouphelper:octicons.log' },
   { id: 'chat', label: '实时聊天', icon: 'grouphelper:octicons.discussion' },
   { id: 'subscriptions', label: '订阅管理', icon: 'grouphelper:octicons.sub' },
+  { id: 'replies', label: '回复文案', icon: 'grouphelper:octicons.comment' },
   { id: 'settings', label: '设置', icon: 'grouphelper:octicons.gear' },
 ]
 </script>

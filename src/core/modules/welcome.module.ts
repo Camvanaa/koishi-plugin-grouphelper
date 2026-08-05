@@ -99,7 +99,7 @@ export class WelcomeModule extends BaseModule {
    * 处理欢迎语命令
    */
   private async handleWelcomeCommand(session: Session, options: any): Promise<string> {
-    if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+    if (!session.guildId) return this.reply('common.guildOnly')
 
     const allConfigs = this.data.groupConfig.getAll()
     const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
@@ -107,27 +107,23 @@ export class WelcomeModule extends BaseModule {
     // 设置等级限制
     if (options.l !== undefined) {
       const level = parseInt(options.l)
-      if (isNaN(level) || level < 0) {
-        return '等级限制必须是非负整数喵~'
-      }
+        if (isNaN(level) || level < 0) return this.reply('welcome.invalidLevel')
       groupConfig.levelLimit = level
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'set', `已设置等级限制：${level}级`)
-      return `已经设置好等级限制为${level}级啦喵~`
+      return this.reply('welcome.levelUpdated', { level })
     }
 
     // 设置退群冷却
     if (options.j !== undefined) {
       const days = parseInt(options.j)
-      if (isNaN(days) || days < 0) {
-        return '冷却天数必须是非负整数喵~'
-      }
+        if (isNaN(days) || days < 0) return this.reply('welcome.invalidCooldown')
       groupConfig.leaveCooldown = days
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'set', `已设置退群冷却：${days}天`)
-      return `已经设置好退群冷却为${days}天啦喵~`
+      return this.reply('welcome.cooldownUpdated', { days })
     }
 
     // 设置欢迎语
@@ -137,7 +133,7 @@ export class WelcomeModule extends BaseModule {
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'set', `已设置欢迎语：${options.s}`)
-      return `已经设置好欢迎语啦喵，要不要用 -t 试试看效果呀？`
+      return this.reply('welcome.updated')
     }
 
     // 移除欢迎语
@@ -147,13 +143,13 @@ export class WelcomeModule extends BaseModule {
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'welcome', 'remove', '已移除欢迎语')
-      return `欢迎语已经被我吃掉啦喵~`
+      return this.reply('welcome.removed')
     }
 
     // 测试欢迎语
     if (options.t) {
       const msg = groupConfig.welcomeMsg || this.config.defaultWelcome
-      if (!msg) return '未设置欢迎语'
+      if (!msg) return this.reply('welcome.notSet')
 
       const testMsg = this.formatWelcomeMessage(msg, session.userId, session.guildId)
       return testMsg
@@ -164,21 +160,11 @@ export class WelcomeModule extends BaseModule {
     const currentLevelLimit = groupConfig.levelLimit || 0
     const currentLeaveCooldown = groupConfig.leaveCooldown || 0
 
-    return `当前欢迎语：${currentMsg || '未设置'}
-当前等级限制：${currentLevelLimit}级
-当前退群冷却：${currentLeaveCooldown}天
-
-可用变量：
-{at} - @新成员
-{user} - 新成员QQ号
-{group} - 群号
-
-使用方法：
-welcome -s <欢迎语>  设置欢迎语
-welcome -r  移除欢迎语
-welcome -t  测试当前欢迎语
-welcome -l <等级>  设置等级限制（0表示不限制）
-welcome -j <天数>  设置退群冷却天数（0表示不限制）`
+    return this.reply('welcome.status', {
+      message: currentMsg || this.reply('welcome.notSet'),
+      level: currentLevelLimit,
+      cooldown: currentLeaveCooldown
+    })
   }
 
   /**
@@ -186,7 +172,7 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
    */
 
   private async handleGoodbyeCommand(session: Session, options: any): Promise<string> {
-    if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+    if (!session.guildId) return this.reply('common.guildOnly')
 
     const allConfigs = this.data.groupConfig.getAll()
     const groupConfig: GroupConfig = allConfigs[session.guildId] || WelcomeModule.createDefaultConfig()
@@ -198,7 +184,7 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'goodbye', 'set', `已设置欢送语：${options.s}`)
-      return `已经设置好欢送语啦喵，要不要用 -t 试试看效果呀？`
+      return this.reply('goodbye.updated')
     }
 
     // 移除欢送语
@@ -208,13 +194,13 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
       this.log(session, 'goodbye', 'remove', '已移除欢送语')
-      return `欢送语已经被我吃掉啦喵~`
+      return this.reply('goodbye.removed')
     }
 
     // 测试欢送语
     if (options.t) {
       const msg = groupConfig.goodbyeMsg || this.config.defaultGoodbye
-      if (!msg) return '未设置欢送语'
+      if (!msg) return this.reply('goodbye.notSet')
 
       const testMsg = this.formatWelcomeMessage(msg, session.userId, session.guildId)
       return testMsg
@@ -225,17 +211,9 @@ welcome -j <天数>  设置退群冷却天数（0表示不限制）`
     const currentLevelLimit = groupConfig.levelLimit || 0
     const currentLeaveCooldown = groupConfig.leaveCooldown || 0
 
-    return `当前欢送语：${currentMsg || '未设置'}
-
-可用变量：
-{at} - @退群成员
-{user} - 退群成员QQ号
-{group} - 群号
-
-使用方法：
-goodbye -s <欢送语>  设置欢送语
-goodbye -r  移除欢送语
-goodbye -t  测试当前欢送语`
+    return this.reply('goodbye.status', {
+      message: currentMsg || this.reply('goodbye.notSet')
+    })
   }
     
 

@@ -40,9 +40,9 @@ export class HelpModule extends BaseModule {
           return this.getFullHelpText(session)
         }
         if (options.v) {
-          return `当前版本：${pkg.version}`
+          return this.reply('help.version', { version: pkg.version })
         }
-        return '强大的群管理插件，提供一系列实用的群管理功能\n使用参数 -a 查看所有可用命令'
+        return this.reply('help.summary')
       })
 
     // 时间解析测试命令
@@ -60,14 +60,14 @@ export class HelpModule extends BaseModule {
       .example('parse-time (1+2)^2hours')
       .action(async ({ session }, expression) => {
         if (!expression) {
-          return '请提供时间表达式进行测试'
+          return this.reply('help.needTimeExpression')
         }
 
         try {
           const milliseconds = parseTimeString(expression)
-          return `表达式 "${expression}" 解析结果：${formatDuration(milliseconds)} (${milliseconds}毫秒)`
+          return this.reply('help.parseTimeResult', { expression, duration: formatDuration(milliseconds), milliseconds })
         } catch (e) {
-          return `解析错误：${e.message}`
+          return this.reply('help.parseTimeError', { reason: e.message })
         }
       })
   }

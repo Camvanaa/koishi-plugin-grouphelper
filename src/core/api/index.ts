@@ -21,6 +21,7 @@ import { registerSettingsAPI } from './settings.api'
 import { registerCacheAPI } from './cache.api'
 import { registerChatAPI } from './chat.api'
 import { registerUpstreamAPI } from './upstream.api'
+import { registerRepliesAPI } from './replies.api'
 
 export type { ApiResponse } from './api-utils'
 
@@ -47,4 +48,5 @@ export function registerWebSocketAPI(ctx: Context, service: GroupHelperService) 
   registerCacheAPI(ctx, service, addListener)
   registerChatAPI(ctx, service, addListener)
   registerUpstreamAPI(ctx, service, addListener)
+  registerRepliesAPI(ctx, service, addListener)
 }

@@ -38,7 +38,7 @@ export class StatusModule extends BaseModule {
       .action(async ({ session }) => {
         // 检查 puppeteer 服务
         if (!this.ctx.puppeteer) {
-          return '错误：未安装 puppeteer 插件，无法生成状态图片。'
+          return this.reply('status.noPuppeteer')
         }
 
         try {
@@ -71,7 +71,7 @@ export class StatusModule extends BaseModule {
             await page.close()
           }
         } catch (e) {
-          return `生成状态图失败：${e.message}`
+          return this.reply('status.renderFailed', { reason: e.message })
         }
       })
   }

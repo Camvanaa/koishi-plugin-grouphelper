@@ -36,10 +36,10 @@ export class GetAuthModule extends BaseModule {
       .example('getauth @可爱猫娘')
       .example('getauth 2038794363')
       .action(async ({ session }, target) => {
-        if (!target) return '请指定要查询的成员喵'
+        if (!target) return this.reply('getauth.needTarget')
 
         const userId = parseUserId(target)
-        if (!userId) return '无法解析成员喵'
+        if (!userId) return this.reply('getauth.invalidTarget')
 
         try {
           let role = '未知'
@@ -104,7 +104,7 @@ export class GetAuthModule extends BaseModule {
             `自定义角色: ${userRoleNames}`
           ].join('\n')
         } catch (e) {
-          return `查询失败：${e.message || e}喵`
+          return this.reply('getauth.failed', { reason: e.message || e })
         }
       })
   }

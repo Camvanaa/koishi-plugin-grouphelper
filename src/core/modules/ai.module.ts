@@ -241,11 +241,11 @@ export class AIModule extends BaseModule {
     const config = this.config.openai
 
     if (!config?.enabled) {
-      return '抱歉，AI功能当前已禁用。'
+      return this.reply('ai.disabled')
     }
 
     if (config.chatEnabled === false) {
-      return '抱歉，AI对话功能当前已禁用。'
+      return this.reply('ai.chatDisabled')
     }
 
     try {
@@ -256,12 +256,12 @@ export class AIModule extends BaseModule {
         const groupConfig = this.getGroupConfig(guildId)
 
         if (groupConfig?.openai?.enabled === false) {
-          return '抱歉，当前群聊已禁用AI功能。'
+          return this.reply('ai.guildDisabled')
         }
 
         // 检查是否禁用了对话功能
         if (groupConfig?.openai?.chatEnabled === false) {
-          return '抱歉，当前群聊已禁用AI对话功能。'
+          return this.reply('ai.guildChatDisabled')
         }
 
         if (groupConfig?.openai?.systemPrompt) {
@@ -304,7 +304,7 @@ export class AIModule extends BaseModule {
       return assistantMessage.content
     } catch (error: any) {
       this.data.writeLog(`[ai] AI处理消息失败: ${error}`)
-      return `处理消息时出错: ${error.message}`
+      return this.reply('ai.processError', { reason: error.message })
     }
   }
 
@@ -320,11 +320,11 @@ export class AIModule extends BaseModule {
     const config = this.config.openai
 
     if (!config?.enabled) {
-      return '抱歉，AI翻译功能当前已禁用。'
+      return this.reply('ai.translateDisabled')
     }
 
     if (config.translateEnabled === false) {
-      return '抱歉，AI翻译功能当前已禁用。'
+      return this.reply('ai.translateDisabled')
     }
 
     try {
@@ -337,12 +337,12 @@ export class AIModule extends BaseModule {
         const groupConfig = this.getGroupConfig(guildId)
 
         if (groupConfig?.openai?.enabled === false) {
-          return '抱歉，当前群聊已禁用AI功能。'
+          return this.reply('ai.guildDisabled')
         }
 
         // 检查是否禁用了翻译功能
         if (groupConfig?.openai?.translateEnabled === false) {
-          return '抱歉，当前群聊已禁用AI翻译功能。'
+          return this.reply('ai.guildTranslateDisabled')
         }
 
         if (groupConfig?.openai?.translatePrompt) {
@@ -368,7 +368,7 @@ export class AIModule extends BaseModule {
       return response.choices[0].message.content
     } catch (error: any) {
       this.data.writeLog(`[ai] AI翻译失败: ${error}`)
-      return `翻译出错: ${error.message}`
+      return this.reply('ai.translateError', { reason: error.message })
     }
   }
 
@@ -443,17 +443,17 @@ export class AIModule extends BaseModule {
         if (!session) return
 
         if (!this.config.openai?.enabled) {
-          return 'AI功能已被全局禁用'
+          return this.reply('ai.disabled')
         }
 
         if (options?.reset) {
           const reset = this.resetUserContext(session.userId)
           this.log(session, 'ai', 'reset', reset ? '成功' : '无上下文')
-          return reset ? '对话上下文已重置' : '没有找到对话上下文'
+          return reset ? this.reply('ai.contextReset') : this.reply('ai.noContext')
         }
 
         if (!content) {
-          return '请输入您要问AI的内容，例如：ai 今天天气怎么样？'
+          return this.reply('ai.needContent')
         }
 
         try {
@@ -461,7 +461,7 @@ export class AIModule extends BaseModule {
           const response = await this.processMessage(session.userId, content, session.guildId)
           return response
         } catch (error: any) {
-          return `处理请求时出错: ${error.message}`
+          return this.reply('ai.processError', { reason: error.message })
         }
       })
 
@@ -482,7 +482,7 @@ export class AIModule extends BaseModule {
         if (!session) return
 
         if (!this.config.openai?.enabled) {
-          return 'AI功能已被全局禁用'
+          return this.reply('ai.disabled')
         }
 
         // 如果没有文本，尝试从引用消息获取
@@ -492,7 +492,7 @@ export class AIModule extends BaseModule {
           }
 
           if (!text) {
-            return '请提供要翻译的文本，或回复需要翻译的消息。\n用法：tsl [文本] 或 回复消息后使用 tsl'
+            return this.reply('ai.needTranslateText')
           }
         }
 
@@ -512,7 +512,7 @@ export class AIModule extends BaseModule {
 
           return translatedText
         } catch (error: any) {
-          return `翻译时出错: ${error.message}`
+          return this.reply('ai.translateError', { reason: error.message })
         }
       })
 
@@ -530,7 +530,7 @@ export class AIModule extends BaseModule {
       .option('reset', '-r 重置为全局配置')
       .action(async ({ session, options }) => {
         if (!session?.guildId) {
-          return '此命令只能在群聊中使用'
+          return this.reply('common.guildOnly')
         }
 
         const groupConfigs = this.data.groupConfig.getAll()
@@ -541,9 +541,9 @@ export class AIModule extends BaseModule {
             delete groupConfigs[session.guildId].openai
             this.data.groupConfig.setAll(groupConfigs)
             this.log(session, 'ai-config', 'reset', '成功')
-            return '已重置为全局AI配置'
+            return this.reply('ai.configReset')
           }
-          return '本群未设置特定AI配置'
+          return this.reply('ai.configNoOverride')
         }
 
         // 确保openai配置存在
@@ -571,17 +571,16 @@ export class AIModule extends BaseModule {
         if (hasChanges) {
           this.data.groupConfig.setAll(groupConfigs)
           this.log(session, 'ai-config', 'update', '成功')
-          return '群AI配置已更新'
+          return this.reply('ai.configUpdated')
         }
 
         // 显示当前配置
         const openaiConfig = groupConfigs[session.guildId].openai
-        return [
-          '当前群AI配置：',
-          `AI总开关: ${openaiConfig?.enabled === undefined ? '跟随全局' : (openaiConfig.enabled ? '启用' : '禁用')}`,
-          `系统提示词: ${openaiConfig?.systemPrompt || '跟随全局'}`,
-          `翻译提示词: ${openaiConfig?.translatePrompt || '跟随全局'}`
-        ].join('\n')
+        return this.reply('ai.configCurrent', {
+          enabled: openaiConfig?.enabled === undefined ? '跟随全局' : (openaiConfig.enabled ? '启用' : '禁用'),
+          systemPrompt: openaiConfig?.systemPrompt || '跟随全局',
+          translatePrompt: openaiConfig?.translatePrompt || '跟随全局'
+        })
       })
   }
 

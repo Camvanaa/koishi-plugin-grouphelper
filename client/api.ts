@@ -153,6 +153,30 @@ export const settingsApi = {
   reset: () => call<{ success: boolean }>('grouphelper/settings/reset'),
 }
 
+export interface ReplyPresetInfo {
+  id: string
+  label: string
+  description: string
+}
+
+export interface ReplyTemplateInfo {
+  key: string
+  group: string
+  label: string
+  description?: string
+  variables?: string[]
+}
+
+export interface ReplyCatalog {
+  presets: ReplyPresetInfo[]
+  templates: ReplyTemplateInfo[]
+  defaults: Record<string, Record<string, string>>
+}
+
+export const repliesApi = {
+  catalog: () => call<ReplyCatalog>('grouphelper/replies/catalog'),
+}
+
 // 群成员类型
 export interface GuildMember {
   id: string

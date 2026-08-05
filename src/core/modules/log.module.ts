@@ -216,7 +216,7 @@ export class LogModule extends BaseModule {
     })
       .action(async ({ session }, lines = 100) => {
         if (!fs.existsSync(this.logPath)) {
-          return '还没有任何日志记录喵~'
+          return this.reply('log.empty')
         }
 
         try {
@@ -225,13 +225,13 @@ export class LogModule extends BaseModule {
           const recentLines = allLines.slice(-lines)
 
           if (recentLines.length === 0) {
-            return '还没有任何日志记录喵~'
+            return this.reply('log.empty')
           }
 
           this.log(session, 'listlog', `${lines}`, 'success')
-          return `=== 最近 ${Math.min(lines, recentLines.length)} 条操作记录 ===\n${recentLines.join('\n')}`
+          return this.reply('log.recent', { count: Math.min(lines, recentLines.length), logs: recentLines.join('\n') })
         } catch (e) {
-          return `读取日志失败喵...${e.message}`
+          return this.reply('log.readFailed', { reason: e.message })
         }
       })
 
@@ -248,14 +248,14 @@ export class LogModule extends BaseModule {
       .option('a', '-a 清理所有日志')
       .action(async ({ session, options }) => {
         if (!fs.existsSync(this.logPath)) {
-          return '还没有任何日志记录喵~'
+          return this.reply('log.empty')
         }
 
         try {
           if (options.a) {
             fs.writeFileSync(this.logPath, '')
             this.log(session, 'clearlog', 'all', 'Cleared all logs')
-            return '已清理所有日志记录喵~'
+            return this.reply('log.clearAll')
           }
 
           const days = options.d || 7
@@ -275,9 +275,9 @@ export class LogModule extends BaseModule {
           const deletedCount = allLines.length - keptLogs.length
           this.log(session, 'clearlog', `${days}days`, `Cleared ${deletedCount} logs`)
 
-          return `已清理 ${deletedCount} 条日志记录，保留最近 ${days} 天的记录喵~`
+          return this.reply('log.clearOld', { count: deletedCount, days })
         } catch (e) {
-          return `清理日志失败喵...${e.message}`
+          return this.reply('log.clearFailed', { reason: e.message })
         }
       })
   }
@@ -309,19 +309,19 @@ export class LogModule extends BaseModule {
           const logs = this.readCommandLogs().slice(-Math.min(options.limit * 10, 1000)).reverse()
 
           if (logs.length === 0) {
-            return '暂无命令执行记录'
+            return this.reply('log.noCommandLogs')
           }
 
           let filteredLogs = this.filterLogs(logs, options)
           filteredLogs = filteredLogs.slice(0, options.limit)
 
           if (filteredLogs.length === 0) {
-            return '没有符合条件的命令记录'
+            return this.reply('log.noMatchedCommandLogs')
           }
 
           return this.formatLogList(filteredLogs, logs.length)
         } catch (error) {
-          return `获取命令日志失败: ${error.message}`
+          return this.reply('log.commandReadFailed', { reason: error.message })
         }
       })
 
@@ -344,18 +344,18 @@ export class LogModule extends BaseModule {
           const allLogs = this.readCommandLogs()
 
           if (allLogs.length === 0) {
-            return '暂无命令使用记录'
+            return this.reply('log.noCommandStats')
           }
 
           let filteredLogs = this.filterLogs(allLogs, options)
 
           if (filteredLogs.length === 0) {
-            return '没有符合条件的命令记录'
+            return this.reply('log.noMatchedCommandLogs')
           }
 
           return this.formatStats(filteredLogs, options)
         } catch (error) {
-          return `获取命令统计失败: ${error.message}`
+          return this.reply('log.commandStatsFailed', { reason: error.message })
         }
       })
 
@@ -376,16 +376,16 @@ export class LogModule extends BaseModule {
             this.saveCommandLogs([])
             this.commandStats.clear()
             this.log(session, 'cmdlogs.clear', 'all', 'success')
-            return '已清除所有命令日志'
+            return this.reply('log.commandClearAll')
           } else if (options.days > 0) {
             const removedCount = this.cleanOldLogs(options.days)
             this.log(session, 'cmdlogs.clear', `${options.days}days`, `removed ${removedCount}`)
-            return `已清理 ${removedCount} 条超过 ${options.days} 天的命令日志`
+            return this.reply('log.commandClearOld', { count: removedCount, days: options.days })
           } else {
-            return '请指定 --all 清除所有日志，或使用 -d <天数> 清除指定天数前的日志'
+            return this.reply('log.commandClearUsage')
           }
         } catch (error) {
-          return `清理日志失败: ${error.message}`
+          return this.reply('log.commandClearFailed', { reason: error.message })
         }
       })
 
@@ -410,7 +410,7 @@ export class LogModule extends BaseModule {
           )
 
           if (filteredLogs.length === 0) {
-            return `最近 ${options.days} 天没有命令执行记录`
+            return this.reply('log.exportEmpty', { days: options.days })
           }
 
           if (options.format === 'csv') {
@@ -421,12 +421,12 @@ export class LogModule extends BaseModule {
               log.executionTime, log.error ?? ''
             ].map(csvCell).join(',')).join('\n')
 
-            return `CSV格式日志 (${filteredLogs.length} 条记录)\n\n${csvHeader}${csvRows}`
+            return this.reply('log.exportCsv', { count: filteredLogs.length, content: csvHeader + csvRows })
           } else {
-            return `JSON格式日志 (${filteredLogs.length} 条记录)\n\n${JSON.stringify(filteredLogs, null, 2)}`
+            return this.reply('log.exportJson', { count: filteredLogs.length, content: JSON.stringify(filteredLogs, null, 2) })
           }
         } catch (error) {
-          return `导出日志失败: ${error.message}`
+          return this.reply('log.exportFailed', { reason: error.message })
         }
       })
   }

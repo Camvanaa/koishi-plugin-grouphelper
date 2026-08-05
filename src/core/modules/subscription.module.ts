@@ -44,16 +44,7 @@ export class SubscriptionModule extends BaseModule {
       usage: '管理各类通知订阅，使用子命令操作'
     })
       .action(async () => {
-        return `使用以下命令管理订阅：
-sub log - 操作日志订阅
-sub member - 成员变动通知
-sub mute - 禁言到期通知
-sub blacklist - 黑名单变更通知
-sub warning - 警告通知
-sub antirecall [群号...] - 防撤回通知（可指定来源群过滤）
-sub all - 订阅所有通知
-sub none - 取消所有订阅
-sub status - 查看订阅状态`
+        return this.reply('subscription.help')
       })
 
     // 订阅操作日志
@@ -131,14 +122,14 @@ sub status - 查看订阅状态`
         const guildIds = raw.split(/[,，\s]+/).filter(s => /^\d+$/.test(s))
         // 带了参数但没有一个合法群号时，提示格式错误而不是退化为开关切换（防误取消订阅）
         if (raw && guildIds.length === 0) {
-          return '群号格式不正确喵~ 请使用空格或逗号分隔的纯数字群号，例如：sub.antirecall 123456 789012'
+          return this.reply('subscription.invalidGuilds')
         }
 
         // 防撤回推送会带出被撤回消息的原文，因此来源群必须在订阅者的权限范围内，
         // 否则任何人都能把无关群的撤回内容拉到自己的群里
         const denied = guildIds.filter(id => this.checkGuildScope(session, 'sub-antirecall', id))
         if (denied.length) {
-          return `你没有权限接收这些群的撤回消息喵：${denied.join('、')}`
+          return this.reply('subscription.deniedGuilds', { guildIds: denied.join('、') })
         }
 
         return this.handleSubscription(session, 'antiRecall', guildIds)
@@ -186,10 +177,10 @@ sub status - 查看订阅状态`
    * @param sourceGuildIds 防撤回等推送的来源群过滤；非空时开启订阅并设置过滤
    */
   private handleSubscription(session: any, feature: keyof Subscription['features'], sourceGuildIds?: string[]): string {
-    if (!session) return '无法获取会话信息'
+    if (!session) return this.reply('common.noSession')
 
     const id = session.guildId || session.userId
-    if (!id) return '无法获取订阅ID'
+    if (!id) return this.reply('subscription.noId')
 
     const type = session.guildId ? 'group' : 'private'
     const data = this.data.subscriptions.getAll()
@@ -215,7 +206,7 @@ sub status - 查看订阅状态`
       sub.features[feature] = true
       sub.sourceGuildIds = sourceGuildIds
       this.data.subscriptions.flush()
-      return `已订阅${this.getFeatureName(feature)}，仅接收来源群: ${sourceGuildIds.join(', ')} 喵~`
+      return this.reply('subscription.enabledFiltered', { feature: this.getFeatureName(feature), guildIds: sourceGuildIds.join(', ') })
     }
 
     sub.features[feature] = !sub.features[feature]
@@ -226,18 +217,18 @@ sub status - 查看订阅状态`
     this.data.subscriptions.flush()
 
     return sub.features[feature]
-      ? `已订阅${this.getFeatureName(feature)}喵~`
-      : `已取消订阅${this.getFeatureName(feature)}喵~`
+      ? this.reply('subscription.enabled', { feature: this.getFeatureName(feature) })
+      : this.reply('subscription.disabled', { feature: this.getFeatureName(feature) })
   }
 
   /**
    * 处理所有订阅
    */
   private handleAllSubscriptions(session: any, enabled: boolean): string {
-    if (!session) return '无法获取会话信息'
+    if (!session) return this.reply('common.noSession')
 
     const id = session.guildId || session.userId
-    if (!id) return '无法获取订阅ID'
+    if (!id) return this.reply('subscription.noId')
 
     const type = (session.guildId ? 'group' : 'private') as ('group' | 'private')
     const data = this.data.subscriptions.getAll()
@@ -248,7 +239,7 @@ sub status - 查看订阅状态`
     if (!enabled && index >= 0) {
       subscriptions.splice(index, 1)
       this.data.subscriptions.flush()
-      return '已取消所有订阅喵~'
+      return this.reply('subscription.allDisabled')
     }
 
     if (enabled) {
@@ -272,20 +263,20 @@ sub status - 查看订阅状态`
       }
 
       this.data.subscriptions.flush()
-      return '已订阅所有通知喵~'
+      return this.reply('subscription.allEnabled')
     }
 
-    return '无需操作喵~'
+    return this.reply('subscription.noop')
   }
 
   /**
    * 显示订阅状态
    */
   private showSubscriptionStatus(session: any): string {
-    if (!session) return '无法获取会话信息'
+    if (!session) return this.reply('common.noSession')
 
     const id = session.guildId || session.userId
-    if (!id) return '无法获取订阅ID'
+    if (!id) return this.reply('subscription.noId')
 
     const type = session.guildId ? 'group' : 'private'
     const data = this.data.subscriptions.getAll()
@@ -294,7 +285,7 @@ sub status - 查看订阅状态`
     const sub = subscriptions.find(s => s.id === id && s.type === type)
 
     if (!sub || !sub.features) {
-      return '当前没有任何订阅喵~'
+      return this.reply('subscription.empty')
     }
 
     const antiRecallFilter = sub.features.antiRecall && sub.sourceGuildIds?.length

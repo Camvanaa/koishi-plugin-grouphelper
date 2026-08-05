@@ -180,17 +180,17 @@ export class ReportModule extends BaseModule {
       .option('verbose', '-v 显示详细判断结果', { fallback: true })
       .action(async ({ session, options }) => {
         if (!this.config.report?.enabled) {
-          return h.quote(session.messageId) + '举报功能已被禁用'
+          return h.quote(session.messageId) + this.reply('report.disabled')
         }
 
         if (!session.guildId) {
-          return h.quote(session.messageId) + '此命令只能在群聊中使用。'
+          return h.quote(session.messageId) + this.reply('report.guildOnly')
         }
 
         const guildConfig = this.getGuildConfig(session.guildId)
 
         if (guildConfig && !guildConfig.enabled) {
-          return h.quote(session.messageId) + '本群的举报功能已被禁用'
+          return h.quote(session.messageId) + this.reply('report.guildDisabled')
         }
 
         // 获取用户权限
@@ -213,12 +213,12 @@ export class ReportModule extends BaseModule {
 
           if (banRecord && Date.now() < banRecord.expireTime) {
             const remainingMinutes = Math.ceil((banRecord.expireTime - Date.now()) / (60 * 1000))
-            return h.quote(session.messageId) + `您由于举报不当已被暂时限制使用举报功能，请在${remainingMinutes}分钟后再试。`
+            return h.quote(session.messageId) + this.reply('report.cooldown', { minutes: remainingMinutes })
           }
         }
 
         if (!session.quote) {
-          return h.quote(session.messageId) + '请回复需要举报的消息。例如：回复某消息 > /report'
+          return h.quote(session.messageId) + this.reply('report.needQuote')
         }
 
         try {
@@ -227,13 +227,13 @@ export class ReportModule extends BaseModule {
           // 检查是否已举报
           const messageReportKey = `${session.guildId}:${quoteId}`
           if (this.reportedMessages[messageReportKey]) {
-            return h.quote(session.messageId) + `该消息已被举报过，处理结果: ${this.reportedMessages[messageReportKey].result}`
+            return h.quote(session.messageId) + this.reply('report.duplicated', { result: this.reportedMessages[messageReportKey].result })
           }
 
           const reportedMessage = await session.bot.getMessage(session.guildId, quoteId)
 
           if (!reportedMessage || !reportedMessage.content) {
-            return h.quote(session.messageId) + '无法获取被举报的消息内容。'
+            return h.quote(session.messageId) + this.reply('report.noContent')
           }
 
           // 获取被举报者 ID
@@ -247,20 +247,20 @@ export class ReportModule extends BaseModule {
             if (sender && typeof sender === 'object' && sender.id) {
               reportedUserId = sender.id
             } else {
-              return '无法确定被举报消息的发送者。'
+              return this.reply('report.noSender')
             }
           }
 
           if (!reportedUserId) {
-            return h.quote(session.messageId) + '无法确定被举报消息的发送者。'
+            return h.quote(session.messageId) + this.reply('report.noSender')
           }
 
           if (reportedUserId === session.userId) {
-            return h.quote(session.messageId) + '不能举报自己的消息喵~'
+            return h.quote(session.messageId) + this.reply('report.self')
           }
 
           if (reportedUserId === session.selfId) {
-            return h.quote(session.messageId) + '喵？不能举报本喵的消息啦~'
+            return h.quote(session.messageId) + this.reply('report.bot')
           }
 
           // 记录命令日志
@@ -290,7 +290,7 @@ export class ReportModule extends BaseModule {
               const maxReportTimeMs = this.getMaxReportTime() * 60 * 1000
 
               if (now - messageTimestamp > maxReportTimeMs) {
-                return h.quote(session.messageId) + `只能举报${this.getMaxReportTime()}分钟内的消息，此消息已超时。`
+                return h.quote(session.messageId) + this.reply('report.expired', { minutes: this.getMaxReportTime() })
               }
             }
           }
@@ -348,7 +348,7 @@ export class ReportModule extends BaseModule {
             // 不施加冷却。真正的滥用判定由下方 AI 显式返回的 reporterPenalty 负责。
             logger.error('解析AI响应失败:', e, response)
             await this.logCommand(session, 'report-error', session.userId, `AI响应解析失败：${e.message}`, false)
-            return h.quote(session.messageId) + '举报处理失败：AI判断结果格式有误，请重试或联系管理员手动处理。'
+            return h.quote(session.messageId) + this.reply('report.aiFormatError')
           }
 
           // 处理违规
@@ -397,7 +397,7 @@ export class ReportModule extends BaseModule {
           // 都不是举报者的问题，原先一律冷却 60 分钟，与恶意刷举报同等对待。
           // 滥用举报的认定只由 AI 显式返回的 reporterPenalty 负责。
           await this.logCommand(session, 'report-error', session.userId, `系统错误：${e.message}`, false)
-          return h.quote(session.messageId) + `举报处理失败：${e.message}\n这是系统错误，未计入您的举报限制。`
+          return h.quote(session.messageId) + this.reply('report.systemError', { reason: e.message })
         }
       })
 
@@ -420,7 +420,7 @@ export class ReportModule extends BaseModule {
         const guildId = options.guild || session.guildId
 
         if (!guildId) {
-          return '请在群聊中使用此命令或使用 -g 参数指定群号'
+          return this.reply('report.configNeedGuild')
         }
 
         const isGuildSpecific = !!options.guild || !!session.guildId
@@ -472,7 +472,7 @@ export class ReportModule extends BaseModule {
           if (options['context-size'] !== undefined) {
             const size = options['context-size']
             if (size < 1 || size > 20) {
-              return '上下文消息数量必须在1-20之间'
+              return this.reply('report.contextSizeInvalid')
             }
             guildConfig.contextSize = size
             hasChanges = true
@@ -516,7 +516,7 @@ export class ReportModule extends BaseModule {
           // 通过 SettingsManager 持久化配置
           await this.ctx.groupHelper.settings.update({ report: currentReport })
           await this.logCommand(session, 'report-config', isGuildSpecific ? guildId : 'global', '已更新举报功能配置')
-          return `举报功能配置已更新\n${configMsg.join('\n')}`
+          return this.reply('report.configUpdated', { config: configMsg.join('\n') })
         }
 
         return configMsg.join('\n')
@@ -560,8 +560,8 @@ export class ReportModule extends BaseModule {
     try {
       if (violation.level === ViolationLevel.NONE) {
         return verbose
-          ? `AI判断结果：该消息未违规\n理由：${violation.reason}`
-          : '该消息未被判定为违规内容。'
+          ? this.reply('report.noViolationVerbose', { reason: violation.reason })
+          : this.reply('report.noViolation')
       }
 
       let result = ''
@@ -572,8 +572,8 @@ export class ReportModule extends BaseModule {
 
       if (!shouldAutoProcess) {
         result = verbose
-          ? `AI判断结果：${this.getViolationLevelText(violation.level)}违规\n理由：${violation.reason}\n操作：自动处理功能已禁用，请管理员手动处理`
-          : `该消息被判定为${this.getViolationLevelText(violation.level)}违规，请管理员手动处理。`
+          ? this.reply('report.manualActionVerbose', { level: this.getViolationLevelText(violation.level), reason: violation.reason })
+          : this.reply('report.manualAction', { level: this.getViolationLevelText(violation.level) })
 
         await this.logCommand(session, 'report-no-action', userId, `${this.getViolationLevelText(violation.level)}违规，管理员待处理`)
         return result
@@ -614,10 +614,10 @@ export class ReportModule extends BaseModule {
         const actionText = violation.action.length > 0
           ? violation.action.map(a => {
               switch(a.type) {
-                case 'ban': return `禁言${a.time}秒`
-                case 'warn': return `警告${a.count}次`
-                case 'kick': return '踢出群聊'
-                case 'kick_blacklist': return '踢出并拉黑'
+                case 'ban': return this.reply('report.actionBan', { time: a.time })
+                case 'warn': return this.reply('report.actionWarn', { count: a.count })
+                case 'kick': return this.reply('report.actionKick')
+                case 'kick_blacklist': return this.reply('report.actionKickBlacklist')
                 default: return a.type
               }
             }).join('、')
@@ -647,7 +647,7 @@ export class ReportModule extends BaseModule {
         logger.error('记录举报错误日志失败:', err)
       }
 
-      return `AI已判定该消息${this.getViolationLevelText(violation.level)}违规，但自动处理失败：${e.message}\n请联系管理员手动处理。`
+      return this.reply('report.autoProcessFailed', { level: this.getViolationLevelText(violation.level), reason: e.message })
     }
   }
 
@@ -656,12 +656,12 @@ export class ReportModule extends BaseModule {
    */
   private getViolationLevelText(level: ViolationLevel): string {
     switch(level) {
-      case ViolationLevel.NONE: return '未'
-      case ViolationLevel.LOW: return '轻微'
-      case ViolationLevel.MEDIUM: return '中度'
-      case ViolationLevel.HIGH: return '严重'
-      case ViolationLevel.CRITICAL: return '极其严重'
-      default: return '未知'
+      case ViolationLevel.NONE: return this.reply('report.levelNone')
+      case ViolationLevel.LOW: return this.reply('report.levelLow')
+      case ViolationLevel.MEDIUM: return this.reply('report.levelMedium')
+      case ViolationLevel.HIGH: return this.reply('report.levelHigh')
+      case ViolationLevel.CRITICAL: return this.reply('report.levelCritical')
+      default: return this.reply('report.levelUnknown')
     }
   }
 

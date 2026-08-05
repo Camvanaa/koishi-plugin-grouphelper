@@ -9,6 +9,7 @@ import * as fs from 'fs'
 
 import { Config as PluginSettings } from '../../types'
 import { DEFAULT_REPORT_PROMPT, CONTEXT_REPORT_PROMPT } from '../prompts'
+import { DEFAULT_REPLY_CONFIG } from '../i18n/replies'
 
 export type { PluginSettings }
 
@@ -117,6 +118,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   },
   status: {
     renderTimeout: 30000
+  },
+  replies: {
+    ...DEFAULT_REPLY_CONFIG
   }
 }
 
@@ -213,6 +217,10 @@ export class SettingsManager {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
       const value = overrides[key]
       if (value !== undefined) {
+        if (key === 'replies') {
+          result[key] = value as T[keyof T]
+          continue
+        }
         if (
           typeof value === 'object' &&
           value !== null &&

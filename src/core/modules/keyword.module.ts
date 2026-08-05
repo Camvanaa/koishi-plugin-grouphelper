@@ -51,7 +51,7 @@ export class KeywordModule extends BaseModule {
    * 处理 verify 命令
    */
   private async handleVerify(session: Session, options: any): Promise<string> {
-    if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+    if (!session.guildId) return this.reply('common.guildOnly')
 
     // 初始化群配置
     let groupConfig = this.data.groupConfig.get(session.guildId) || {} as GroupConfig
@@ -66,21 +66,25 @@ export class KeywordModule extends BaseModule {
     // 列出关键词
     if (options.l) {
       const keywords = groupConfig.approvalKeywords
-      return `当前群入群审核关键词：\n${keywords.join('、') || '无'}\n自动拒绝状态：${groupConfig.auto}\n拒绝词：${groupConfig.reject}`
+      return this.reply('keyword.verifyList', {
+        keywords: keywords.join('、') || '无',
+        auto: groupConfig.auto,
+        reject: groupConfig.reject
+      })
     }
 
     // 添加关键词
     if (options.a) {
       const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.approvalKeywords)
       if (!accepted.length) {
-        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+        return errors.length ? this.reply('keyword.addNone', { errors: errors.join('\n') }) : this.reply('keyword.exists')
       }
       groupConfig.approvalKeywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'add', `已添加关键词：${accepted.join('、')}`)
       const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
-      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
+      return this.reply('keyword.added', { keywords: accepted.join('、'), skipped })
     }
 
     // 移除关键词
@@ -98,34 +102,34 @@ export class KeywordModule extends BaseModule {
         this.data.groupConfig.set(session.guildId, groupConfig)
         this.data.groupConfig.flush()
         this.log(session, 'verify', 'remove', `已移除关键词：${removed.join('、')}`)
-        return `已经把关键词：${removed.join('、')} 删掉啦喵！`
+        return this.reply('keyword.removed', { keywords: removed.join('、') })
       }
-      return '未找到指定的关键词'
+      return this.reply('keyword.notFound')
     }
 
     // 清除所有关键词
     if (options.clear) {
       if (!groupConfig.approvalKeywords.length) {
-        return '当前没有任何入群审核关键词喵~'
+        return this.reply('keyword.emptyVerify')
       }
       groupConfig.approvalKeywords = []
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'clear', `已清除所有关键词`)
-      return '所有入群审核关键词已清除喵~'
+      return this.reply('keyword.verifyCleared')
     }
 
     // 设置自动拒绝
     if (options.n !== undefined) {
       const parsed = parseBoolOption(options.n)
       if (parsed === null) {
-        return '无效的值，请使用 true/false、1/0、yes/no、y/n 或 on/off'
+        return this.reply('common.invalidBool')
       }
       groupConfig.auto = parsed ? 'true' : 'false'
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'auto', `已设置自动拒绝：${groupConfig.auto}`)
-      return `自动拒绝状态更新为${groupConfig.auto}`
+      return this.reply('keyword.autoRejectUpdated', { state: groupConfig.auto })
     }
 
     // 设置拒绝词
@@ -134,10 +138,10 @@ export class KeywordModule extends BaseModule {
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'verify', 'set', `已设置拒绝词：${options.w}`)
-      return `拒绝词已更新为：${options.w} 喵喵喵~`
+      return this.reply('keyword.rejectUpdated', { message: options.w })
     }
 
-    return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-n <true/false> 未匹配关键词自动拒绝\n-w <拒绝词> 设置拒绝时的回复\n多个关键词用英文逗号分隔'
+    return this.reply('keyword.verifyUsage')
   }
 
   /**
@@ -169,7 +173,7 @@ export class KeywordModule extends BaseModule {
    * 处理 forbidden 命令
    */
   private async handleForbidden(session: Session, options: any): Promise<string> {
-    if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+    if (!session.guildId) return this.reply('common.guildOnly')
 
     let groupConfig = this.data.groupConfig.get(session.guildId) || {} as GroupConfig
     const forbiddenConfig = { ...this.config.forbidden, ...(groupConfig.forbidden || {}) }
@@ -177,14 +181,16 @@ export class KeywordModule extends BaseModule {
     // 列出关键词
     if (options.l) {
       const keywords = groupConfig.keywords || []
-      return `全局禁言关键词：\n${this.config.forbidden.keywords.join('、') || '无'}
-当前群禁言关键词：\n${keywords.join('、') || '无'}
-回显状态：${forbiddenConfig.echo ? '开启' : '关闭'}
-自动撤回状态：${forbiddenConfig.autoDelete ? '开启' : '关闭'}
-自动禁言状态：${forbiddenConfig.autoBan ? '开启' : '关闭'}
-自动踢出状态：${forbiddenConfig.autoKick ? '开启' : '关闭'}
-自动禁言时长：${formatDuration(forbiddenConfig.muteDuration)}
-匹配方式：默认按原文包含匹配，需要正则请写成 ${REGEX_KEYWORD_PREFIX}正则内容`
+      return this.reply('keyword.forbiddenList', {
+        globalKeywords: this.config.forbidden.keywords.join('、') || '无',
+        groupKeywords: keywords.join('、') || '无',
+        echo: forbiddenConfig.echo ? '开启' : '关闭',
+        autoDelete: forbiddenConfig.autoDelete ? '开启' : '关闭',
+        autoBan: forbiddenConfig.autoBan ? '开启' : '关闭',
+        autoKick: forbiddenConfig.autoKick ? '开启' : '关闭',
+        duration: formatDuration(forbiddenConfig.muteDuration),
+        prefix: REGEX_KEYWORD_PREFIX
+      })
     }
 
     // 添加关键词
@@ -192,21 +198,21 @@ export class KeywordModule extends BaseModule {
       groupConfig.keywords = groupConfig.keywords || []
       const { accepted, errors } = this.prepareNewKeywords(options.a, groupConfig.keywords)
       if (!accepted.length) {
-        return errors.length ? `没有添加任何关键词喵：\n${errors.join('\n')}` : '这些关键词已经有啦喵~'
+        return errors.length ? this.reply('keyword.addNone', { errors: errors.join('\n') }) : this.reply('keyword.exists')
       }
       groupConfig.keywords.push(...accepted)
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'add', `成功：已添加关键词：${accepted.join('、')}`)
       const skipped = errors.length ? `\n已跳过：\n${errors.join('\n')}` : ''
-      return `已经添加了关键词：${accepted.join('、')} 喵喵喵~${skipped}`
+      return this.reply('keyword.added', { keywords: accepted.join('、'), skipped })
     }
 
     // 移除关键词
     if (options.r) {
       const removeKeywords = options.r.split(',').map((k: string) => k.trim()).filter((k: string) => k)
       const removed: string[] = []
-      if (!groupConfig.keywords) return '当前没有任何禁言关键词喵~'
+      if (!groupConfig.keywords) return this.reply('keyword.emptyForbidden')
 
       for (const keyword of removeKeywords) {
         const index = groupConfig.keywords.indexOf(keyword)
@@ -219,21 +225,21 @@ export class KeywordModule extends BaseModule {
         this.data.groupConfig.set(session.guildId, groupConfig)
         this.data.groupConfig.flush()
         this.log(session, 'forbidden', 'remove', `成功：已移除关键词：${removed.join('、')}`)
-        return `已经把关键词：${removed.join('、')} 删掉啦喵！`
+        return this.reply('keyword.removed', { keywords: removed.join('、') })
       }
-      return '未找到指定的关键词'
+      return this.reply('keyword.notFound')
     }
 
     // 清除所有关键词
     if (options.clear) {
       if (!groupConfig.keywords || !groupConfig.keywords.length) {
-        return '当前没有任何禁言关键词喵~'
+        return this.reply('keyword.emptyForbidden')
       }
       groupConfig.keywords = []
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'clear', `成功：已清除所有关键词`)
-      return '所有禁言关键词已清除喵~'
+      return this.reply('keyword.forbiddenCleared')
     }
 
     // 确保 forbidden 配置存在的辅助函数
@@ -251,37 +257,37 @@ export class KeywordModule extends BaseModule {
     // 设置自动撤回
     if (options.d !== undefined) {
       const state = parseBoolOption(options.d)
-      if (state === null) return '无效的值，请使用 true/false'
+      if (state === null) return this.reply('common.invalidBool')
       ensureForbiddenExists()
       groupConfig.forbidden.autoDelete = state
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'recall', `成功：已设置自动撤回：${state}`)
-      return `自动撤回状态更新为${state}`
+      return this.reply('keyword.toggleUpdated', { name: '自动撤回', state })
     }
 
     // 设置自动禁言
     if (options.b !== undefined) {
       const state = parseBoolOption(options.b)
-      if (state === null) return '无效的值，请使用 true/false'
+      if (state === null) return this.reply('common.invalidBool')
       ensureForbiddenExists()
       groupConfig.forbidden.autoBan = state
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'ban', `成功：已设置自动禁言：${state}`)
-      return `自动禁言状态更新为${state}`
+      return this.reply('keyword.toggleUpdated', { name: '自动禁言', state })
     }
 
     // 设置自动踢出
     if (options.k !== undefined) {
       const state = parseBoolOption(options.k)
-      if (state === null) return '无效的值，请使用 true/false'
+      if (state === null) return this.reply('common.invalidBool')
       ensureForbiddenExists()
       groupConfig.forbidden.autoKick = state
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'kick', `成功：已设置自动踢出：${state}`)
-      return `自动踢出状态更新为${state}`
+      return this.reply('keyword.toggleUpdated', { name: '自动踢出', state })
     }
 
     // 设置禁言时长
@@ -294,9 +300,9 @@ export class KeywordModule extends BaseModule {
         this.data.groupConfig.set(session.guildId, groupConfig)
         this.data.groupConfig.flush()
         this.log(session, 'forbidden', 'set', `成功：已设置禁言时间：${duration}`)
-        return `禁言时间已更新为：${duration} 喵喵喵~`
+        return this.reply('keyword.durationUpdated', { duration })
       } catch (e) {
-        return `无效的时间格式：${duration}，请使用类似 "1h" 或 "30m" 的格式`
+        return this.reply('keyword.invalidTime', { duration })
       }
     }
 
@@ -304,16 +310,16 @@ export class KeywordModule extends BaseModule {
     if (options.echo !== undefined) {
       const state = parseBoolOption(options.echo)
       console.log('echo state', state)
-      if (state === null) return '无效的值，请使用 true/false'
+      if (state === null) return this.reply('common.invalidBool')
       ensureForbiddenExists()
       groupConfig.forbidden.echo = state
       this.data.groupConfig.set(session.guildId, groupConfig)
       this.data.groupConfig.flush()
       this.log(session, 'forbidden', 'echo', `成功：已设置回显：${state}`)
-      return `回显状态更新为${state}`
+      return this.reply('keyword.toggleUpdated', { name: '回显', state })
     }
 
-    return '请使用：\n-a 添加关键词\n-r 移除关键词\n--clear 清空关键词\n-l 列出关键词\n-d <true/false> 设置是否自动撤回包含关键词的消息\n-b <true/false> 设置是否启用关键词禁言\n-k <true/false> 设置是否启用关键词踢出\n-t <时长> 设置自动禁言时长\n--echo <true/false> 设置是否启用触发回显\n多个关键词用英文逗号分隔'
+    return this.reply('keyword.forbiddenUsage')
   }
 
   /**
@@ -383,12 +389,12 @@ export class KeywordModule extends BaseModule {
         try {
           await session.bot.kickGuildMember(session.guildId, session.userId)
           this.log(session, 'keyword-kick', session.userId, `成功：关键词匹配，已踢出群聊`)
-          await session.send(`喵呜！发现了关键词，${session.username} 已被踢出群聊...`)
+          await session.send(this.reply('keyword.autoKickSuccess', { username: session.username }))
           return true
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.log(session, 'keyword-kick', session.userId, `失败：${reason}`, false)
-          await session.send(`喵呜...自动踢出失败了：${reason}${hint}`)
+          await session.send(this.reply('keyword.autoKickFailed', { reason, hint }))
         }
       }
 
@@ -412,19 +418,19 @@ export class KeywordModule extends BaseModule {
         if (covered) {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，已有更长禁言，禁言时长 ${formatDuration(duration)}`)
           if (forbiddenConfig.echo) {
-            await session.send(`喵呜！发现了关键词，检测到未完成的禁言，要被禁言 ${formatDuration(duration)} 啦...`)
+            await session.send(this.reply('keyword.autoBanCovered', { duration: formatDuration(duration) }))
           }
         } else {
           this.log(session, 'keyword-ban', session.userId, `成功：关键词匹配，禁言时长 ${formatDuration(duration)}`)
           if (forbiddenConfig.echo) {
-            await session.send(`喵呜！发现了关键词，要被禁言 ${formatDuration(duration)} 啦...`)
+            await session.send(this.reply('keyword.autoBanSuccess', { duration: formatDuration(duration) }))
           }
         }
         return true
       } catch (e) {
         this.log(session, 'keyword-ban', session.userId, `失败`)
         if (forbiddenConfig.echo) {
-          await session.send('自动禁言失败了...可能是权限不够喵')
+          await session.send(this.reply('keyword.autoBanFailed'))
         }
       }
       break
@@ -449,12 +455,12 @@ export class KeywordModule extends BaseModule {
         await session.bot.deleteMessage(session.guildId, session.messageId)
         this.log(session, 'keyword-delete', session.userId, `成功：关键词匹配，消息已撤回`)
         if (forbiddenConfig.echo) {
-          await session.send(`喵呜！发现了关键词，消息已被撤回...`)
+            await session.send(this.reply('keyword.autoDeleteSuccess'))
         }
       } catch (e) {
         this.log(session, 'keyword-delete', session.userId, `失败`)
         if (forbiddenConfig.echo) {
-          await session.send('自动撤回失败了...可能是权限不够喵')
+          await session.send(this.reply('keyword.autoDeleteFailed'))
         }
       }
       break

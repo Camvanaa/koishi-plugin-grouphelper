@@ -38,13 +38,13 @@ export class MessageManageModule extends BaseModule {
       usage: '回复要撤回的消息后使用此命令'
     })
       .action(async ({ session }) => {
-        if (!session.quote) return '喵喵！请回复要撤回的消息呀~'
+        if (!session.quote) return this.reply('message.needRecallQuote')
 
         try {
           await session.bot.deleteMessage(session.channelId, session.quote.id)
           return ''
         } catch (e) {
-          return '呜呜...撤回失败了，可能太久了或者没有权限喵...'
+          return this.reply('message.recallFailed')
         }
       })
   }
@@ -67,25 +67,25 @@ export class MessageManageModule extends BaseModule {
       .option('s', '-s 设置精华消息')
       .option('r', '-r 取消精华消息')
       .action(async ({ session, options }) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
-        if (!essenceConfig.enabled) return '喵呜...精华消息功能未启用...'
-        if (!session.quote) return '喵喵！请回复要操作的消息呀~'
+        if (!session.guildId) return this.reply('common.guildOnly')
+        if (!essenceConfig.enabled) return this.reply('message.essenceDisabled')
+        if (!session.quote) return this.reply('message.needEssenceQuote')
 
         try {
           if (options.s) {
             await session.bot.internal.setEssenceMsg(session.quote.messageId)
             this.logCommand(session, 'essence', 'set', `成功：已设置精华消息：${session.quote.messageId}`)
-            return '已经设置为精华消息啦喵~'
+            return this.reply('message.essenceSet')
           } else if (options.r) {
             await session.bot.internal.deleteEssenceMsg(session.quote.messageId)
             this.logCommand(session, 'essence', 'remove', `成功：已取消精华消息：${session.quote.messageId}`)
-            return '已经取消精华消息啦喵~'
+            return this.reply('message.essenceUnset')
           }
-          return '请使用 -s 设置精华消息或 -r 取消精华消息'
+          return this.reply('message.essenceUsage')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'essence', session.quote?.messageId || 'none', `失败：${reason}`, false)
-          return `出错啦喵...${reason}${hint}`
+          return this.reply('common.operationError', { reason, hint })
         }
       })
   }

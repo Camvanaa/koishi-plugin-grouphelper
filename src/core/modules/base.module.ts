@@ -5,6 +5,7 @@
 import { Argv, Command, Context, Session } from 'koishi'
 import type { DataManager } from '../data'
 import type { Config } from '../../types'
+import { renderReply } from '../i18n/replies'
 
 /** 模块元信息 */
 export interface ModuleMeta {
@@ -70,6 +71,10 @@ export abstract class BaseModule {
       // 服务未就绪时使用构造函数传入的配置
     }
     return this._config
+  }
+
+  protected reply(key: string, variables?: Record<string, unknown>): string {
+    return renderReply(this.config.replies, key, variables)
   }
 
   /** 获取模块状态 */
@@ -192,7 +197,7 @@ export abstract class BaseModule {
 
         // 使用 AuthService 检查权限
         if (!this.ctx.groupHelper.auth.check(session, permId)) {
-          return '你没有权限执行此操作喵...'
+          return this.reply('auth.noPermission')
         }
       })
     }
@@ -210,13 +215,13 @@ export abstract class BaseModule {
    * @returns 通过返回 null，未通过返回可直接回复用户的提示语
    */
   protected checkGuildScope(session: Session, cmdName: string, targetGuildId: string): string | null {
-    if (!targetGuildId) return '喵呜...没有指定群号喵...'
+    if (!targetGuildId) return this.reply('common.noGuildId')
 
     // 与 registerCommand 一致的节点命名规则
     const permId = `${this.meta.name}.${cmdName.replace(/\./g, '-')}`
     if (this.ctx.groupHelper.auth.canActOnGuild(session, permId, targetGuildId)) return null
 
-    return `你没有权限操作群 ${targetGuildId} 喵...`
+    return this.reply('auth.noGuildScope', { guildId: targetGuildId })
   }
 
   /**

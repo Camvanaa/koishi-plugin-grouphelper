@@ -162,16 +162,16 @@ export class WarnModule extends BaseModule {
    */
   private async handleWarn(session: Session, user: any, count: number): Promise<string> {
     if (!session.guildId) {
-      return '喵呜...这个命令只能在群里用喵...'
+      return this.reply('common.guildOnly')
     }
 
     // 权限检查已在 registerCommand 的 before 中间件中完成
     if (!user) {
-      return '请指定要警告的用户喵！'
+      return this.reply('warn.needUser')
     }
 
     const userId = parseUserId(user)
-    if (!userId) return '请指定要警告的用户喵！'
+    if (!userId) return this.reply('warn.needUser')
 
     return this.applyWarn(session, userId, count)
   }
@@ -202,7 +202,7 @@ export class WarnModule extends BaseModule {
         'warning'
       )
       this.log(session, 'warn', userId, `已警告 ${times} 次，累计 ${warnCount} 次`)
-      return `已警告用户 ${userId}\n本群警告：${warnCount} 次`
+      return this.reply('warn.added', { userId, count: warnCount })
     }
   }
 
@@ -254,7 +254,7 @@ export class WarnModule extends BaseModule {
       )
       this.log(session, 'warn', userId, `成功：已警告 ${addedCount} 次，累计 ${warnCount} 次，触发自动禁言 ${formatDuration(milliseconds)}`)
 
-      return `已警告用户 ${userId}\n本群警告：${warnCount} 次\n已自动禁言 ${formatDuration(milliseconds)}`
+      return this.reply('warn.autoBanned', { userId, count: warnCount, duration: formatDuration(milliseconds) })
     } catch (e) {
       await this.ctx.groupHelper.pushMessage(
         session.bot,
@@ -263,7 +263,7 @@ export class WarnModule extends BaseModule {
       )
       this.log(session, 'warn', userId, `失败：已警告 ${addedCount} 次，累计 ${warnCount} 次，但自动禁言失败`)
 
-      return `警告已记录，但自动禁言失败：${e.message}`
+      return this.reply('warn.autoBanFailed', { reason: e.message })
     }
   }
 
@@ -272,19 +272,19 @@ export class WarnModule extends BaseModule {
    */
   private async handleClearWarn(session: Session, user: any): Promise<string> {
     if (!session.guildId) {
-      return '喵呜...这个命令只能在群里用喵...'
+      return this.reply('common.guildOnly')
     }
 
     // 权限检查已在 registerCommand 的 before 中间件中完成
     if (!user) {
-      return '请指定要清除警告的用户喵！'
+      return this.reply('warn.clearNeedUser')
     }
 
     const userId = parseUserId(user)
     const guildWarns = this.data.warns.get(session.guildId)
 
     if (!guildWarns || !guildWarns[userId]) {
-      return `用户 ${userId} 在本群没有警告记录`
+      return this.reply('warn.noRecord', { userId })
     }
 
     const oldCount = guildWarns[userId].count
@@ -299,7 +299,7 @@ export class WarnModule extends BaseModule {
     this.data.warns.flush()
 
     this.log(session, 'warn.clear', userId, `已清除 ${oldCount} 次警告`)
-    return `已清除用户 ${userId} 在本群的 ${oldCount} 次警告`
+    return this.reply('warn.cleared', { userId, count: oldCount })
   }
 
   /**
@@ -307,7 +307,7 @@ export class WarnModule extends BaseModule {
    */
   private async handleListWarns(session: Session, user: any): Promise<string> {
     if (!session.guildId) {
-      return '喵呜...这个命令只能在群里用喵...'
+      return this.reply('common.guildOnly')
     }
 
     // 权限检查已在 registerCommand 的 before 中间件中完成
@@ -319,17 +319,17 @@ export class WarnModule extends BaseModule {
       const userId = parseUserId(user)
       
       if (!guildWarns || !guildWarns[userId]) {
-        return `用户 ${userId} 在本群没有警告记录`
+        return this.reply('warn.noRecord', { userId })
       }
 
       const { count, timestamp } = guildWarns[userId]
       const date = new Date(timestamp).toLocaleString('zh-CN')
 
-      return `用户 ${userId} 警告记录：\n本群警告：${count} 次\n最后警告时间：${date}`
+      return this.reply('warn.userRecord', { userId, count, date })
     } else {
       // 查看本群所有用户的警告
       if (!guildWarns || Object.keys(guildWarns).length === 0) {
-        return '本群暂无警告记录'
+        return this.reply('warn.empty')
       }
 
       const list: Array<{ userId: string; count: number }> = []
@@ -344,7 +344,7 @@ export class WarnModule extends BaseModule {
         return `${i + 1}. ${w.userId} - ${w.count} 次`
       })
 
-      return `本群警告记录（前10名）：\n${lines.join('\n')}`
+      return this.reply('warn.list', { list: lines.join('\n') })
     }
   }
 

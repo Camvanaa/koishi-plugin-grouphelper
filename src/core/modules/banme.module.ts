@@ -164,7 +164,7 @@ export class BanmeModule extends BaseModule {
                 return
               }
             } catch (e) {
-              await session.send('自动禁言失败了...可能是权限不够喵')
+              await session.send(this.reply('banme.autoFailed'))
             }
           }
         }
@@ -183,7 +183,7 @@ export class BanmeModule extends BaseModule {
 
     if (!banmeConfig?.enabled) {
       this.log(session, 'banme', session.userId, '失败：功能禁用')
-      return '喵呜...banme功能现在被禁用了呢...'
+      return this.reply('banme.disabled')
     }
 
     try {
@@ -269,17 +269,17 @@ export class BanmeModule extends BaseModule {
 
       const timeStr = formatDuration(milliseconds)
       let message = isAuto
-        ? `🎲 检测到使用特殊字符逃避禁言，抽到了 ${timeStr} 的禁言喵！\n`
-        : `🎲 ${session.username} 抽到了 ${timeStr} 的禁言喵！\n`
+        ? this.reply('banme.autoSuccess', { duration: timeStr })
+        : this.reply('banme.success', { username: session.username, duration: timeStr })
 
       if (isJackpot) {
         if (records[session.guildId].guaranteed) {
-          message += '【金】呜呜呜歪掉了！但是下次一定会中的喵！\n'
+          message += this.reply('banme.jackpotLose')
         } else {
-          message += '【金】喵喵喵！恭喜主人中了UP！\n'
+          message += this.reply('banme.jackpotWin')
         }
         if (isGuaranteed) {
-          message += '触发保底啦喵~\n'
+          message += this.reply('banme.guaranteed')
         }
       }
 
@@ -290,7 +290,7 @@ export class BanmeModule extends BaseModule {
     } catch (e) {
       const { reason, hint } = this.explainError(e)
       this.log(session, 'banme', session.userId, `失败：${reason}`, false)
-      return `喵呜...禁言失败了：${reason}${hint}`
+      return this.reply('banme.failed', { reason, hint })
     }
   }
 
@@ -305,8 +305,8 @@ export class BanmeModule extends BaseModule {
       skipAuth: true, // 所有人都能使用
       usage: '随机抽取禁言时长，支持抽卡保底系统'
     }).action(async ({ session }) => {
-      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
-      if (session.quote) return '喵喵？回复消息时不能使用这个命令哦~'
+      if (!session.guildId) return this.reply('common.guildOnly')
+      if (session.quote) return this.reply('banme.quoteBlocked')
       return this.executeBanme(session)
     })
 
@@ -319,10 +319,10 @@ export class BanmeModule extends BaseModule {
     }).action(({ session }) => {
       const similarChars = this.getSimilarChars()
       if (Object.keys(similarChars).length === 0) {
-        return '没有找到 banme 形似字符映射喵~'
+        return this.reply('banme.noSimilar')
       }
       const charList = Object.entries(similarChars).map(([char, replacement]) => `${char} -> ${replacement}`).join('\n')
-      return `当前的 banme 形似字符映射如下喵~\n${charList || '没有形似字符映射喵~'}`
+      return this.reply('banme.similarList', { list: charList || this.reply('banme.noSimilar') })
     })
 
     // 规范化命令测试
@@ -334,7 +334,7 @@ export class BanmeModule extends BaseModule {
       usage: '测试字符串规范化结果，用于调试形似字符',
       examples: ['banme.normalize bаnmе']
     }).action(({ session }, command) => {
-      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+      if (!session.guildId) return this.reply('common.guildOnly')
       const normalizedCommand = this.normalizeCommand(this.normalizeCommand(command))
       const response = `规范化后的命令：${normalizedCommand}\n长度：${normalizedCommand.length}\n字符列表：\n`
       const charList = normalizedCommand.split('').map((char, index) => `${index + 1}. ${char.charCodeAt(0).toString(16)}`).join('\n')
@@ -349,15 +349,15 @@ export class BanmeModule extends BaseModule {
       permDesc: '通过引用消息逐字符添加形似字符替换',
       usage: '引用一条包含形似字符的消息，提供标准字符串进行映射'
     }).action(async ({ session }, standardCommand) => {
-      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
-      if (!session.quote) return '请引用一条消息来记录映射喵~'
-      if (standardCommand.length === 0) return '请提供标准命令字符串喵~'
+      if (!session.guildId) return this.reply('common.guildOnly')
+      if (!session.quote) return this.reply('banme.needQuoteForRecord')
+      if (standardCommand.length === 0) return this.reply('banme.needStandardCommand')
 
       const quotedMessage = session.quote.content
       const normalizedCommand = this.normalizeCommand(this.normalizeCommand(quotedMessage))
 
       if (normalizedCommand.length !== standardCommand.length) {
-        return '映射记录失败喵~\n' + '规范化字符串:' + normalizedCommand + '\n' + '对应的标准串:' + standardCommand + '\n' + '两者长度不一致喵~'
+        return this.reply('banme.recordLengthMismatch', { normalized: normalizedCommand, standard: standardCommand })
       }
 
       const similarChars = this.getSimilarChars()
@@ -371,7 +371,7 @@ export class BanmeModule extends BaseModule {
 
       this.saveData(this.similarCharsPath, similarChars)
       this.log(session, 'banme.record', session.userId, '成功')
-      return '已记录形似字符映射喵~\n' + '规范化字符串：' + normalizedCommand + '\n' + '对应的标准串：' + standardCommand
+      return this.reply('banme.recordedSimilar', { normalized: normalizedCommand, standard: standardCommand })
     })
 
     // 通过引用消息添加字符串映射
@@ -382,9 +382,9 @@ export class BanmeModule extends BaseModule {
       permDesc: '通过引用消息添加字符串映射',
       usage: '引用一条消息，将其整体映射为标准字符串'
     }).action(async ({ session }, standardCommand) => {
-      if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
-      if (!session.quote) return '请引用一条消息来记录映射喵~'
-      if (standardCommand.length === 0) return '请提供一个标准字符串喵~'
+      if (!session.guildId) return this.reply('common.guildOnly')
+      if (!session.quote) return this.reply('banme.needQuoteForRecord')
+      if (standardCommand.length === 0) return this.reply('banme.needStandardString')
 
       const quotedMessage = session.quote.content
       const similarChars = this.getSimilarChars()
@@ -392,7 +392,7 @@ export class BanmeModule extends BaseModule {
 
       this.saveData(this.similarCharsPath, similarChars)
       this.log(session, 'banme.alias', session.userId, '成功')
-      return '已记录字符串映射喵~\n' + '原字符串：' + quotedMessage + '\n' + '对应的标准串：' + standardCommand
+      return this.reply('banme.recordedAlias', { original: quotedMessage, standard: standardCommand })
     })
 
     // banme 配置命令
@@ -414,7 +414,7 @@ export class BanmeModule extends BaseModule {
       .option('autoBan', '--autoBan <enabled:boolean> 是否自动禁言使用特殊字符的用户')
       .option('reset', '--reset 重置为全局配置')
       .action(async ({ session, options }) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
+        if (!session.guildId) return this.reply('common.guildOnly')
 
         const configs = this.data.groupConfig.getAll()
         configs[session.guildId] = configs[session.guildId] || {}
@@ -422,7 +422,7 @@ export class BanmeModule extends BaseModule {
         if (options.reset) {
           delete configs[session.guildId].banme
           this.data.groupConfig.setAll(configs)
-          return '已重置为全局配置喵~'
+          return this.reply('banme.configReset')
         }
 
         let banmeConfig = configs[session.guildId].banme || { ...this.config.banme }
@@ -435,7 +435,7 @@ export class BanmeModule extends BaseModule {
             banmeConfig.enabled = parsed_enabled
           } else {
             this.log(session, 'banme.config', session.userId, '失败：启用选项无效')
-            return '启用选项无效，请输入 true/false'
+            return this.reply('banme.invalidEnabled')
           }
         }
         if (options.baseMin) banmeConfig.baseMin = options.baseMin
@@ -453,14 +453,14 @@ export class BanmeModule extends BaseModule {
             banmeConfig.autoBan = parsed_autoBan
           } else {
             this.log(session, 'banme.config', session.userId, '失败：自动禁言选项无效')
-            return '自动禁言选项无效，请输入 true/false'
+            return this.reply('banme.invalidAutoBan')
           }
         }
 
         configs[session.guildId].banme = banmeConfig
         this.data.groupConfig.setAll(configs)
         this.log(session, 'banme.config', session.userId, '成功：更新banme配置')
-        return '配置已更新喵~'
+        return this.reply('banme.configUpdated')
       })
   }
 }

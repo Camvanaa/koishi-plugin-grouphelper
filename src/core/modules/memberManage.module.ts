@@ -78,7 +78,7 @@ export class MemberManageModule extends BaseModule {
 
         if (!userId) {
           this.logCommand(session, 'kick', 'none', '失败：无法读取目标用户', false)
-          return '喵呜...请输入正确的用户（@或QQ号）'
+          return this.reply('common.invalidUser')
         }
 
         const targetGroup = groupId || session.guildId
@@ -99,15 +99,15 @@ export class MemberManageModule extends BaseModule {
             this.data.blacklist.setAll(blacklist)
             this.logCommand(session, 'kick', userId, `成功：移出群聊并加入黑名单：${targetGroup}`)
             await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${userId} 被踢出群 ${targetGroup} 并加入黑名单`, 'blacklist')
-            return `已把坏人 ${userId} 踢出去并加入黑名单啦喵！`
+            return this.reply('member.kickBlacklistSuccess', { userId })
           }
 
           this.logCommand(session, 'kick', userId, `成功：移出群聊 ${targetGroup}`)
-          return `已把 ${userId} 踢出去喵~`
+          return this.reply('member.kickSuccess', { userId })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'kick', userId, `失败：${reason}`, false)
-          return `喵呜...踢出 ${userId} 失败了：${reason}${hint}`
+          return this.reply('member.kickFailed', { userId, reason, hint })
         }
       })
   }
@@ -126,17 +126,17 @@ export class MemberManageModule extends BaseModule {
     })
       .example('admin @用户')
       .action(async ({ session }, user) => {
-        if (!user) return '请指定用户'
+        if (!user) return this.reply('common.needUser')
 
         const userId = parseUserId(user)
         try {
           await session.bot.internal?.setGroupAdmin(session.guildId, userId, true)
           this.logCommand(session, 'admin', userId, '成功：已设置为管理员')
-          return `已将 ${userId} 设置为管理员喵~`
+          return this.reply('member.adminSuccess', { userId })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'admin', userId, `失败：${reason}`, false)
-          return `设置失败了喵...${reason}${hint}`
+          return this.reply('member.adminFailed', { reason, hint })
         }
       })
 
@@ -150,17 +150,17 @@ export class MemberManageModule extends BaseModule {
     })
       .example('unadmin @用户')
       .action(async ({ session }, user) => {
-        if (!user) return '请指定用户'
+        if (!user) return this.reply('common.needUser')
 
         const userId = parseUserId(user)
         try {
           await session.bot.internal?.setGroupAdmin(session.guildId, userId, false)
           this.logCommand(session, 'unadmin', userId, '成功：已取消管理员')
-          return `已取消 ${userId} 的管理员权限喵~`
+          return this.reply('member.unadminSuccess', { userId })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'unadmin', userId, `失败：${reason}`, false)
-          return `取消失败了喵...${reason}${hint}`
+          return this.reply('member.unadminFailed', { reason, hint })
         }
       })
   }
@@ -184,8 +184,8 @@ export class MemberManageModule extends BaseModule {
       .option('r', '-r 移除头衔')
       .option('u', '-u <user:user> 指定用户')
       .action(async ({ session, options }) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵...'
-        if (!titleConfig.enabled) return '喵呜...头衔功能未启用...'
+        if (!session.guildId) return this.reply('common.guildOnly')
+        if (!titleConfig.enabled) return this.reply('member.titleDisabled')
 
         let targetId = session.userId
         if (options.u) {
@@ -196,21 +196,21 @@ export class MemberManageModule extends BaseModule {
           if (options.s) {
             const title = options.s.toString()
             if (new TextEncoder().encode(title).length > (titleConfig.maxLength || 18)) {
-              return `喵呜...头衔太长啦！最多只能有 ${titleConfig.maxLength || 18} 个字节哦~`
+              return this.reply('member.titleTooLong', { max: titleConfig.maxLength || 18 })
             }
             await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId, title)
             this.logCommand(session, 'title', targetId, `成功：已设置头衔：${title}`)
-            return `已经设置好头衔啦喵~`
+            return this.reply('member.titleSet')
           } else if (options.r) {
             await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId, '')
             this.logCommand(session, 'title', targetId, `成功：已移除头衔`)
-            return `已经移除头衔啦喵~`
+            return this.reply('member.titleRemoved')
           }
-          return '请使用 -s <文本> 设置头衔或 -r 移除头衔\n可选 -u @用户 为指定用户设置'
+          return this.reply('member.titleUsage')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'title', targetId, `失败：${reason}`, false)
-          return `出错啦喵...${reason}${hint}`
+          return this.reply('common.operationError', { reason, hint })
         }
       })
   }
@@ -227,7 +227,7 @@ export class MemberManageModule extends BaseModule {
       usage: '解除当前群所有被禁言成员的禁言状态'
     })
       .action(async ({ session }) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+        if (!session.guildId) return this.reply('common.guildOnly')
 
         try {
           const mutes = this.data.mutes.getAll()
@@ -261,11 +261,11 @@ export class MemberManageModule extends BaseModule {
           mutes[session.guildId] = currentMutes
           this.data.mutes.setAll(mutes)
           this.logCommand(session, 'unban-allppl', session.guildId, `成功：已解除 ${count} 人的禁言`)
-          return count > 0 ? `已解除 ${count} 人的禁言啦！` : '当前没有被禁言的成员喵~'
+          return count > 0 ? this.reply('member.unbanAllSuccess', { count }) : this.reply('order.noMuted')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'unban-allppl', session.guildId, `失败：${reason}`, false)
-          return `出错啦喵...${reason}${hint}`
+          return this.reply('common.operationError', { reason, hint })
         }
       })
   }

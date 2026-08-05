@@ -364,7 +364,7 @@ export class AntiRecallModule extends BaseModule {
       .action(async ({ session }, input) => {
         try {
           if (!input) {
-            return '请指定要查询的用户\n用法：antirecall @用户 [数量] [群号]'
+            return this.reply('antirecall.needUser')
           }
 
           // 解析参数
@@ -400,7 +400,7 @@ export class AntiRecallModule extends BaseModule {
           }
 
           if (!targetGuildId) {
-            return '请在群聊中使用此命令，或指定群号'
+            return this.reply('antirecall.needGuild')
           }
 
           // 解析用户ID
@@ -413,18 +413,18 @@ export class AntiRecallModule extends BaseModule {
           }
 
           if (!userId) {
-            return '无法解析用户ID，请@用户或使用QQ号，并确保格式正确'
+            return this.reply('antirecall.invalidUser')
           }
 
           if (!this.isEnabledForGuild(targetGuildId)) {
-            return `该群组（${targetGuildId}）未启用防撤回功能`
+            return this.reply('antirecall.disabledForGuild', { guildId: targetGuildId })
           }
 
           const records = this.getUserRecallRecords(targetGuildId, userId, count)
 
           if (records.length === 0) {
             this.log(session, 'antirecall', userId, `成功：查询到 ${targetGuildId} 无记录`)
-            return `用户 ${userId} 在群 ${targetGuildId} 暂无撤回记录`
+            return this.reply('antirecall.noRecord', { userId, guildId: targetGuildId })
           }
 
           const config = this.getAntiRecallConfig(targetGuildId)
@@ -451,7 +451,7 @@ export class AntiRecallModule extends BaseModule {
         } catch (error) {
           this.data.writeLog(`[antirecall] 查询撤回记录失败: ${error}`)
           this.log(session, 'antirecall', input, `失败: ${error.message}`)
-          return `查询撤回记录失败: ${error.message}`
+          return this.reply('antirecall.queryFailed', { reason: error.message })
         }
       })
 
@@ -470,10 +470,10 @@ export class AntiRecallModule extends BaseModule {
       .option('days', '-d <days:number> 设置保留天数')
       .option('max', '-m <max:number> 设置每用户最大记录数')
       .action(async ({ session, options }) => {
-        if (!session.guildId) return '此命令只能在群聊中使用'
+        if (!session.guildId) return this.reply('common.guildOnly')
         
         if (Object.keys(options).length === 0) {
-          return '请指定要配置的选项：-e (启用/禁用), -d (天数), -m (最大条数)'
+          return this.reply('antirecall.configUsage')
         }
 
         const updates: any = {}
@@ -509,10 +509,10 @@ export class AntiRecallModule extends BaseModule {
         if (Object.keys(updates).length > 0) {
           this.updateGuildConfig(session.guildId, updates)
           this.log(session, 'antirecall-config', session.guildId, `更新配置: ${JSON.stringify(updates)}`)
-          return `配置已更新：\n${messages.join('\n')}`
+          return this.reply('antirecall.configUpdated', { changes: messages.join('\n') })
         }
 
-        return '未进行任何更改'
+        return this.reply('antirecall.noChange')
       })
 
     // antirecall.status 命令 - 查看状态
@@ -567,7 +567,7 @@ export class AntiRecallModule extends BaseModule {
       .action(async ({ session }) => {
         this.clearAllRecords()
         this.log(session, 'antirecall.clear', '', '成功：清理所有撤回记录')
-        return '已清理所有撤回记录'
+        return this.reply('antirecall.cleared')
       })
   }
 

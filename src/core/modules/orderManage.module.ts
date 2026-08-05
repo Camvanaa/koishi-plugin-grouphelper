@@ -54,7 +54,7 @@ export class OrderManageModule extends BaseModule {
       if (!input) {
         // 将对应的 log.success 设为失败
         this.logCommand(session, 'ban', 'none', '失败：缺少必要参数', false)
-        return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
+        return this.reply('order.banUsage')
       }
       if (session.quote && input.endsWith(session.quote.content.toString())) {
         input = input.slice(0, input.length - session.quote.content.length).trim()
@@ -75,7 +75,7 @@ export class OrderManageModule extends BaseModule {
 
         if (!input || !args || args.length < 2) {
           this.logCommand(session, 'ban', 'none', '失败：缺少必要参数',false)
-          return '喵呜...格式：ban &lt;用户> &lt;时长> [群号]'
+          return this.reply('order.banUsage')
         }
 
         const [target, duration, groupId] = args
@@ -96,12 +96,12 @@ export class OrderManageModule extends BaseModule {
 
         if (!userId) {
           this.logCommand(session, 'ban', 'none', '失败：无法读取目标用户', false)
-          return '喵呜...请输入正确的用户（@或QQ号）'
+          return this.reply('common.invalidUser')
         }
 
         if (!duration) {
           this.logCommand(session, 'ban', userId, '失败：未指定禁言时长', false)
-          return '喵呜...请告诉我要禁言多久呀~'
+          return this.reply('order.needDuration')
         }
 
         const targetGroup = groupId || session.guildId
@@ -119,11 +119,11 @@ export class OrderManageModule extends BaseModule {
 
           const timeStr = formatDuration(milliseconds)
           this.logCommand(session, 'ban', userId, `成功：已禁言 ${timeStr}，群号：${targetGroup}`)
-          return `已经把 ${userId} 禁言 ${duration} (${timeStr}) 啦喵~`
+          return this.reply('order.banSuccess', { userId, duration, time: timeStr })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'ban', userId, `失败：${reason}`, false)
-          return `喵呜...禁言失败了：${reason}${hint}`
+          return this.reply('order.banFailed', { reason, hint })
         }
       })
   }
@@ -142,7 +142,7 @@ export class OrderManageModule extends BaseModule {
       examples: ['stop @用户']
     })
       .action(async ({ session }, user) => {
-        if (!user) return '请指定用户'
+        if (!user) return this.reply('common.needUser')
         const userId = parseUserId(user)
         
         const mutes = this.data.mutes.getAll()
@@ -151,18 +151,18 @@ export class OrderManageModule extends BaseModule {
         
         if (lastMute.startTime + lastMute.duration > Date.now()) {
           this.logCommand(session, 'stop', userId, '失败：已在禁言中', false)
-          return `喵呜...${userId} 已经处于禁言状态啦，不需要短期禁言喵~`
+          return this.reply('order.alreadyMuted', { userId })
         }
         
         try {
           await session.bot.muteGuildMember(session.guildId, userId, 600000)
           this.data.recordMute(session.guildId, userId, 600000)
           this.logCommand(session, 'stop', userId, `成功：已短期禁言，群号 ${session.guildId}`)
-          return `已将 ${userId} 短期禁言啦喵~`
+          return this.reply('order.stopSuccess', { userId })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'stop', userId, `失败：${reason}`, false)
-          return `喵呜...短期禁言失败了：${reason}${hint}`
+          return this.reply('order.stopFailed', { reason, hint })
         }
       })
   }
@@ -216,7 +216,7 @@ export class OrderManageModule extends BaseModule {
 
         if (!userId) {
           this.logCommand(session, 'unban', 'none', '失败：无法读取目标用户', false)
-          return '喵呜...请输入正确的用户（@或QQ号）'
+          return this.reply('common.invalidUser')
         }
 
         const targetGroup = groupId || session.guildId
@@ -231,11 +231,11 @@ export class OrderManageModule extends BaseModule {
           await session.bot.muteGuildMember(targetGroup, userId, 0)
           this.data.recordMute(targetGroup, userId, 0)
           this.logCommand(session, 'unban', userId, `成功：已解除禁言，群号 ${targetGroup}`)
-          return `已经把 ${userId} 的禁言解除啦喵！开心~`
+          return this.reply('order.unbanSuccess', { userId })
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'unban', userId, `失败：${reason}`, false)
-          return `喵呜...解除禁言失败了：${reason}${hint}`
+          return this.reply('order.unbanFailed', { reason, hint })
         }
       })
   }
@@ -255,11 +255,11 @@ export class OrderManageModule extends BaseModule {
         try {
           await session.bot.internal.setGroupWholeBan(session.guildId, true)
           this.logCommand(session, 'ban-all', session.guildId, `成功：已开启全体禁言，群号 ${session.guildId}`)
-          return '喵呜...全体禁言开启啦，大家都要乖乖的~'
+          return this.reply('order.banAllSuccess')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'ban-all', session.guildId, `失败：${reason}`, false)
-          return `出错啦喵...${reason}${hint}`
+          return this.reply('common.operationError', { reason, hint })
         }
       })
   }
@@ -279,11 +279,11 @@ export class OrderManageModule extends BaseModule {
         try {
           await session.bot.internal.setGroupWholeBan(session.guildId, false)
           this.logCommand(session, 'unban-all', session.guildId, `成功：已解除全体禁言，群号 ${session.guildId}`)
-          return '全体禁言解除啦喵，可以开心聊天啦~'
+          return this.reply('order.unbanAllSuccess')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'unban-all', session.guildId, `失败：${reason}`, false)
-          return `出错啦喵...${reason}${hint}`
+          return this.reply('common.operationError', { reason, hint })
         }
       })
   }
@@ -300,7 +300,7 @@ export class OrderManageModule extends BaseModule {
       usage: '显示当前群内所有被禁言的成员'
     })
       .action(async ({ session }) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+        if (!session.guildId) return this.reply('common.guildOnly')
         
         const mutes = this.data.mutes.getAll()
         const currentMutes = mutes[session.guildId] || {}
@@ -318,9 +318,9 @@ export class OrderManageModule extends BaseModule {
           .join('\n')
 
         if (formatMutes) {
-          return `当前禁言名单：\n${formatMutes}`
+          return this.reply('order.muteList', { list: formatMutes })
         } else {
-          return '当前没有被禁言的成员喵~'
+          return this.reply('order.noMuted')
         }
       })
   }
@@ -339,7 +339,7 @@ export class OrderManageModule extends BaseModule {
       examples: ['unban-random 3']
     })
       .action(async ({ session }, count) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
+        if (!session.guildId) return this.reply('common.guildOnly')
         count = count || 1
 
         const mutes = this.data.mutes.getAll()
@@ -355,7 +355,7 @@ export class OrderManageModule extends BaseModule {
 
         if (banList.length === 0) {
           this.logCommand(session, 'unban-random', session.guildId, '失败：当前没有被禁言的成员', false)
-          return '当前没有被禁言的成员喵~'
+          return this.reply('order.noMuted')
         }
 
         const candidates = this.getRandomElements(banList, count)
@@ -385,7 +385,7 @@ export class OrderManageModule extends BaseModule {
           (failedList.length ? `；失败 ${failedList.length} 人：${failedList.join(', ')}` : '')
         )
         const failedText = failedList.length ? `\n失败 ${failedList.length} 人：${failedList.join(', ')}` : ''
-        return `已随机解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}${failedText}`
+        return this.reply('order.unbanRandomSuccess', { count: unbanList.length, list: unbanList.join(', '), failed: failedText })
       })
   }
 
@@ -404,10 +404,10 @@ export class OrderManageModule extends BaseModule {
       examples: ['unban-batch 5']
     })
       .action(async ({ session }, num) => {
-        if (!session.guildId) return '喵呜...这个命令只能在群里用喵~'
-        if (!num) return '请提供要解除禁言的用户数量，格式：unban-batch <数量>'
+        if (!session.guildId) return this.reply('common.guildOnly')
+        if (!num) return this.reply('order.unbanBatchNeedCount')
         const count = parseInt(num)
-        if (isNaN(count) || count <= 0) return '请提供一个有效的数字，格式：unban-batch <数量>'
+        if (isNaN(count) || count <= 0) return this.reply('order.unbanBatchInvalidCount')
 
         const mutes = this.data.mutes.getAll()
         const currentMutes = mutes[session.guildId] || {}
@@ -422,7 +422,7 @@ export class OrderManageModule extends BaseModule {
 
         if (banList.length === 0) {
           this.logCommand(session, 'unban-batch', session.guildId, '失败：当前没有被禁言的成员', false)
-          return '当前没有被禁言的成员喵~'
+          return this.reply('order.noMuted')
         }
 
         const sortedBanList = banList.sort((a, b) => {
@@ -459,7 +459,7 @@ export class OrderManageModule extends BaseModule {
           (failedList.length ? `；失败 ${failedList.length} 人：${failedList.join(', ')}` : '')
         )
         const failedText = failedList.length ? `\n失败 ${failedList.length} 人：${failedList.join(', ')}` : ''
-        return `已批量解除 ${unbanList.length} 人的禁言喵~\n解除名单：\n${unbanList.join(', ')}${failedText}`
+        return this.reply('order.unbanBatchSuccess', { count: unbanList.length, list: unbanList.join(', '), failed: failedText })
       })
     }
 
@@ -481,10 +481,10 @@ export class OrderManageModule extends BaseModule {
     })
       .example('nickname 123456789 小猫咪')
       .action(async ({ session }, user, nickname, group) => {
-        if (!user) return '喵呜...请指定用户喵~'
+        if (!user) return this.reply('order.nicknameNeedUser')
 
         const userId = parseUserId(user)
-        if (!userId) return '喵呜...请输入正确的用户（@或QQ号）'
+        if (!userId) return this.reply('common.invalidUser')
 
         const targetGroup = group || session.guildId
         const scopeError = this.checkGuildScope(session, 'nickname', targetGroup)
@@ -497,16 +497,16 @@ export class OrderManageModule extends BaseModule {
           if (nickname) {
             await session.bot.internal.setGroupCard(targetGroup, userId, nickname)
             this.logCommand(session, 'nickname', userId, `成功：已设置昵称为 ${nickname}, 群号 ${targetGroup}`)
-            return `已将 ${userId} 的昵称设置为 "${nickname}" 喵~`
+            return this.reply('order.nicknameSet', { userId, nickname })
           } else {
             await session.bot.internal.setGroupCard(targetGroup, userId)
             this.logCommand(session, 'nickname', userId, `成功：已清除昵称, 群号 ${targetGroup}`)
-            return `已将 ${userId} 的昵称清除喵~`
+            return this.reply('order.nicknameCleared', { userId })
           }
         } catch (e) {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'nickname', userId, `失败：${reason}`, false)
-          return `喵呜...设置昵称失败了：${reason}${hint}`
+          return this.reply('order.nicknameFailed', { reason, hint })
         }
       })
   }

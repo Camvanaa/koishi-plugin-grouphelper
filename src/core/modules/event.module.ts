@@ -202,7 +202,7 @@ export class EventModule extends BaseModule {
           muteRecord.leftGroup = false
           this.data.mutes.set(guildId, mutes[guildId])
 
-          await session.send(`检测到未完成的禁言，继续执行剩余 ${formatDuration(muteRecord.duration)} 的禁言`)
+          await session.send(this.reply('event.resumeMute', { duration: formatDuration(muteRecord.duration) }))
         } catch (e) {
           logger.error('恢复禁言失败:', e)
         }

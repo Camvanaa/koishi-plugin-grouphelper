@@ -139,7 +139,7 @@ export class AuthModule extends BaseModule {
       .action(async ({ session }) => {
         const roles = this.ctx.groupHelper.auth.getRoles()
         if (roles.length === 0) {
-          return '暂无可用角色'
+          return this.reply('auth.noRoles')
         }
 
         const lines = ['可用角色列表:']
@@ -165,19 +165,19 @@ export class AuthModule extends BaseModule {
       .example('gauth.info @可爱猫娘')
       .example('gauth.info 123456')
       .action(async ({ session }, target) => {
-        if (!target) return '请指定要查询的用户'
+        if (!target) return this.reply('auth.needQueryUser')
         
         // target 可能是 User 对象或字符串，提取纯用户 ID（去除平台前缀）
         let rawId = typeof target === 'string' ? target : (target as any)?.id || String(target)
         // 去除平台前缀（如 onebot:123456 -> 123456）
         const userId = rawId.includes(':') ? rawId.split(':').pop() : rawId
-        if (!userId) return '无法解析用户 ID'
+        if (!userId) return this.reply('auth.invalidUserId')
 
         const userRoleIds = this.ctx.groupHelper.auth.getUserRoleIds(userId)
         const allRoles = this.ctx.groupHelper.auth.getRoles()
         
         if (userRoleIds.length === 0) {
-          return `用户 ${userId} 暂无自定义角色`
+          return this.reply('auth.userNoRoles', { userId })
         }
 
         const lines = [`用户 ${userId} 的角色:`]
@@ -206,24 +206,24 @@ export class AuthModule extends BaseModule {
       .option('guilds', '-g <ids:string> 指定群聊ID，逗号分隔')
       .option('groups', '-gg <ids:string> 指定群组组ID，逗号分隔')
       .action(async ({ session, options }, target, roleIdentifier) => {
-        if (!target) return '请指定要操作的用户'
-        if (!roleIdentifier) return '请指定要添加的角色 ID 或名称'
+        if (!target) return this.reply('auth.needOperateUser')
+        if (!roleIdentifier) return this.reply('auth.needAddRole')
 
         // target 可能是 User 对象或字符串，提取纯用户 ID（去除平台前缀）
         let rawId = typeof target === 'string' ? target : (target as any)?.id || String(target)
         // 去除平台前缀（如 onebot:123456 -> 123456）
         const userId = rawId.includes(':') ? rawId.split(':').pop() : rawId
-        if (!userId) return '无法解析用户 ID'
+        if (!userId) return this.reply('auth.invalidUserId')
 
         // 通过 ID 或名称查找角色
         const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
-          return `角色 "${roleIdentifier}" 不存在，使用 gauth.list 查看可用角色`
+          return this.reply('auth.roleNotFoundWithHint', { role: roleIdentifier })
         }
 
         // 检查是否为内置角色
         if (BUILTIN_ROLE_IDS.includes(role.id as any)) {
-          return `"${role.name}" 是内置角色，由系统自动分配，不支持手动添加`
+          return this.reply('auth.builtinAddDenied', { role: role.name })
         }
 
         const { scope, error } = this.resolveAssignScope(session, options)
@@ -234,7 +234,7 @@ export class AuthModule extends BaseModule {
           const msg = `已将用户 ${userId} 添加到角色 "${role.name}"`
           return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
-          return `添加失败: ${e.message || e}`
+          return this.reply('auth.addFailed', { reason: e.message || e })
         }
       })
 
@@ -253,30 +253,30 @@ export class AuthModule extends BaseModule {
       .example('gauth.remove @可爱猫娘 管理员')
       .example('gauth.rm 123456 moderator')
       .action(async ({ session }, target, roleIdentifier) => {
-        if (!target) return '请指定要操作的用户'
-        if (!roleIdentifier) return '请指定要移除的角色 ID 或名称'
+        if (!target) return this.reply('auth.needOperateUser')
+        if (!roleIdentifier) return this.reply('auth.needRemoveRole')
 
         // target 可能是 User 对象或字符串，提取纯用户 ID（去除平台前缀）
         let rawId = typeof target === 'string' ? target : (target as any)?.id || String(target)
         // 去除平台前缀（如 onebot:123456 -> 123456）
         const userId = rawId.includes(':') ? rawId.split(':').pop() : rawId
-        if (!userId) return '无法解析用户 ID'
+        if (!userId) return this.reply('auth.invalidUserId')
 
         // 通过 ID 或名称查找角色
         const { role, warning } = this.findRole(roleIdentifier)
         if (!role) {
-          return `角色 "${roleIdentifier}" 不存在`
+          return this.reply('auth.roleNotFound', { role: roleIdentifier })
         }
 
         // 检查是否为内置角色
         if (BUILTIN_ROLE_IDS.includes(role.id as any)) {
-          return `"${role.name}" 是内置角色，由系统自动分配，不支持手动移除`
+          return this.reply('auth.builtinRemoveDenied', { role: role.name })
         }
 
         // 检查用户是否拥有该角色
         const userRoleIds = this.ctx.groupHelper.auth.getUserRoleIds(userId)
         if (!userRoleIds.includes(role.id)) {
-          return `用户 ${userId} 没有角色 "${role.name}"`
+          return this.reply('auth.userMissingRole', { userId, role: role.name })
         }
 
         try {
@@ -284,7 +284,7 @@ export class AuthModule extends BaseModule {
           const msg = `已从用户 ${userId} 移除角色 "${role.name}"`
           return warning ? `${msg}\n⚠️ ${warning}` : msg
         } catch (e) {
-          return `移除失败: ${e.message || e}`
+          return this.reply('auth.removeFailed', { reason: e.message || e })
         }
       })
   }

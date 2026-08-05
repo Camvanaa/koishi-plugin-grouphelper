@@ -766,6 +766,11 @@ const defaultSettings = {
   },
   status: {
     renderTimeout: 30000
+  },
+  replies: {
+    locale: 'zh-CN',
+    activePreset: 'cyber-neko',
+    customPresets: {}
   }
 }
 

@@ -48,13 +48,13 @@ export class ConfigModule extends BaseModule {
       .option('r', '-r <内容> 移除')
       .action(async ({ session, options }, content) => {
         if (!session?.guildId) {
-          return '喵呜...这个命令只能在群里用喵...'
+          return this.reply('common.guildOnly')
         }
 
         // 显示所有配置
         if (options.t) {
           if (!this.ctx.groupHelper.auth.check(session, 'config.view')) {
-            return '你没有权限查看配置喵...'
+            return this.reply('auth.noPermission')
           }
           return await this.showAllConfig(session)
         }
@@ -62,7 +62,7 @@ export class ConfigModule extends BaseModule {
         // 黑名单管理
         if (options.b) {
           if (!this.ctx.groupHelper.auth.check(session, 'config.blacklist')) {
-            return '你没有权限管理黑名单喵...'
+            return this.reply('config.noBlacklistPermission')
           }
           return await this.handleBlacklist(session, options, content)
         }
@@ -70,19 +70,13 @@ export class ConfigModule extends BaseModule {
         // 警告管理
         if (options.w) {
           if (!this.ctx.groupHelper.auth.check(session, 'config.warn')) {
-            return '你没有权限管理警告喵...'
+            return this.reply('config.noWarnPermission')
           }
           return await this.handleWarns(session, options, content)
         }
 
         // 显示帮助
-        return `请使用以下参数：
--t 显示所有配置和记录
--b [-a/-r {QQ号}] 黑名单管理
--w [-a/-r {QQ号} {次数}] 警告管理
-使用 verify 命令管理入群审核关键词
-使用 forbidden 命令管理禁言关键词
-使用 antirepeat 命令管理复读功能`
+        return this.reply('config.usage')
       })
   }
 
@@ -246,7 +240,7 @@ ${formatMutes || '无记录'}`
       this.data.blacklist.setAll(blacklist)
       await this.log(session, 'config -b -a', options.a, '添加成功')
       await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${options.a} 被加入黑名单`, 'blacklist')
-      return `已将 ${options.a} 加入黑名单喵~`
+      return this.reply('config.blacklistAdded', { userId: options.a })
     }
 
     // 移除黑名单
@@ -255,14 +249,14 @@ ${formatMutes || '无记录'}`
       this.data.blacklist.setAll(blacklist)
       await this.log(session, 'config -b -r', options.r, '移除成功')
       await this.ctx.groupHelper.pushMessage(session.bot, `[黑名单] 用户 ${options.r} 被移出黑名单`, 'blacklist')
-      return `已将 ${options.r} 从黑名单移除啦！`
+      return this.reply('config.blacklistRemoved', { userId: options.r })
     }
 
     // 显示黑名单列表
     const formatBlacklist = Object.entries(blacklist).map(([userId, data]: [string, BlacklistRecord]) =>
       `用户 ${userId}：${new Date(data.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`
     ).join('\n')
-    return `=== 当前黑名单 ===\n${formatBlacklist || '无记录'}`
+    return this.reply('config.blacklistList', { list: formatBlacklist || '无记录' })
   }
 
   /**
@@ -284,7 +278,7 @@ ${formatMutes || '无记录'}`
       this.data.warns.flush()
       
       this.log(session, 'config -w -a', options.a, `增加到 ${guildWarns[options.a].count} 次`)
-      return `已增加 ${options.a} 的警告次数，当前为：${guildWarns[options.a].count}`
+      return this.reply('config.warnAdded', { userId: options.a, count: guildWarns[options.a].count })
     }
 
     // 减少/移除警告
@@ -313,7 +307,7 @@ ${formatMutes || '无记录'}`
         
         return resultMsg
       }
-      return '未找到该用户的警告记录'
+      return this.reply('config.warnNotFound')
     }
 
     // 显示警告列表
@@ -324,6 +318,6 @@ ${formatMutes || '无记录'}`
       })
       .filter(Boolean)
       .join('\n')
-    return `=== 当前群警告记录 ===\n${formatWarns || '无记录'}`
+    return this.reply('config.warnList', { list: formatWarns || '无记录' })
   }
 }

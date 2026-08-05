@@ -1,5 +1,6 @@
 
 import { Context } from 'koishi'
+import type { ReplyConfig } from '../core/i18n/replies'
 
 
 // 说明：此处原本用 declare module 'koishi' 把插件字段并入 Koishi 全局 App Config
@@ -125,6 +126,8 @@ export interface Config {
     /** 状态图渲染超时（毫秒，0 表示不限制） */
     renderTimeout: number
   }
+  /** 回复文案与语气配置 */
+  replies?: ReplyConfig
 }
 
 export interface ReportConfig {
