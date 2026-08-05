@@ -121,8 +121,9 @@ export class OrderManageModule extends BaseModule {
           this.logCommand(session, 'ban', userId, `成功：已禁言 ${timeStr}，群号：${targetGroup}`)
           return `已经把 ${userId} 禁言 ${duration} (${timeStr}) 啦喵~`
         } catch (e) {
-          this.logCommand(session, 'ban', userId, `失败：未知错误`, false)
-          return `喵呜...禁言失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'ban', userId, `失败：${reason}`, false)
+          return `喵呜...禁言失败了：${reason}${hint}`
         }
       })
   }
@@ -159,8 +160,9 @@ export class OrderManageModule extends BaseModule {
           this.logCommand(session, 'stop', userId, `成功：已短期禁言，群号 ${session.guildId}`)
           return `已将 ${userId} 短期禁言啦喵~`
         } catch (e) {
-          this.logCommand(session, 'stop', userId, '失败：未知错误', false)
-          return `喵呜...短期禁言失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'stop', userId, `失败：${reason}`, false)
+          return `喵呜...短期禁言失败了：${reason}${hint}`
         }
       })
   }
@@ -231,8 +233,9 @@ export class OrderManageModule extends BaseModule {
           this.logCommand(session, 'unban', userId, `成功：已解除禁言，群号 ${targetGroup}`)
           return `已经把 ${userId} 的禁言解除啦喵！开心~`
         } catch (e) {
-          this.logCommand(session, 'unban', userId, `失败：未知错误`, false)
-          return `喵呜...解除禁言失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'unban', userId, `失败：${reason}`, false)
+          return `喵呜...解除禁言失败了：${reason}${hint}`
         }
       })
   }
@@ -254,8 +257,9 @@ export class OrderManageModule extends BaseModule {
           this.logCommand(session, 'ban-all', session.guildId, `成功：已开启全体禁言，群号 ${session.guildId}`)
           return '喵呜...全体禁言开启啦，大家都要乖乖的~'
         } catch (e) {
-          this.logCommand(session, 'ban-all', session.guildId, `失败：未知错误`, false)
-          return `出错啦喵...${e}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'ban-all', session.guildId, `失败：${reason}`, false)
+          return `出错啦喵...${reason}${hint}`
         }
       })
   }
@@ -277,8 +281,9 @@ export class OrderManageModule extends BaseModule {
           this.logCommand(session, 'unban-all', session.guildId, `成功：已解除全体禁言，群号 ${session.guildId}`)
           return '全体禁言解除啦喵，可以开心聊天啦~'
         } catch (e) {
-          this.logCommand(session, 'unban-all', session.guildId, `失败：未知错误`, false)
-          return `出错啦喵...${e}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'unban-all', session.guildId, `失败：${reason}`, false)
+          return `出错啦喵...${reason}${hint}`
         }
       })
   }
@@ -499,8 +504,9 @@ export class OrderManageModule extends BaseModule {
             return `已将 ${userId} 的昵称清除喵~`
           }
         } catch (e) {
-          this.logCommand(session, 'nickname', userId, `失败：未知错误`, false)
-          return `喵呜...设置昵称失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'nickname', userId, `失败：${reason}`, false)
+          return `喵呜...设置昵称失败了：${reason}${hint}`
         }
       })
   }

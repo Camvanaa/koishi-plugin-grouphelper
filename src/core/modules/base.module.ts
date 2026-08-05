@@ -245,5 +245,26 @@ export abstract class BaseModule {
       this.ctx.logger('grouphelper').warn('记录操作日志失败:', err)
     })
   }
-  
+
+  /**
+   * 把操作异常整理成可记录 / 可回显的原因说明。
+   *
+   * 统一各命令的错误反馈：不再把异常吞成“未知错误”，日志与回复都带上协议端返回的
+   * 真实报错，并对几类常见失败给出排查方向。
+   *
+   * @returns reason 真实错误文本；hint 追加在回复末尾的排查提示（无匹配时为空串）
+   */
+  protected explainError(e: any): { reason: string; hint: string } {
+    const reason = e?.message || String(e) || '未知错误'
+    let hint = ''
+    if (/权限|permission|admin|owner|管理员|群主/i.test(reason)) {
+      hint = '\n可能原因：机器人权限不足（非管理员，或目标是群主/管理员）。'
+    } else if (/not\s*(found|exist|member)|不存在|不在群|no\s*such/i.test(reason)) {
+      hint = '\n可能原因：目标可能已不在群里。'
+    } else if (/timeout|超时|ECONN|socket|econnrefused/i.test(reason)) {
+      hint = '\n可能原因：与协议端（NapCat）连接异常或超时，检查机器人在线状态。'
+    }
+    return { reason, hint }
+  }
+
 }

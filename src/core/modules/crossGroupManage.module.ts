@@ -51,8 +51,9 @@ export class CrossGroupManageModule extends BaseModule {
           this.logCommand(session, 'quit-group', groupId, `成功：已退出群聊 ${groupId}`)
           return `已成功退出群聊 ${groupId} 喵~`
         } catch (e) {
-          this.logCommand(session, 'quit-group', groupId, `失败：未知错误`, false)
-          return `喵呜...退出群聊失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'quit-group', groupId, `失败：${reason}`, false)
+          return `喵呜...退出群聊失败了：${reason}${hint}`
         }
       })
   }
@@ -96,8 +97,9 @@ export class CrossGroupManageModule extends BaseModule {
           }
           return `已将消息发送到群 ${groupId} 喵~`
         } catch (e) {
-          this.logCommand(session, 'send', groupId, `失败：未知错误`, false)
-          return `喵呜...发送失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'send', groupId, `失败：${reason}`, false)
+          return `喵呜...发送失败了：${reason}${hint}`
         }
       })
   }

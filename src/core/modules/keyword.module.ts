@@ -386,8 +386,9 @@ export class KeywordModule extends BaseModule {
           await session.send(`喵呜！发现了关键词，${session.username} 已被踢出群聊...`)
           return true
         } catch (e) {
-          this.log(session, 'keyword-kick', session.userId, `失败`)
-          await session.send('自动踢出失败了...可能是权限不够喵')
+          const { reason, hint } = this.explainError(e)
+          this.log(session, 'keyword-kick', session.userId, `失败：${reason}`, false)
+          await session.send(`喵呜...自动踢出失败了：${reason}${hint}`)
         }
       }
 

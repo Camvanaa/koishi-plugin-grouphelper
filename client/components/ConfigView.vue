@@ -626,8 +626,17 @@ const combinedListItems = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   const items: Array<{ key: string; type: 'guild' | 'group'; id: string; config?: GroupConfig; group?: GuildGroup }> = []
 
+  // 已归入群组组的群号：在「全部」视图里应折叠进所属群组组，不再作为独立群聊平铺，
+  // 否则同一个群会既显示在群组组行、又单独列在外面（issue：已分组群仍单独显示）。
+  const groupedGuildIds = new Set<string>()
+  for (const group of guildGroups.value) {
+    for (const id of group.guildIds || []) groupedGuildIds.add(id)
+  }
+
   if (listFilter.value !== 'group') {
     for (const [guildId, config] of Object.entries(filteredConfigs.value)) {
+      // 「全部」且无搜索时折叠已分组群；「仅群聊」或搜索状态下平铺全部，方便查找
+      if (listFilter.value === 'all' && !query && groupedGuildIds.has(guildId)) continue
       items.push({ key: `guild:${guildId}`, type: 'guild', id: guildId, config })
     }
   }

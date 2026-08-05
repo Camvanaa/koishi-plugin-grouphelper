@@ -65,8 +65,16 @@ export class MemberManageModule extends BaseModule {
 
         const [target, groupId] = args
 
-        // parseUserId 已统一处理 <at>、platform:id、@123 与裸 ID 四种形式
-        const userId = parseUserId(target)
+        // <at> 必须先抠出数字 id 再交给下游：parseUserId 对 at 字符串不可靠，
+        // 会把整段 <at id="..."/> 原样返回，导致 kickGuildMember 收到非法 user_id
+        // （NapCat set_group_kick 报 retcode 1200 踢出失败）。与 ban / unban / antirecall 保持一致。
+        let userId: string
+        if (target && target.startsWith('<at')) {
+          const match = target.match(/id="([^"]+)"/)
+          userId = match ? match[1] : parseUserId(target)
+        } else {
+          userId = parseUserId(target)
+        }
 
         if (!userId) {
           this.logCommand(session, 'kick', 'none', '失败：无法读取目标用户', false)
@@ -97,8 +105,9 @@ export class MemberManageModule extends BaseModule {
           this.logCommand(session, 'kick', userId, `成功：移出群聊 ${targetGroup}`)
           return `已把 ${userId} 踢出去喵~`
         } catch (e) {
-          this.logCommand(session, 'kick', userId, `失败：未知错误`, false)
-          return `喵呜...踢出失败了：${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'kick', userId, `失败：${reason}`, false)
+          return `喵呜...踢出 ${userId} 失败了：${reason}${hint}`
         }
       })
   }
@@ -125,8 +134,9 @@ export class MemberManageModule extends BaseModule {
           this.logCommand(session, 'admin', userId, '成功：已设置为管理员')
           return `已将 ${userId} 设置为管理员喵~`
         } catch (e) {
-          this.logCommand(session, 'admin', userId, `失败：未知错误`, false)
-          return `设置失败了喵...${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'admin', userId, `失败：${reason}`, false)
+          return `设置失败了喵...${reason}${hint}`
         }
       })
 
@@ -148,8 +158,9 @@ export class MemberManageModule extends BaseModule {
           this.logCommand(session, 'unadmin', userId, '成功：已取消管理员')
           return `已取消 ${userId} 的管理员权限喵~`
         } catch (e) {
-          this.logCommand(session, 'unadmin', userId, `失败：未知错误`)
-          return `取消失败了喵...${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'unadmin', userId, `失败：${reason}`, false)
+          return `取消失败了喵...${reason}${hint}`
         }
       })
   }
@@ -197,8 +208,9 @@ export class MemberManageModule extends BaseModule {
           }
           return '请使用 -s <文本> 设置头衔或 -r 移除头衔\n可选 -u @用户 为指定用户设置'
         } catch (e) {
-          this.logCommand(session, 'title', targetId, `失败：未知错误`, false)
-          return `出错啦喵...${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'title', targetId, `失败：${reason}`, false)
+          return `出错啦喵...${reason}${hint}`
         }
       })
   }
@@ -251,8 +263,9 @@ export class MemberManageModule extends BaseModule {
           this.logCommand(session, 'unban-allppl', session.guildId, `成功：已解除 ${count} 人的禁言`)
           return count > 0 ? `已解除 ${count} 人的禁言啦！` : '当前没有被禁言的成员喵~'
         } catch (e) {
-          this.logCommand(session, 'unban-allppl', session.guildId, `失败：未知错误`, false)
-          return `出错啦喵...${e}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'unban-allppl', session.guildId, `失败：${reason}`, false)
+          return `出错啦喵...${reason}${hint}`
         }
       })
   }

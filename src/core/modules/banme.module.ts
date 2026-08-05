@@ -288,8 +288,9 @@ export class BanmeModule extends BaseModule {
       return message
 
     } catch (e) {
-      this.log(session, 'banme', session.userId, `失败：未知错误`)
-      return `喵呜...禁言失败了：${e.message}`
+      const { reason, hint } = this.explainError(e)
+      this.log(session, 'banme', session.userId, `失败：${reason}`, false)
+      return `喵呜...禁言失败了：${reason}${hint}`
     }
   }
 

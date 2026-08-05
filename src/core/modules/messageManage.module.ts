@@ -83,8 +83,9 @@ export class MessageManageModule extends BaseModule {
           }
           return '请使用 -s 设置精华消息或 -r 取消精华消息'
         } catch (e) {
-          this.logCommand(session, 'essence', session.quote?.messageId || 'none', `失败：未知错误`, false)
-          return `出错啦喵...${e.message}`
+          const { reason, hint } = this.explainError(e)
+          this.logCommand(session, 'essence', session.quote?.messageId || 'none', `失败：${reason}`, false)
+          return `出错啦喵...${reason}${hint}`
         }
       })
   }

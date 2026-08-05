@@ -65,9 +65,35 @@ export class CacheService {
   private logger: any
   private cacheExpiry = 7 * 24 * 60 * 60 * 1000 // 7天过期
 
+  // 同一 key 正在进行的拉取，复用同一个 Promise，避免并发重复打 API
+  private pending = new Map<string, Promise<any>>()
+  // 拉取失败的 key 及失败时间，短期内不再重试，避免对协议端反复无效请求
+  private negativeCache = new Map<string, number>()
+  private negativeTtl = 5 * 60 * 1000
+
   /** 释放底层存储：落盘挂起的写入并停掉定时器 */
   dispose(): void {
     this.store.dispose()
+  }
+
+  private isExpired(entry: { lastUpdate: number } | undefined, now = Date.now()): boolean {
+    return !entry || now - entry.lastUpdate >= this.cacheExpiry
+  }
+
+  private isNegative(key: string, now = Date.now()): boolean {
+    const failedAt = this.negativeCache.get(key)
+    if (failedAt === undefined) return false
+    if (now - failedAt < this.negativeTtl) return true
+    this.negativeCache.delete(key)
+    return false
+  }
+
+  private dedupe<T>(key: string, factory: () => Promise<T>): Promise<T> {
+    const existing = this.pending.get(key)
+    if (existing) return existing as Promise<T>
+    const task = factory().finally(() => this.pending.delete(key))
+    this.pending.set(key, task)
+    return task
   }
 
   /**
@@ -91,7 +117,7 @@ export class CacheService {
   constructor(private ctx: Context, dataDir: string) {
     this.logger = ctx.logger('grouphelper:cache')
     const cachePath = resolve(dataDir, 'cache.json')
-    
+
     this.store = new JsonDataStore<CacheData>(cachePath, {
       guilds: {},
       users: {},
@@ -105,165 +131,165 @@ export class CacheService {
 
   /** 获取群组信息（优先从缓存） */
   async getGuildInfo(guildId: string, forceRefresh = false): Promise<GuildCacheInfo | null> {
-    const allData = this.store.getAll()
-    const cached = allData.guilds[guildId]
-    
-    // 如果缓存有效且不强制刷新，返回缓存
-    if (!forceRefresh && cached && Date.now() - cached.lastUpdate < this.cacheExpiry) {
-      return cached
-    }
+    const cached = this.store.getAll().guilds[guildId]
+    if (!forceRefresh && !this.isExpired(cached)) return cached
+    if (!forceRefresh && this.isNegative(`guild:${guildId}`)) return cached ?? null
 
-    // 从 bot 获取最新信息
-    for (const bot of this.ctx.bots) {
-      try {
-        const guild = await bot.getGuild(guildId)
-        if (guild) {
-          let avatar = guild.avatar
-          
-          // OneBot/QQ 群头像回退
-          if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
-            avatar = `https://p.qlogo.cn/gh/${guildId}/${guildId}/640/`
+    return this.dedupe(`guild:${guildId}`, async () => {
+      for (const bot of this.ctx.bots) {
+        try {
+          const guild = await bot.getGuild(guildId)
+          if (guild) {
+            let avatar = guild.avatar
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://p.qlogo.cn/gh/${guildId}/${guildId}/640/`
+            }
+
+            const info: GuildCacheInfo = {
+              id: guildId,
+              name: guild.name,
+              avatar,
+              lastUpdate: Date.now()
+            }
+
+            const data = this.store.getAll()
+            data.guilds[guildId] = info
+            this.evictIfNeeded(data, 'guilds')
+            this.store.setAll(data)
+            this.negativeCache.delete(`guild:${guildId}`)
+            return info
           }
-
-          const info: GuildCacheInfo = {
-            id: guildId,
-            name: guild.name,
-            avatar,
-            lastUpdate: Date.now()
-          }
-
-          const data = this.store.getAll()
-          data.guilds[guildId] = info
-          this.evictIfNeeded(data, 'guilds')
-          this.store.setAll(data)
-          return info
+        } catch (e) {
+          // 继续尝试下一个 bot
         }
-      } catch (e) {
-        // 继续尝试下一个 bot
       }
-    }
 
-    // 如果获取失败但有缓存，返回过期的缓存
-    if (cached) {
-      this.logger.warn(`无法刷新群组 ${guildId} 信息，使用过期缓存`)
-      return cached
-    }
-
-    return null
+      this.negativeCache.set(`guild:${guildId}`, Date.now())
+      if (cached) {
+        this.logger.warn(`无法刷新群组 ${guildId} 信息，使用过期缓存`)
+        return cached
+      }
+      return null
+    })
   }
 
   /** 获取用户信息（优先从缓存） */
   async getUserInfo(userId: string, forceRefresh = false): Promise<UserCacheInfo | null> {
-    const allData = this.store.getAll()
-    const cached = allData.users[userId]
-    
-    if (!forceRefresh && cached && Date.now() - cached.lastUpdate < this.cacheExpiry) {
-      return cached
-    }
+    const cached = this.store.getAll().users[userId]
+    if (!forceRefresh && !this.isExpired(cached)) return cached
+    if (!forceRefresh && this.isNegative(`user:${userId}`)) return cached ?? null
 
-    for (const bot of this.ctx.bots) {
-      try {
-        const user = await bot.getUser(userId)
-        if (user) {
-          let avatar = user.avatar
-          
-          // OneBot/QQ 个人头像回退
-          if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
-            avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+    return this.dedupe(`user:${userId}`, async () => {
+      for (const bot of this.ctx.bots) {
+        try {
+          const user = await bot.getUser(userId)
+          if (user) {
+            let avatar = user.avatar
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+            }
+
+            const info: UserCacheInfo = {
+              id: userId,
+              name: user.name || user.nick || userId,
+              avatar,
+              lastUpdate: Date.now()
+            }
+
+            const data = this.store.getAll()
+            data.users[userId] = info
+            this.evictIfNeeded(data, 'users')
+            this.store.setAll(data)
+            this.negativeCache.delete(`user:${userId}`)
+            return info
           }
-
-          const info: UserCacheInfo = {
-            id: userId,
-            name: user.name || user.nick || userId,
-            avatar,
-            lastUpdate: Date.now()
-          }
-
-          const data = this.store.getAll()
-          data.users[userId] = info
-          this.evictIfNeeded(data, 'users')
-          this.store.setAll(data)
-          return info
+        } catch (e) {
+          // 继续尝试
         }
-      } catch (e) {
-        // 继续尝试
       }
-    }
 
-    if (cached) {
-      this.logger.warn(`无法刷新用户 ${userId} 信息，使用过期缓存`)
-      return cached
-    }
-
-    return null
+      this.negativeCache.set(`user:${userId}`, Date.now())
+      if (cached) {
+        this.logger.warn(`无法刷新用户 ${userId} 信息，使用过期缓存`)
+        return cached
+      }
+      return null
+    })
   }
 
   /** 获取群成员信息（优先从缓存） */
   async getMemberInfo(guildId: string, userId: string, forceRefresh = false): Promise<MemberCacheInfo | null> {
     const key = `${guildId}:${userId}`
-    const allData = this.store.getAll()
-    const cached = allData.members[key]
-    
-    if (!forceRefresh && cached && Date.now() - cached.lastUpdate < this.cacheExpiry) {
-      return cached
-    }
+    const cached = this.store.getAll().members[key]
+    if (!forceRefresh && !this.isExpired(cached)) return cached
+    if (!forceRefresh && this.isNegative(`member:${key}`)) return cached ?? null
 
-    for (const bot of this.ctx.bots) {
-      try {
-        const member = await bot.getGuildMember(guildId, userId)
-        if (member) {
-          let avatar = member.avatar || member.user?.avatar
-          
-          // OneBot/QQ 个人头像回退
-          if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
-            avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+    return this.dedupe(`member:${key}`, async () => {
+      for (const bot of this.ctx.bots) {
+        try {
+          const member = await bot.getGuildMember(guildId, userId)
+          if (member) {
+            let avatar = member.avatar || member.user?.avatar
+            if (!avatar && (bot.platform === 'onebot' || bot.platform === 'red' || bot.platform === 'qq')) {
+              avatar = `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`
+            }
+
+            const info: MemberCacheInfo = {
+              guildId,
+              userId,
+              nick: member.nick,
+              name: member.user?.name,
+              avatar,
+              lastUpdate: Date.now()
+            }
+
+            const data = this.store.getAll()
+            data.members[key] = info
+            this.evictIfNeeded(data, 'members')
+            this.store.setAll(data)
+            this.negativeCache.delete(`member:${key}`)
+            return info
           }
-
-          const info: MemberCacheInfo = {
-            guildId,
-            userId,
-            nick: member.nick,
-            name: member.user?.name,
-            avatar,
-            lastUpdate: Date.now()
-          }
-
-          const data = this.store.getAll()
-          data.members[key] = info
-          this.evictIfNeeded(data, 'members')
-          this.store.setAll(data)
-          return info
+        } catch (e) {
+          // 继续尝试
         }
-      } catch (e) {
-        // 继续尝试
       }
-    }
 
-    if (cached) {
-      this.logger.warn(`无法刷新群成员 ${guildId}:${userId} 信息，使用过期缓存`)
-      return cached
-    }
-
-    return null
+      this.negativeCache.set(`member:${key}`, Date.now())
+      if (cached) {
+        this.logger.warn(`无法刷新群成员 ${guildId}:${userId} 信息，使用过期缓存`)
+        return cached
+      }
+      return null
+    })
   }
 
-  /** 批量预热缓存（只缓存未缓存的） */
+  /** 批量预热缓存（缓存未缓存或已过期的） */
   async warmCache(guildIds: string[], userIds: string[], memberPairs: Array<{ guildId: string, userId: string }>): Promise<void> {
     const allData = this.store.getAll()
-    
-    // 过滤出未缓存的 ID
-    const uncachedGuilds = guildIds.filter(id => !allData.guilds[id])
-    const uncachedUsers = userIds.filter(id => !allData.users[id])
-    const uncachedMembers = memberPairs.filter(({ guildId, userId }) => !allData.members[`${guildId}:${userId}`])
+    const uniqueGuildIds = Array.from(new Set(guildIds))
+    const uniqueUserIds = Array.from(new Set(userIds))
+    const seenMembers = new Set<string>()
+    const uniqueMemberPairs = memberPairs.filter(({ guildId, userId }) => {
+      const key = `${guildId}:${userId}`
+      if (seenMembers.has(key)) return false
+      seenMembers.add(key)
+      return true
+    })
 
-    this.logger.info(`开始预热缓存: ${uncachedGuilds.length}/${guildIds.length} 个群组, ${uncachedUsers.length}/${userIds.length} 个用户, ${uncachedMembers.length}/${memberPairs.length} 个成员`)
+    // 过滤出未缓存或已过期的 ID
+    const uncachedGuilds = uniqueGuildIds.filter(id => this.isExpired(allData.guilds[id]))
+    const uncachedUsers = uniqueUserIds.filter(id => this.isExpired(allData.users[id]))
+    const uncachedMembers = uniqueMemberPairs.filter(({ guildId, userId }) => this.isExpired(allData.members[`${guildId}:${userId}`]))
+
+    this.logger.info(`开始预热缓存: ${uncachedGuilds.length}/${uniqueGuildIds.length} 个群组, ${uncachedUsers.length}/${uniqueUserIds.length} 个用户, ${uncachedMembers.length}/${uniqueMemberPairs.length} 个成员`)
 
     const startTime = Date.now()
     let successGuilds = 0
     let successUsers = 0
     let successMembers = 0
 
-    // 并发获取群组信息（只获取未缓存的）
+    // 并发获取群组信息
     const guildResults = await Promise.allSettled(uncachedGuilds.map(id => this.getGuildInfo(id)))
     guildResults.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
@@ -273,7 +299,7 @@ export class CacheService {
       }
     })
 
-    // 并发获取用户信息（只获取未缓存的）
+    // 并发获取用户信息
     const userResults = await Promise.allSettled(uncachedUsers.map(id => this.getUserInfo(id)))
     userResults.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
@@ -283,7 +309,7 @@ export class CacheService {
       }
     })
 
-    // 并发获取成员信息（只获取未缓存的）
+    // 并发获取成员信息
     const memberResults = await Promise.allSettled(uncachedMembers.map(({ guildId, userId }) =>
       this.getMemberInfo(guildId, userId)
     ))
@@ -303,7 +329,7 @@ export class CacheService {
     const duration = Date.now() - startTime
     this.logger.info(`缓存预热完成，耗时 ${duration}ms`)
     this.logger.info(`成功缓存: ${successGuilds}/${uncachedGuilds.length} 群组, ${successUsers}/${uncachedUsers.length} 用户, ${successMembers}/${uncachedMembers.length} 成员`)
-    
+
     const failedCount = (uncachedGuilds.length - successGuilds) + (uncachedUsers.length - successUsers) + (uncachedMembers.length - successMembers)
     if (failedCount > 0) {
       this.logger.warn(`有 ${failedCount} 个项目获取失败（可能Bot未加入相关群组或权限不足）`)
@@ -332,8 +358,7 @@ export class CacheService {
     const data = this.store.getAll()
     data.metadata.lastFullRefresh = Date.now()
     this.store.setAll(data)
-
-    this.logger.info('缓存刷新完成')
+    this.logger.info('所有缓存已刷新')
   }
 
   /** 清空所有缓存 */
@@ -347,6 +372,7 @@ export class CacheService {
         version: '1.0.0'
       }
     })
+    this.negativeCache.clear()
     this.logger.info('缓存已清空')
   }
 
@@ -365,7 +391,7 @@ export class CacheService {
   }
 
   /** 直接获取缓存数据（同步，不触发网络请求） */
-  getCachedData() {
+  getCachedData(): CacheData {
     return this.store.getAll()
   }
 }

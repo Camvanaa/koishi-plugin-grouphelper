@@ -39,7 +39,14 @@ export function registerConfigAPI(
     const results: Record<string, any> = {}
 
     if (params?.fetchNames) {
-      // 开启解析：从缓存读取群组名称和头像，未缓存使用默认头像
+      // 开启解析：主动预热未缓存的群名/头像，再从缓存读取。
+      // 此前只调 getCachedData() 读现有缓存，未缓存的群 guildName 为空、前端会 fallback 成群号，
+      // 表现为「群名解析仅部分生效」。warmCache 只拉未缓存的，已缓存的走缓存、不重复请求。
+      try {
+        await service.cache.warmCache(Object.keys(allConfigs), [], [])
+      } catch (e) {
+        ctx.logger('grouphelper').warn('预热群名缓存失败:', e)
+      }
       const cacheData = service.cache.getCachedData()
       Object.entries(allConfigs).forEach(([guildId, config]) => {
         const cached = cacheData.guilds[guildId]
