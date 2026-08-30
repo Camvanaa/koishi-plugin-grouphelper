@@ -666,13 +666,13 @@ export class AuthService {
     
     // 检查 roles 字段（通常包含 'admin', 'owner' 等）
     const roles = author.roles || []
-    if (roles.includes('admin') || roles.includes('owner')) {
+    if (roles.includes('admin') || roles.includes('owner') || roles.includes('administrator')) {
       return true
     }
     
     // OneBot 协议：检查 role 字段
     const role = (author as any).role
-    if (role === 'admin' || role === 'owner') {
+    if (role === 'admin' || role === 'owner' || role === 'administrator') {
       return true
     }
     
