@@ -7,7 +7,7 @@
  * - unban-allppl: 全部解禁
  */
 
-import { Context } from 'koishi'
+import { Context, Session } from 'koishi'
 import { BaseModule, ModuleMeta } from './base.module'
 import { Config, MuteRecord } from '../../types'
 import { parseUserId, parseTimeString, formatDuration } from '../../utils'
@@ -130,6 +130,9 @@ export class MemberManageModule extends BaseModule {
 
         const userId = parseUserId(user)
         try {
+          //我建议专门写个module来处理管理员设置，避免直接调用bot.internal，
+          // 因为不同的bot可能有不同的实现方式，直接调用可能会导致不兼容的问题。
+          // 方便以后扩展和维护。
           await session.bot.internal?.setGroupAdmin(session.guildId, userId, true)
           this.logCommand(session, 'admin', userId, '成功：已设置为管理员')
           return this.reply('member.adminSuccess', { userId })
@@ -137,7 +140,7 @@ export class MemberManageModule extends BaseModule {
           const { reason, hint } = this.explainError(e)
           this.logCommand(session, 'admin', userId, `失败：${reason}`, false)
           return this.reply('member.adminFailed', { reason, hint })
-        }
+        }ru
       })
 
     this.registerCommand({
@@ -183,33 +186,46 @@ export class MemberManageModule extends BaseModule {
       .option('s', '-s <text> 设置头衔')
       .option('r', '-r 移除头衔')
       .option('u', '-u <user:user> 指定用户')
-      .action(async ({ session, options }) => {
-        if (!session.guildId) return this.reply('common.guildOnly')
-        if (!titleConfig.enabled) return this.reply('member.titleDisabled')
+      .action(async ({ session, options }) => {     
 
-        let targetId = session.userId
+        let targetId = session!.userId
+        options = options!
         if (options.u) {
-          targetId = parseUserId(options.u)
-        }
-
+            targetId = parseUserId(options.u)!
+          }
         try {
+          if (!session){
+            throw new Error('session is null')
+          }
+          session = session!
+          if (!session.guildId) return this.reply('common.guildOnly')
+          if (!titleConfig.enabled) return this.reply('member.titleDisabled')
+
           if (options.s) {
             const title = options.s.toString()
             if (new TextEncoder().encode(title).length > (titleConfig.maxLength || 18)) {
               return this.reply('member.titleTooLong', { max: titleConfig.maxLength || 18 })
             }
-            await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId, title)
-            this.logCommand(session, 'title', targetId, `成功：已设置头衔：${title}`)
+            if (session?.bot.setGuildMemberRole) {
+              await session.bot.setGuildMemberRole(session.guildId, targetId!, title)
+            }else{
+              await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId!, title)
+            }
+            this.logCommand(session, 'title', targetId!, `成功：已设置头衔：${title}`)
             return this.reply('member.titleSet')
           } else if (options.r) {
-            await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId, '')
-            this.logCommand(session, 'title', targetId, `成功：已移除头衔`)
+            if (session?.bot.setGuildMemberRole) {
+              await session.bot.setGuildMemberRole(session.guildId, targetId!, '')
+            } else {
+              await session.bot.internal.setGroupSpecialTitle(session.guildId, targetId!, '')
+            }
+            this.logCommand(session, 'title', targetId!, `成功：已移除头衔`)
             return this.reply('member.titleRemoved')
           }
           return this.reply('member.titleUsage')
         } catch (e) {
           const { reason, hint } = this.explainError(e)
-          this.logCommand(session, 'title', targetId, `失败：${reason}`, false)
+          this.logCommand(session, 'title', targetId!, `失败：${reason}`, false)
           return this.reply('common.operationError', { reason, hint })
         }
       })

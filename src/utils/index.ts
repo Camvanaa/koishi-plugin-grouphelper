@@ -404,7 +404,7 @@ export function parseTimeString(timeStr: string): number {
       try {
         value = evaluateExpression(expr)
       } catch (error) {
-        throw new Error(`表达式解析失败: ${error.message}`)
+        throw new Error(`表达式解析失败: ${(<Error>error).message}`)
       }
     }
 
@@ -440,7 +440,7 @@ export function parseTimeString(timeStr: string): number {
 
     return milliseconds
   } catch (e) {
-    throw new Error(`时间解析错误: ${e.message}`)
+    throw new Error(`时间解析错误: ${(<Error>e).message}`)
   }
 }
 
