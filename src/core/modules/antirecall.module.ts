@@ -484,7 +484,7 @@ export class AntiRecallModule extends BaseModule {
           const parsed_enabledStr = parseBoolOption(enabledStr)
           if (parsed_enabledStr !== null) {
             updates.enabled = parsed_enabledStr
-            messages.push('已禁用防撤回')
+            messages.push(parsed_enabledStr ? '已启用防撤回' : '已禁用防撤回')
           }
         }
 
