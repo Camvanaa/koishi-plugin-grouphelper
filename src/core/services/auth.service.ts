@@ -1,6 +1,7 @@
 import { Context, Service, Session } from 'koishi'
 import { DataManager } from '../data'
 import { AuthScope, Role, PermissionNode, RegisteredCommand, UserRoleBinding } from '../../types'
+import { GUILD_ADMIN_ROLES, memberHasRole, normalizeRoles } from '../../utils'
 
 /** 内置角色 ID 列表 */
 export const BUILTIN_ROLE_IDS = [
@@ -12,6 +13,12 @@ export const BUILTIN_ROLE_IDS = [
 ] as const
 
 export type BuiltinRoleId = typeof BUILTIN_ROLE_IDS[number]
+
+/** 主动查询到的成员角色缓存时长 */
+const MEMBER_ROLE_TTL = 60 * 1000
+/** 查询失败后的重试间隔 */
+const MEMBER_ROLE_FAILURE_TTL = 10 * 1000
+const MEMBER_ROLE_CACHE_LIMIT = 2000
 
 export class AuthService {
   /** 动态注册的权限节点 */
@@ -658,25 +665,63 @@ export class AuthService {
 
   /**
    * 检查用户是否为群管理员或群主
+   *
+   * roles 可能是 string[]（onebot 适配器）或 GuildRole[]（Satori 规范），
+   * 另兼容 OneBot 风格的 role 字段，见 memberHasRole。
    */
   private checkGuildAdmin(session: Session): boolean {
     // Koishi session 中的 author 信息
     const author = session.author || (session.event as any)?.member
-    if (!author) return false
-    
-    // 检查 roles 字段（通常包含 'admin', 'owner' 等）
-    const roles = author.roles || []
-    if (roles.includes('admin') || roles.includes('owner')) {
-      return true
+    return memberHasRole(author, GUILD_ADMIN_ROLES)
+  }
+
+  /** 主动查询到的成员角色缓存，key: `${platform}:${guildId}:${userId}` */
+  private memberRoleCache = new Map<string, { roles: unknown[]; expires: number }>()
+
+  /**
+   * 事件未携带成员角色时，主动查询一次群成员并回填到会话（issue #34）。
+   *
+   * 部分协议的消息事件不带角色：例如 LLBot 的 Satori 实现只给 member.nick，
+   * 此时仅凭事件永远识别不出群主/管理员，guild-admin 角色形同虚设。
+   * check() 是同步的，所以由命令的 before 钩子先 await 本方法，再做同步判断。
+   * 事件自带角色时直接信任事件，不发请求。
+   */
+  async resolveGuildRoles(session: Session): Promise<void> {
+    if (!session?.guildId || !session.userId || session.isDirect) return
+    const member = session.event?.member
+    // 用归一化结果判断：onebot 适配器在协议端未给 role 时会产出 [undefined]
+    if (normalizeRoles(member?.roles).length) return
+    if (typeof (session.author as any)?.role === 'string') return
+
+    const key = `${session.platform}:${session.guildId}:${session.userId}`
+    const now = Date.now()
+    let entry = this.memberRoleCache.get(key)
+    if (!entry || entry.expires <= now) {
+      try {
+        const fetched = await session.bot.getGuildMember(session.guildId, session.userId)
+        entry = { roles: Array.isArray(fetched?.roles) ? fetched.roles : [], expires: now + MEMBER_ROLE_TTL }
+      } catch (e) {
+        // 适配器未实现或请求失败：短期内不再重试，按普通成员处理
+        this.ctx.logger('grouphelper').debug(`查询群成员角色失败 ${key}: ${e}`)
+        entry = { roles: [], expires: now + MEMBER_ROLE_FAILURE_TTL }
+      }
+      this.memberRoleCache.delete(key)
+      this.memberRoleCache.set(key, entry)
+      if (this.memberRoleCache.size > MEMBER_ROLE_CACHE_LIMIT) {
+        for (const [k, v] of this.memberRoleCache) {
+          if (v.expires <= now) this.memberRoleCache.delete(k)
+        }
+        // 仍超限时按插入顺序淘汰最旧的
+        for (const k of this.memberRoleCache.keys()) {
+          if (this.memberRoleCache.size <= MEMBER_ROLE_CACHE_LIMIT) break
+          this.memberRoleCache.delete(k)
+        }
+      }
     }
-    
-    // OneBot 协议：检查 role 字段
-    const role = (author as any).role
-    if (role === 'admin' || role === 'owner') {
-      return true
+
+    if (entry.roles.length) {
+      session.event.member = { ...member, roles: entry.roles as any }
     }
-    
-    return false
   }
 
   /**
