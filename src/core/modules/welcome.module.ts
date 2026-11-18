@@ -6,6 +6,15 @@ import { BaseModule, ModuleMeta } from './base.module'
 import { DataManager } from '../data'
 import { Config, GroupConfig } from '../../types'
 
+/**
+ * `-s <消息:text>` 会原样保留引号。旧版选项只取第一个词，用户习惯用引号包住整句，
+ * 这里去掉一层成对的外层引号，两种写法设置出的欢迎语一致。
+ */
+function stripOuterQuotes(value: string): string {
+  const match = /^(?:"([\s\S]*)"|'([\s\S]*)'|“([\s\S]*)”)$/.exec(value.trim())
+  return match ? (match[1] ?? match[2] ?? match[3]) : value
+}
+
 export class WelcomeModule extends BaseModule {
   readonly meta: ModuleMeta = {
     name: 'welcome',
@@ -53,7 +62,7 @@ export class WelcomeModule extends BaseModule {
       permDesc: '管理入群欢迎语',
       usage: '-s 设置欢迎语，-r 移除，-t 测试，-l 设置等级限制，-j 设置退群冷却'
     })
-      .option('s', '-s <消息> 设置欢迎语')
+      .option('s', '-s <消息:text> 设置欢迎语（取 -s 之后的全部内容，可含空格与换行）')
       .option('r', '-r 移除欢迎语')
       .option('t', '-t 测试当前欢迎语')
       .option('l', '-l <等级> 设置等级限制')
@@ -69,7 +78,7 @@ export class WelcomeModule extends BaseModule {
       permDesc: '管理退群欢送语',
       usage: '-s 设置欢送语，-r 移除，-t 测试'
     })
-      .option('s', '-s <消息> 设置欢送语')
+      .option('s', '-s <消息:text> 设置欢送语（取 -s 之后的全部内容，可含空格与换行）')
       .option('r', '-r 移除欢送语')
       .option('t', '-t 测试当前欢送语')
       .action(async ({ session, options }) => {
@@ -128,11 +137,12 @@ export class WelcomeModule extends BaseModule {
 
     // 设置欢迎语
     if (options.s) {
-      groupConfig.welcomeMsg = options.s
+      const message = stripOuterQuotes(options.s)
+      groupConfig.welcomeMsg = message
       groupConfig.welcomeEnabled = true
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
-      this.log(session, 'welcome', 'set', `已设置欢迎语：${options.s}`)
+      this.log(session, 'welcome', 'set', `已设置欢迎语：${message}`)
       return this.reply('welcome.updated')
     }
 
@@ -179,11 +189,12 @@ export class WelcomeModule extends BaseModule {
     
     // 设置欢送语
     if (options.s) {
-      groupConfig.goodbyeMsg = options.s
+      const message = stripOuterQuotes(options.s)
+      groupConfig.goodbyeMsg = message
       groupConfig.goodbyeEnabled = true
       allConfigs[session.guildId] = groupConfig
       this.data.groupConfig.setAll(allConfigs)
-      this.log(session, 'goodbye', 'set', `已设置欢送语：${options.s}`)
+      this.log(session, 'goodbye', 'set', `已设置欢送语：${message}`)
       return this.reply('goodbye.updated')
     }
 
