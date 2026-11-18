@@ -7,6 +7,7 @@ import { GroupHelperService } from '../services/grouphelper.service'
 import type { ListenerRegistrar } from './api-utils'
 import { success, error } from './api-utils'
 import * as crypto from 'crypto'
+import { GUILD_ADMIN_ROLES, GUILD_OWNER_ROLES, memberHasRole } from '../../utils'
 
 export function registerChatAPI(
   ctx: Context,
@@ -53,8 +54,8 @@ export function registerChatAPI(
               id: userId,
               name: member.nick || member.user?.nick || member.user?.name || userId,
               avatar,
-              isAdmin: member.roles?.includes('admin') || false,
-              isOwner: member.roles?.includes('owner') || false,
+              isAdmin: memberHasRole(member, GUILD_ADMIN_ROLES) && !memberHasRole(member, GUILD_OWNER_ROLES),
+              isOwner: memberHasRole(member, GUILD_OWNER_ROLES),
               title: member.title || '',
               joinedAt: member.joinedAt
             }

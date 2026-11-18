@@ -472,3 +472,38 @@ export function formatDuration(milliseconds: number): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+/** 视为群管理员（含群主）的角色标识（小写）；administrator 见于部分适配器 */
+export const GUILD_ADMIN_ROLES: ReadonlySet<string> = new Set(['owner', 'admin', 'administrator'])
+export const GUILD_OWNER_ROLES: ReadonlySet<string> = new Set(['owner'])
+
+/**
+ * 把成员角色统一成小写字符串列表。
+ *
+ * 不同适配器给出的 roles 形态不一致：
+ * - koishi-plugin-adapter-onebot：string[]，如 ['admin']
+ * - Satori 规范（adapter-satori 对接 LLBot 等）：GuildRole[]，如 [{ id: '3', name: 'admin' }]
+ * 对象形态时 id 与 name 都参与匹配。
+ */
+export function normalizeRoles(roles: unknown): string[] {
+  if (!Array.isArray(roles)) return []
+  const result: string[] = []
+  for (const role of roles) {
+    if (typeof role === 'string') {
+      result.push(role.toLowerCase())
+    } else if (role && typeof role === 'object') {
+      const { id, name } = role as { id?: unknown; name?: unknown }
+      if (typeof id === 'string' || typeof id === 'number') result.push(String(id).toLowerCase())
+      if (typeof name === 'string') result.push(name.toLowerCase())
+    }
+  }
+  return result
+}
+
+/** 成员是否持有指定角色之一；同时检查 roles（string[] / GuildRole[]）与 OneBot 风格的 role 字段 */
+export function memberHasRole(member: unknown, accepted: ReadonlySet<string>): boolean {
+  if (!member || typeof member !== 'object') return false
+  const { roles, role } = member as { roles?: unknown; role?: unknown }
+  if (normalizeRoles(roles).some(item => accepted.has(item))) return true
+  return typeof role === 'string' && accepted.has(role.toLowerCase())
+}

@@ -195,6 +195,9 @@ export abstract class BaseModule {
       command.before(async ({ session }) => {
         if (!session) return
 
+        // 事件未携带成员角色时先补查，保证 guild-admin 能被识别（issue #34）
+        await this.ctx.groupHelper.auth.resolveGuildRoles(session)
+
         // 使用 AuthService 检查权限
         if (!this.ctx.groupHelper.auth.check(session, permId)) {
           return this.reply('auth.noPermission')

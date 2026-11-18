@@ -37,6 +37,8 @@ export class HelpModule extends BaseModule {
       .option('v', '-v 显示当前版本信息')
       .action(async ({ session, options }) => {
         if (options.a) {
+          // skipAuth 命令不经过权限 before 钩子，这里自行补查成员角色再按权限过滤
+          if (session) await this.ctx.groupHelper.auth.resolveGuildRoles(session)
           return this.getFullHelpText(session)
         }
         if (options.v) {

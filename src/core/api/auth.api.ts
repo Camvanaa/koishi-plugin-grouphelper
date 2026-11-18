@@ -8,6 +8,7 @@ import type { ListenerRegistrar } from './api-utils'
 import { applyGroupGroupConfigToGuilds } from './api-utils'
 import { success, error } from './api-utils'
 import type { AuthScope, GuildGroup, Role } from '../../types'
+import { GUILD_ADMIN_ROLES, memberHasRole } from '../../utils'
 
 export function registerAuthAPI(
   ctx: Context,
@@ -237,11 +238,7 @@ export function registerAuthAPI(
           } while (next)
 
           // 筛选管理员和群主
-          const admins = members.filter(member => {
-            const roles = member.roles || []
-            const role = (member as any).role
-            return roles.includes('admin') || roles.includes('owner') || role === 'admin' || role === 'owner'
-          })
+          const admins = members.filter(member => memberHasRole(member, GUILD_ADMIN_ROLES))
 
           // 格式化返回
           const result = admins.map(member => {
