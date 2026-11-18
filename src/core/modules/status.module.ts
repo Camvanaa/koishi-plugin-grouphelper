@@ -36,8 +36,10 @@ export class StatusModule extends BaseModule {
       usage: '生成系统状态信息图片'
     })
       .action(async ({ session }) => {
-        // 检查 puppeteer 服务
-        if (!this.ctx.puppeteer) {
+        // 检查 puppeteer 服务。可选服务用 ctx.get 读取：Cordis 4（如 ChatLuna v2）下
+        // 直接访问未注册的 ctx.puppeteer 会抛 `cannot get property "puppeteer" without inject`
+        const puppeteer = this.ctx.get('puppeteer')
+        if (!puppeteer) {
           return this.reply('status.noPuppeteer')
         }
 
@@ -49,7 +51,7 @@ export class StatusModule extends BaseModule {
           const html = this.renderHtml(data)
           
           // 生成图片
-          const page = await this.ctx.puppeteer.page()
+          const page = await puppeteer.page()
           try {
             // 渲染超时可配置（毫秒，0 表示不限制），默认 30 秒
             const timeout = this.config.status?.renderTimeout ?? 30000
