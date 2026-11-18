@@ -160,16 +160,19 @@ export class SettingsManager {
         this.lastModified = fs.statSync(this.settingsPath).mtimeMs
       }
 
-      this.watcher = fs.watch(this.settingsPath, (eventType) => {
-        if (eventType === 'change') {
-          // 防抖：避免频繁重新加载
-          if (this.reloadTimeout) {
-            clearTimeout(this.reloadTimeout)
-          }
-          this.reloadTimeout = setTimeout(() => {
-            this.checkAndReload()
-          }, 100)
+      // 监视所在目录而不是文件本身：首次安装时 settings.json 尚不存在，直接 watch 文件会 ENOENT；
+      // 编辑器"写临时文件再改名"式的原子替换也会让文件级 watcher 失效。
+      // 只要文件名匹配就检查，change 与 rename 事件都交给 checkAndReload 按 mtime 判断。
+      const fileName = path.basename(this.settingsPath)
+      this.watcher = fs.watch(path.dirname(this.settingsPath), (_eventType, changed) => {
+        if (changed && changed.toString() !== fileName) return
+        // 防抖：避免频繁重新加载
+        if (this.reloadTimeout) {
+          clearTimeout(this.reloadTimeout)
         }
+        this.reloadTimeout = setTimeout(() => {
+          this.checkAndReload()
+        }, 100)
       })
     } catch (e) {
       console.error('[SettingsManager] 启动文件监视器失败:', e)
